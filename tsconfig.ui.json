@@ -1,0 +1,10 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "lib": ["ES2020", "DOM", "DOM.Iterable"],
+    "jsx": "react-jsx",
+    "jsxImportSource": "preact",
+    "types": []
+  },
+  "include": ["src/ui/**/*.ts", "src/ui/**/*.tsx", "src/build/**/*.ts", "src/post/**/*.ts", "src/ir/**/*.ts", "src/shared/**/*.ts", "src/fonts/**/*.ts", "src/config.ts"]
+}
