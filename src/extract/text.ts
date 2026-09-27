@@ -6,6 +6,8 @@
  *   empty paragraph has `runs: []`. U+2028 (Figma's soft line break, Shift+Enter) stays in the run text.
  * - Paragraph-level fields (list, indentation, spacing, indent) are read from the first segment that
  *   touches the paragraph, falling back to node-level values.
+ * - Space after a paragraph: Figma separates two consecutive LIST ITEMS by `listSpacing`, every other
+ *   pair of paragraphs (list item → plain paragraph included) by `paragraphSpacing`.
  */
 import type {
   Color,
@@ -34,6 +36,7 @@ export const SEGMENT_FIELDS = [
   'textCase',
   'hyperlink',
   'listOptions',
+  'listSpacing',
   'indentation',
   'paragraphSpacing',
   'paragraphIndent',
@@ -43,7 +46,8 @@ export const SEGMENT_FIELDS = [
 /** Fallback field sets for older Figma clients that reject newer fields. */
 const SEGMENT_FIELD_FALLBACKS: ReadonlyArray<ReadonlyArray<(typeof SEGMENT_FIELDS)[number]>> = [
   SEGMENT_FIELDS,
-  SEGMENT_FIELDS.filter((f) => f !== 'paragraphSpacing' && f !== 'paragraphIndent' && f !== 'openTypeFeatures'),
+  SEGMENT_FIELDS.filter((f) => f !== 'listSpacing'),
+  SEGMENT_FIELDS.filter((f) => f !== 'listSpacing' && f !== 'paragraphSpacing' && f !== 'paragraphIndent' && f !== 'openTypeFeatures'),
   ['fontName', 'fontSize', 'fills', 'letterSpacing', 'lineHeight', 'textDecoration', 'textCase', 'hyperlink'],
 ];
 
@@ -62,6 +66,7 @@ export interface SegmentLike {
   textCase?: TextCase;
   hyperlink?: HyperlinkTarget | null;
   listOptions?: TextListOptions;
+  listSpacing?: number;
   indentation?: number;
   paragraphSpacing?: number;
   paragraphIndent?: number;
@@ -79,6 +84,8 @@ export interface TextDefaults {
   textDecoration: TextDecoration;
   textCase: TextCase;
   paragraphSpacing: number;
+  /** `null` = unknown (client without the field): list items keep `paragraphSpacing`. */
+  listSpacing: number | null;
   paragraphIndent: number;
   align: TextParagraph['align'];
 }
@@ -107,6 +114,10 @@ function num(v: unknown, fallback: number): number {
   return typeof v === 'number' && isFinite(v) ? v : fallback;
 }
 
+function finiteOrNull(v: unknown): number | null {
+  return typeof v === 'number' && isFinite(v) ? v : null;
+}
+
 /** Node-level defaults (mixed values fall back to neutral ones). */
 export function textDefaults(node: TextNode, mixed: symbol): TextDefaults {
   const pick = <T>(v: T | symbol, fallback: T): T => (v === mixed || v === undefined ? fallback : (v as T));
@@ -121,6 +132,7 @@ export function textDefaults(node: TextNode, mixed: symbol): TextDefaults {
     textDecoration: pick<TextDecoration>(node.textDecoration, 'NONE'),
     textCase: pick<TextCase>(node.textCase, 'ORIGINAL'),
     paragraphSpacing: num(pick<number>(node.paragraphSpacing, 0), 0),
+    listSpacing: finiteOrNull((node as { listSpacing?: unknown }).listSpacing),
     paragraphIndent: num(pick<number>(node.paragraphIndent, 0), 0),
     align: ALIGN[String(node.textAlignHorizontal)] ?? 'left',
   };
@@ -169,9 +181,12 @@ export function segmentStyle(seg: SegmentLike, d: TextDefaults): TextStyle {
 }
 
 interface ParagraphProps {
+  /** `paragraphSpacing` (px); replaced by `listSpacing` between two list items (see module comment). */
   spaceAfter: number;
   firstLineIndent: number;
   list: TextList | null;
+  /** Figma `listSpacing` of the paragraph, `null` when unknown. */
+  listSpacing: number | null;
 }
 
 /**
@@ -184,24 +199,31 @@ function paragraphProps(seg: SegmentLike, d: TextDefaults): ParagraphProps {
     type === 'ORDERED' || type === 'UNORDERED'
       ? { type: type === 'ORDERED' ? 'ordered' : 'unordered', level: Math.max(0, Math.round(num(seg.indentation, 1)) - 1) }
       : null;
+  const listSpacing = finiteOrNull(seg.listSpacing) ?? d.listSpacing;
   return {
     spaceAfter: clean(num(seg.paragraphSpacing, d.paragraphSpacing)),
     firstLineIndent: clean(num(seg.paragraphIndent, d.paragraphIndent)),
     list,
+    listSpacing: listSpacing === null ? null : clean(listSpacing),
   };
 }
 
 /** Split styled segments into paragraphs (see module comment). Always returns ≥ 1 paragraph. */
 export function segmentsToParagraphs(segments: readonly SegmentLike[], d: TextDefaults): TextParagraph[] {
   const paragraphs: TextParagraph[] = [];
+  const listSpacings: Array<number | null> = [];
   let runs: TextRun[] = [];
   let props: ParagraphProps | null = null;
   let lastSeg: SegmentLike | null = null;
   let lastStyle: TextStyle | null = null;
 
   const close = (endStyle: TextStyle) => {
-    const p = props ?? (lastSeg ? paragraphProps(lastSeg, d) : { spaceAfter: d.paragraphSpacing, firstLineIndent: d.paragraphIndent, list: null });
-    paragraphs.push({ align: d.align, ...p, runs, endStyle });
+    const p =
+      props ??
+      (lastSeg ? paragraphProps(lastSeg, d) : { spaceAfter: d.paragraphSpacing, firstLineIndent: d.paragraphIndent, list: null, listSpacing: null });
+    const { listSpacing, ...fields } = p;
+    paragraphs.push({ align: d.align, ...fields, runs, endStyle });
+    listSpacings.push(listSpacing);
     runs = [];
     props = null;
   };
@@ -227,6 +249,11 @@ export function segmentsToParagraphs(segments: readonly SegmentLike[], d: TextDe
   }
   const tailStyle = runs.length > 0 ? stripText(runs[runs.length - 1]) : (lastStyle ?? segmentStyle({ characters: '', start: 0, end: 0 }, d));
   close(tailStyle);
+  // Between two list items Figma uses the list spacing instead of the paragraph spacing.
+  for (let i = 0; i + 1 < paragraphs.length; i++) {
+    const listSpacing = listSpacings[i];
+    if (paragraphs[i].list && paragraphs[i + 1].list && listSpacing !== null) paragraphs[i].spaceAfter = listSpacing;
+  }
   return paragraphs;
 }
 

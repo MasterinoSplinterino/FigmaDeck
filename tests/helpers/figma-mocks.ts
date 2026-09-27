@@ -539,6 +539,7 @@ export interface SegmentSpec {
   textCase?: TextCase;
   hyperlink?: HyperlinkTarget | null;
   listOptions?: TextListOptions;
+  listSpacing?: number;
   indentation?: number;
   paragraphSpacing?: number;
   paragraphIndent?: number;
@@ -564,6 +565,7 @@ export function text(props: Props & { characters?: string; segments?: SegmentSpe
     textDecoration: 'NONE',
     textCase: 'ORIGINAL',
     paragraphSpacing: 0,
+    listSpacing: 0,
     paragraphIndent: 0,
     textAlignHorizontal: 'LEFT',
     textAlignVertical: 'TOP',

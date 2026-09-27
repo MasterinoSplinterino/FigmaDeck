@@ -279,6 +279,14 @@ export const CONFIG = {
     /** Crop fractions (0..1) below this are written as 0. */
     cropEpsilon: 1e-4,
     /**
+     * A DROP_SHADOW with `showShadowBehindNode: false` (Figma's default) is not drawn behind the node,
+     * while PowerPoint draws an outer shadow behind the whole shape — visible through a translucent fill.
+     * A shape / text / picture with such a shadow whose effective fill alpha (paint × layer × ancestors'
+     * opacity; no fill = 0) is below this value is rasterized (`effects`). Lower it to keep nearly
+     * opaque layers native (the shadow then shows through faintly).
+     */
+    shadowKnockoutMaxAlpha: 0.999,
+    /**
      * `exportAsync` renders the node with its own opacity baked into the bitmap, so a rasterized node
      * gets only its ancestors' opacity in the IR. Flip if calibration shows otherwise.
      */

@@ -110,6 +110,41 @@ it('leftover temporary nodes are removed from the current page and the deck page
   expect(f1.children!.map((n) => n.id)).toEqual(['keep1']);
 });
 
+it('the deferred start-up scan never removes the temporary nodes of an export that is already running', async () => {
+  vi.resetModules();
+  const f = frame({ id: 'f', width: 400, height: 300, fills: [radial()], children: [rect({ id: 'r' })] });
+  const p1 = page({ id: 'p1', children: [f] });
+  const d = doc([p1]);
+  d.setPluginData('figmadeck.slides', JSON.stringify(['f']));
+  const env = new FakeEnv();
+  const g = installFigmaGlobal(env, d);
+  // The start-up scan's node lookup is slow; the export's own lookups are not.
+  const lookup = g.api.getNodeByIdAsync as (id: string) => Promise<unknown>;
+  let first = true;
+  g.api.getNodeByIdAsync = async (id: string) => {
+    if (first) {
+      first = false;
+      await tick(30);
+    }
+    return lookup(id);
+  };
+  // Exports take a while, so the start-up scan resumes while the composite clone is alive.
+  const exportAsync = env.exportAsync.bind(env);
+  const removedDuringExport: boolean[] = [];
+  env.exportAsync = async (node, settings) => {
+    await tick(60);
+    removedDuringExport.push((node as unknown as MockNode).removed);
+    return exportAsync(node, settings);
+  };
+  await import('../../src/main');
+  g.send({ type: 'start-export', format: 'pptx', settings: DEFAULT_SETTINGS });
+  await g.waitFor('export-extracted');
+  expect(removedDuringExport).toEqual([false]);
+  const slide = g.posted.find((m) => m.type === 'export-slide')!.slide as { elements: Array<{ id: string }> };
+  expect(slide.elements.map((e) => e.id)).toEqual(['~bg:f', 'r']);
+  expect(env.liveClones()).toEqual([]);
+});
+
 it('a deck page that is not loaded is skipped at start-up and cleaned when an export loads it', async () => {
   const f2 = frame({ id: 'f2', width: 200, height: 100, children: [rect({ id: 'r' })] });
   const p1 = page({ id: 'p1' });

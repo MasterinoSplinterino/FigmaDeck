@@ -65,10 +65,12 @@ TypeScript projects enforce the boundaries: `tsconfig.main.json` (Figma typings,
   export is redone with `useAbsoluteBounds: true` and placed at `absoluteBoundingBox`.
 * Clipping: an axis-aligned clip rect (slide bounds ∩ ancestor frames with `clipsContent`) travels
   down the walk. Elements fully outside it are dropped (report `outside-clip`; the reference Deck
-  export put 260 of 311 text boxes of a scrolled list off-slide). Pictures partially outside are
-  cropped with `<a:srcRect>`. Rectangles are intersected. Other partially clipped content
-  (ellipses, rounded rects, text when `clippedText = rasterize`, anything under a *rounded* clip)
-  is rasterized **together with the clip** via a temporary composite (below).
+  export put 260 of 311 text boxes of a scrolled list off-slide). Plain pictures partially outside are
+  cropped with `<a:srcRect>`; pictures with an ellipse / rounded geometry or a shadow are never
+  cropped (the shape would be redrawn on the cut box): cut by a clipping frame they are rasterized,
+  cut only by the slide edge they stay whole. Rectangles are intersected. Other partially clipped
+  content (ellipses, rounded rects, text when `clippedText = rasterize`, anything under a *rounded*
+  clip) is rasterized **together with the clip** via a temporary composite (below).
 
 ### What becomes what (mode "editable")
 
@@ -84,14 +86,17 @@ TypeScript projects enforce the boundaries: `tsconfig.main.json` (Figma typings,
 | FRAME / GROUP / COMPONENT / INSTANCE (no mask, normal blend, no blur) | `<p:grpSp>` with background shape (frame fill/stroke) + children |
 | Container with only vector-like descendants, no text, ≤ `iconMaxSize` | ONE picture (SVG + PNG fallback) |
 | VECTOR / STAR / POLYGON / BOOLEAN_OPERATION | picture (SVG + PNG) |
-| one DROP_SHADOW / INNER_SHADOW, spread 0 | `outerShdw` / `innerShdw` |
+| one DROP_SHADOW / INNER_SHADOW, spread 0 (a drop shadow hidden behind a translucent / missing fill — `showShadowBehindNode: false` — is rasterized) | `outerShdw` / `innerShdw` |
 | rotation without skew | `xfrm rot` |
 | layer + ancestor opacity | alpha on fill / line / text color / `alphaModFix` on pictures |
 
 Rasterized (picture, with reasons in the report): radial / angular / diamond gradients, several
 visible fills, mixed corner radii, per-side stroke weights, gradient strokes, non-normal blend
 modes, masks (the mask group is rasterized as a unit), layer / background blur, several shadows or
-spread ≠ 0, group opacity < 1 with overlapping children, unsupported node types, skew.
+spread ≠ 0, group opacity < 1 with overlapping painting pieces at any depth, unsupported node types,
+skew. Slide-root effects: inner shadow / layer blur / noise go with the slide background (native
+inner shadow or a background composite), drop shadow / background blur are ignored (report info),
+anything that cannot be kept is reported (`root-effect-dropped`).
 
 ### Modes
 * **editable** — the table above.
@@ -104,13 +109,17 @@ spread ≠ 0, group opacity < 1 with overlapping children, unsupported node type
 Some exports need "this node, clipped like its parent" or "these siblings only" (mask groups on the
 slide root, rounded clips, frame background without its children). They are made on a temporary
 clone moved to the page root with `relativeTransform = original.absoluteTransform` (so auto layout
-of the original parent is never touched), trimmed (children removed / detached instance), exported,
-and removed in `finally`. Placement uses the clone's own `absoluteRenderBounds`.
+of the original parent is never touched), trimmed (children removed / detached instance; containers
+a kept path only passes through lose their own fills / strokes / effects — those are separate
+elements — but keep clip, radii and opacity), exported, and removed in `finally`. Placement uses the
+clone's own `absoluteRenderBounds`. Leftovers of a crashed run (marked with plugin data) are removed
+from the current page and the deck frames' loaded pages at start-up and when an export loads them.
 
 ### Text
 * Segments: `getStyledTextSegments(['fontName','fontSize','fontWeight','fills','letterSpacing',
-  'lineHeight','textDecoration','textCase','hyperlink','listOptions','indentation',
-  'paragraphSpacing','paragraphIndent','openTypeFeatures'])`.
+  'lineHeight','textDecoration','textCase','hyperlink','listOptions','listSpacing','indentation',
+  'paragraphSpacing','paragraphIndent','openTypeFeatures'])`. Space after a paragraph: `listSpacing`
+  between two list items, `paragraphSpacing` otherwise.
 * Paragraphs split on `\n`; ` ` stays in run text and becomes `<a:br/>`.
 * The IR keeps Figma units (`lineHeight` / `letterSpacing` raw) — the builder converts:
   * line height: PIXELS → pt; PERCENT → fontSize × %; AUTO → fontSize × `CONFIG.text.autoLineHeight`

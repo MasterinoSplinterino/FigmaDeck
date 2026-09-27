@@ -238,6 +238,9 @@ const en = {
   'code.text-leading-trim': 'Vertical trim is not supported by PowerPoint',
   'code.exact-text-in-background': 'Text is part of the background picture',
   'code.outside-clip': 'Outside the slide or its clipping frame',
+  'code.image-unreadable': 'Image fill could not be read; the layer was rasterized instead',
+  'code.root-effect-dropped': 'Slide frame effect could not be reproduced exactly (e.g. layer blur on the whole slide)',
+  'code.root-effect-ignored': 'Slide frame effect ignored (drop shadow / background blur outside the slide)',
   'code.pdf-page-scaled': 'Page scaled down to the PDF limit of 200 inches per side',
   'code.pdf-image-skipped': 'Elements that are not pictures were left out of the image PDF',
 
@@ -503,6 +506,9 @@ const ru: Dictionary = {
   'code.text-leading-trim': 'Обрезка по вертикали (leading trim) не поддерживается PowerPoint',
   'code.exact-text-in-background': 'Текст вошёл в фоновую картинку',
   'code.outside-clip': 'За пределами слайда или обрезающего фрейма',
+  'code.image-unreadable': 'Картинку заливки не удалось прочитать; слой растеризован',
+  'code.root-effect-dropped': 'Эффект фрейма слайда нельзя передать точно (например, блюр всего слайда)',
+  'code.root-effect-ignored': 'Эффект фрейма слайда пропущен (тень или фоновый блюр за пределами слайда)',
   'code.pdf-page-scaled': 'Страница уменьшена до лимита PDF — 200 дюймов по стороне',
   'code.pdf-image-skipped': 'Элементы, которые не являются картинками, не попали в PDF',
 

@@ -459,19 +459,27 @@ describe('editable mode: images', () => {
     const s1 = frame({ id: 's1', width: 800, height: 600, children: [rect({ width: 50, height: 50, fills: [imagePaint('logo')] })] });
     const s2 = frame({ id: 's2', x: 1000, width: 800, height: 600, children: [rect({ width: 300, height: 300, fills: [imagePaint('logo')] })] });
     onPage(s1, s2);
-    const streamed: Array<{ index: number; assets: string[]; display: number[] }> = [];
+    const streamed: Array<{ index: number; assets: string[]; display: number[]; bytes: number[]; alpha: unknown[] }> = [];
     const result = await extractDeck([scene(s1), scene(s2)], {
       settings: DEFAULT_SETTINGS,
       env,
       onSlide: (e) => {
-        streamed.push({ index: e.index, assets: e.assets.map((a) => a.id), display: e.assets.map((a) => a.displayWidth ?? 0) });
+        streamed.push({
+          index: e.index,
+          assets: e.assets.map((a) => a.id),
+          display: e.assets.map((a) => a.displayWidth ?? 0),
+          bytes: e.assets.map((a) => a.data.length),
+          alpha: e.assets.map((a) => a.hasAlpha),
+        });
       },
     });
-    expect(Object.keys(result.assets)).toEqual(['img1']);
-    expect(result.assets.img1.hasAlpha).toBe(false);
+    // Streamed assets are handed over and released by the extractor (the consumer keeps them).
+    expect(result.assets).toEqual({});
+    const size = makePng(1000, 1000, { colorType: 2 }).length;
     expect(streamed).toEqual([
-      { index: 0, assets: ['img1'], display: [50] },
-      { index: 1, assets: ['img1'], display: [300] },
+      { index: 0, assets: ['img1'], display: [50], bytes: [size], alpha: [false] },
+      // Re-sent WITH its bytes (re-read by image hash) and the larger display size.
+      { index: 1, assets: ['img1'], display: [300], bytes: [size], alpha: [false] },
     ]);
   });
 });

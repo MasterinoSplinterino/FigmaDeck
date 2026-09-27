@@ -33,7 +33,7 @@ import type {
   Transform,
 } from '../ir/types';
 import type { ExportSettings } from '../shared/settings';
-import type { AssetStore } from './assets';
+import { imageKey, type AssetStore } from './assets';
 import {
   classifyLine,
   classifyShape,
@@ -474,7 +474,7 @@ export class SlideWalker {
       return;
     }
     if (node.type !== 'TEXT') return;
-    const d = classifyText(node, this.mixed, relativeMatrix(ctx.slideInverse, node));
+    const d = classifyText(node, this.mixed, relativeMatrix(ctx.slideInverse, node), state.opacity);
     if (d.kind === 'none') return;
     const reasons = [...d.reasons];
     if ((ct.innerPartial || ct.rounded) && ctx.settings.clippedText === 'rasterize') pushUnique(reasons, 'clip');
@@ -640,7 +640,12 @@ export class SlideWalker {
     const bg =
       fillIsSlideBackground && !fxInBg
         ? null
-        : classifyShape(node, this.mixed, ctx.settings, rel, { frameBackground: true, ignoreStrokes: true, ignoreEffects: isRoot });
+        : classifyShape(node, this.mixed, ctx.settings, rel, {
+            frameBackground: true,
+            ignoreStrokes: true,
+            ignoreEffects: isRoot,
+            opacityAbove: state.opacity,
+          });
     // A composite of the background keeps the node's effects — for the root only those it draws there.
     const bgEffects = !isRoot || fxInBg;
     const strokes = analyzeStrokes(node, this.mixed);
@@ -753,7 +758,7 @@ export class SlideWalker {
   private planShape(node: SceneNode, state: WalkState, ct: ClipTest, ellipse: boolean): Plan[] {
     const { ctx } = this;
     const rel = relativeMatrix(ctx.slideInverse, node);
-    const d = classifyShape(node, this.mixed, ctx.settings, rel, { ellipse });
+    const d = classifyShape(node, this.mixed, ctx.settings, rel, { ellipse, opacityAbove: state.opacity });
     if (d.kind === 'none') return [];
     if (d.kind === 'raster') return [this.rasterPlan(node, d.reasons, state, ct)];
     if (d.kind === 'image') {
@@ -822,7 +827,7 @@ export class SlideWalker {
 
   private async planText(node: TextNode, state: WalkState, ct: ClipTest): Promise<Plan[]> {
     const { ctx } = this;
-    const d = classifyText(node, this.mixed, relativeMatrix(ctx.slideInverse, node));
+    const d = classifyText(node, this.mixed, relativeMatrix(ctx.slideInverse, node), state.opacity);
     if (d.kind === 'none') return [];
     const reasons = [...d.reasons];
     if ((ct.innerPartial || ct.rounded) && ctx.settings.clippedText === 'rasterize') pushUnique(reasons, 'clip');
@@ -959,13 +964,12 @@ export class SlideWalker {
         );
         if (reaches) return this.runFallback(fallbackPlan(['image-fill-mode']));
       }
-      ctx.assets.noteDisplaySize(info.assetId, placement.displayWidth, placement.displayHeight);
       let transform = subRectTransform(d.transform, placement.box);
       let crop = placement.crop;
-      if (clipRect && keepsShape) {
-        // Never cropped (see above); a FIT sub-box with a shadow cut by a clipping frame is rasterized.
-        if (cutByFrame(transform)) return this.runFallback(fallbackPlan(['clip']));
-      } else if (clipRect) {
+      // Never cropped (see above); a FIT sub-box with a shadow cut by a clipping frame is rasterized.
+      if (clipRect && keepsShape && cutByFrame(transform)) return this.runFallback(fallbackPlan(['clip']));
+      ctx.assets.noteDisplaySize(info.assetId, placement.displayWidth, placement.displayHeight);
+      if (clipRect && !keepsShape) {
         const cropped = cropPictureToRect(transform, crop, clipRect);
         if (cropped) {
           transform = cropped.transform;
@@ -1035,7 +1039,7 @@ export class SlideWalker {
           height: size.height,
           hasAlpha: mime === 'image/png' ? (png?.hasAlpha ?? true) : mime === 'image/gif',
         },
-        `hash:${hash}`,
+        imageKey(hash),
       );
       return { assetId, width: size.width, height: size.height };
     })();

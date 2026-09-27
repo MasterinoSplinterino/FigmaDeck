@@ -24,6 +24,15 @@ function isVisibleEffect(e: Effect): boolean {
   return (e as { visible?: boolean }).visible !== false;
 }
 
+/**
+ * A visible drop shadow that Figma hides behind the node (`showShadowBehindNode` false — the default):
+ * only its part outside the node's opaque pixels shows. PowerPoint draws an outer shadow behind the
+ * whole shape instead, so it shows through a translucent fill (see CONFIG.extract.shadowKnockoutMaxAlpha).
+ */
+export function hasShadowHiddenBehindNode(effects: readonly Effect[]): boolean {
+  return effects.some((e) => isVisibleEffect(e) && e.type === 'DROP_SHADOW' && e.color.a > 0 && e.showShadowBehindNode !== true);
+}
+
 export function analyzeEffects(effects: readonly Effect[]): EffectAnalysis {
   const reasons: RasterReason[] = [];
   const add = (r: RasterReason) => {

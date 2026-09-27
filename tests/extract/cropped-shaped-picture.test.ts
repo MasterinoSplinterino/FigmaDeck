@@ -55,6 +55,20 @@ it('rounded image cut only by the slide edge stays a native rounded picture, unc
   expect(pic).toMatchObject({ id: 'img', geometry: 'roundRect', cornerRadius: 12, crop: null, transform: { x: 700, w: 200 } });
 });
 
+it('FIT picture with a shadow: decided on the fitted sub-box (cut → raster, only the empty margin cut → native)', async () => {
+  const env = new FakeEnv();
+  env.addImage('sq', makePng(100, 100), 100, 100);
+  // 200×100 layer, FIT → 100×100 sub-box at layer x 50..150.
+  const cut = frame({ id: 'p1', x: 0, y: 0, width: 120, height: 100, children: [rect({ id: 'cut', width: 200, height: 100, fills: [imagePaint('sq', 'FIT')], effects: [innerShadow()] })] });
+  const margin = frame({ id: 'p2', x: 300, y: 0, width: 160, height: 100, children: [rect({ id: 'margin', width: 200, height: 100, fills: [imagePaint('sq', 'FIT')], effects: [innerShadow()] })] });
+  const { slide } = await run(frame({ width: 800, height: 600, children: [cut, margin] }), { preserveGroups: false }, env);
+  const els = flat(slide.elements);
+  expect((els.find((e) => e.id === 'cut') as ImageElement).rasterized?.reasons).toEqual(['clip']);
+  const m = els.find((e) => e.id === 'margin') as ImageElement;
+  expect(m.rasterized).toBeUndefined();
+  expect(m).toMatchObject({ crop: null, shadow: { type: 'inner' }, transform: { x: 350, w: 100 } });
+});
+
 it('picture with an inner shadow cut by a clipping frame is rasterized; plain pictures are still cropped', async () => {
   const env = new FakeEnv();
   env.addImage('photo', makePng(400, 200), 400, 200);

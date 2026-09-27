@@ -3,7 +3,10 @@
  *
  *   const result = await extractDeck(frames, { settings, onSlide, onProgress, isCancelled });
  *
- * - `onSlide` receives each slide with only the assets it introduced (the UI accumulates them).
+ * - `onSlide` receives each slide with only the assets it introduced (the UI accumulates them). The
+ *   extractor then drops its own references to those bytes (only dedupe hashes and metadata stay), so
+ *   memory does not grow with every exported bitmap; an image fill displayed larger on a later slide is
+ *   re-read by its Figma image hash and sent again.
  * - Cancellation is checked at every yield (`CONFIG.export.yieldEveryNodes`) and before every export;
  *   it rejects with `ExtractCancelledError` (see `isCancelledError`).
  * - Every temporary node is removed before `extractDeck` settles, whatever happens.
@@ -13,7 +16,7 @@ import { CONFIG } from '../config';
 import type { Asset, Deck, DeckMeta, ReportEntry, Slide } from '../ir/types';
 import { IR_VERSION } from '../ir/types';
 import type { ExportSettings } from '../shared/settings';
-import { AssetStore } from './assets';
+import { AssetStore, imageHashOfKey, type AssetReloader } from './assets';
 import { createFigmaEnv, type FigmaEnv } from './figma-env';
 import { createLineHeightMeasurer } from './line-height';
 import { IdRegistry } from './plan';
@@ -60,8 +63,21 @@ export interface ExtractDeckOptions {
 
 export interface ExtractDeckResult {
   slides: Slide[];
+  /**
+   * Assets still held at the end: all of them without `onSlide`; with `onSlide` every asset was handed
+   * over there and released, so this is empty.
+   */
   assets: Record<string, Asset>;
   report: ReportEntry[];
+}
+
+/** Re-reads the bytes of a released image fill (key = `imageKey(hash)`); other assets cannot be re-read. */
+function imageReloader(env: FigmaEnv): AssetReloader {
+  return async (key) => {
+    const hash = imageHashOfKey(key);
+    const image = hash !== null ? env.getImageByHash(hash) : null;
+    return image ? await image.getBytesAsync() : null;
+  };
 }
 
 export async function extractDeck(frames: readonly SceneNode[], options: ExtractDeckOptions): Promise<ExtractDeckResult> {
@@ -100,8 +116,14 @@ export async function extractDeck(frames: readonly SceneNode[], options: Extract
       });
       slides.push(result.slide);
       report.push(...result.report);
-      // `takeNew` also re-queues assets sent earlier that a later slide displays larger (same id).
-      if (options.onSlide) await options.onSlide({ index, total, slide: result.slide, assets: assets.takeNew() });
+      if (options.onSlide) {
+        // `takeNew` also carries assets sent earlier that this slide displays larger (same id); their
+        // released bytes are read again first.
+        await assets.reloadPending(imageReloader(env));
+        await options.onSlide({ index, total, slide: result.slide, assets: assets.takeNew() });
+        // The consumer keeps the bytes; the store keeps ids, hashes and metadata only.
+        assets.releaseSent();
+      }
     }
     return { slides, assets: assets.toRecord(), report };
   } finally {

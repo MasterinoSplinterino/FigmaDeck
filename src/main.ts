@@ -436,17 +436,21 @@ function enqueueDeck(task: () => Promise<void>): Promise<void> {
 
 /**
  * Remove temporary composite nodes a crashed / closed run may have left behind. Clones land on the page
- * that was current during that run, so the current page and the pages of the deck frames are scanned.
- * Only loaded pages can be searched (`dynamic-page`): a page that is not loaded throws and is skipped
- * here — nothing is loaded just for the cleanup — and is scanned when an export loads it.
+ * that was current during that run, so the current page (synchronously, before any message is handled)
+ * and then the pages of the deck frames are scanned. Only loaded pages can be searched
+ * (`dynamic-page`): a page that is not loaded throws and is skipped here — nothing is loaded just for
+ * the cleanup — and is scanned when an export loads it. The deferred scan is skipped while an export
+ * runs: its own temporary nodes carry the same marker (the export scans its pages itself).
  */
 async function removeLeftovers(): Promise<void> {
-  const pages = new Map<string, PageNode>([[figma.currentPage.id, figma.currentPage]]);
+  removeLeftoversOn(figma.currentPage);
+  const pages = new Map<string, PageNode>();
   for (const id of deckIds) {
     const node = await resolveSlide(id);
     const page = node ? pageOf(node) : null;
     if (page) pages.set(page.id, page);
   }
+  if (exportRun) return; // no await between this check and the scan
   for (const page of pages.values()) removeLeftoversOn(page);
 }
 

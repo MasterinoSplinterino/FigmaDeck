@@ -9,12 +9,15 @@
  * - LINE: one SOLID stroke, same cap at both ends.
  * - TEXT: solid fills only, no stroke / blur / blend, ≤1 shadow, no flip / skew.
  * - Containers rasterize as a whole for masks, blend modes, blur, shadows that need the content's
- *   alpha, group opacity over overlapping children, rotated clips, icon-like vector groups.
+ *   alpha, group opacity over overlapping painting pieces (at any depth), rotated clips, icon-like
+ *   vector groups.
+ * - A drop shadow Figma hides behind the node (`showShadowBehindNode` false) on a translucent / missing
+ *   fill → `effects` (PowerPoint would show it through the fill).
  */
 import { CONFIG } from '../config';
 import type { Fill, Matrix, RasterReason, Rect, Shadow, Stroke, TextParagraph, Transform } from '../ir/types';
 import type { ExportSettings } from '../shared/settings';
-import { analyzeEffects } from './effects';
+import { analyzeEffects, hasShadowHiddenBehindNode } from './effects';
 import {
   applyToPoint,
   clean,
@@ -44,12 +47,13 @@ import {
   strokesOf,
   uniformRadiusOf,
 } from './node-props';
-import { analyzeFills, analyzeStrokes, isNormalBlend, visiblePaints } from './paints';
+import { analyzeFills, analyzeStrokes, isNormalBlend, visiblePaints, type FillAnalysis } from './paints';
 import {
   autoResizeOf,
   readSegments,
   segmentFonts,
   segmentsToParagraphs,
+  textColor,
   textDefaults,
   textPaintReasons,
   verticalAlignOf,
@@ -90,6 +94,34 @@ export interface ShapeOptions {
   ignoreEffects?: boolean;
   /** Ignore strokes (frame backgrounds whose stroke is drawn separately). */
   ignoreStrokes?: boolean;
+  /** Product of the ancestors' opacity (default 1): part of the fill alpha a native shadow shows through. */
+  opacityAbove?: number;
+}
+
+/**
+ * Alpha of a single native / image fill (gradient: its most transparent stop), 0 without a fill.
+ * Raster fills count as opaque (they are rasterized anyway).
+ */
+function fillAlpha(fills: FillAnalysis): number {
+  switch (fills.kind) {
+    case 'none':
+      return 0;
+    case 'native':
+      return fills.fill.type === 'solid' ? fills.fill.color.a : Math.min(1, ...fills.fill.stops.map((s) => s.color.a));
+    case 'image':
+      return fills.paint.opacity ?? 1;
+    default:
+      return 1;
+  }
+}
+
+/**
+ * A native outer shadow would show through the node: Figma hides the drop shadow behind the node
+ * (`showShadowBehindNode` false), PowerPoint draws it behind the whole shape, and the effective fill
+ * alpha (fill × layer × ancestors) is below `CONFIG.extract.shadowKnockoutMaxAlpha`.
+ */
+export function shadowShowsThrough(effects: readonly Effect[], alpha: number): boolean {
+  return hasShadowHiddenBehindNode(effects) && alpha < CONFIG.extract.shadowKnockoutMaxAlpha;
 }
 
 const DEFAULT_ARC_END = 2 * Math.PI;
@@ -127,6 +159,10 @@ export function classifyShape(
     if (opts.frameBackground) {
       if (effects.reasons.includes('effects') && effects.shadowCount > 0) pushUnique(reasons, 'effects');
     } else pushUnique(reasons, ...effects.reasons);
+    if (effects.shadow?.type === 'outer') {
+      const alpha = fillAlpha(fills) * opacityOf(node) * (opts.opacityAbove ?? 1);
+      if (shadowShowsThrough(effectsOf(node), alpha)) pushUnique(reasons, 'effects');
+    }
   }
   if (!opts.frameBackground && !isNormalBlend(blendModeOf(node))) pushUnique(reasons, 'blend-mode');
   if (dec.skewed) pushUnique(reasons, 'transform');
@@ -236,8 +272,11 @@ export interface TextDecision {
   hasMissingFont: boolean;
 }
 
-/** TEXT decision without clipping (the walker adds `clip`). */
-export function classifyText(node: TextNode, mixed: symbol, rel: Matrix): TextDecision {
+/**
+ * TEXT decision without clipping (the walker adds `clip`). `opacityAbove` = product of the ancestors'
+ * opacity (a native drop shadow shows through translucent glyphs, see `shadowShowsThrough`).
+ */
+export function classifyText(node: TextNode, mixed: symbol, rel: Matrix, opacityAbove = 1): TextDecision {
   const dec = decompose(rel, node.width, node.height);
   const defaults = textDefaults(node, mixed);
   const segments = node.characters.length > 0 ? readSegments(node) : [];
@@ -247,6 +286,10 @@ export function classifyText(node: TextNode, mixed: symbol, rel: Matrix): TextDe
   if (hasStroke) pushUnique(reasons, 'stroke');
   const effects = analyzeEffects(effectsOf(node));
   pushUnique(reasons, ...effects.reasons);
+  if (effects.shadow?.type === 'outer') {
+    const glyphAlpha = Math.min(1, ...segments.map((seg) => textColor(seg.fills ?? defaults.fills)?.a ?? 1));
+    if (shadowShowsThrough(effectsOf(node), glyphAlpha * opacityOf(node) * opacityAbove)) pushUnique(reasons, 'effects');
+  }
   if (!isNormalBlend(blendModeOf(node))) pushUnique(reasons, 'blend-mode');
   if (dec.flipped || dec.skewed) pushUnique(reasons, 'transform');
   // Paints anything at all (a gradient-only text has no solid color but is visible).
@@ -300,8 +343,8 @@ export function hasOwnPaint(node: SceneNode, mixed: symbol): boolean {
 
 /**
  * Reasons to rasterize a container as ONE picture (empty = walk its children).
- * `isRoot`: the slide root never rasterizes as a whole (masks there become range composites,
- * its effects are ignored).
+ * `isRoot`: the slide root never rasterizes as a whole (masks there become range composites, its
+ * effects go with the slide background or are reported — walker `rootEffects`).
  */
 export function containerRasterReasons(node: SceneNode, mixed: symbol, slideInverse: Matrix, isRoot = false): RasterReason[] {
   const reasons: RasterReason[] = [];
