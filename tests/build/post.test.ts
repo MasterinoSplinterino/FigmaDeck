@@ -2,6 +2,7 @@ import JSZip from 'jszip';
 import { XMLValidator } from 'fast-xml-parser';
 import { describe, expect, it } from 'vitest';
 import type { ManifestGroup } from '../../src/build/manifest';
+import { CONFIG } from '../../src/config';
 import { groupShapeXml, wrapGroups } from '../../src/post/groups';
 import { dedupeMedia, fnv1a } from '../../src/post/media';
 import { addClickHyperlink, addSvgBlip, replaceFill, replaceGeometry, replaceLn, replaceTxBody, setEffectList } from '../../src/post/objects';
@@ -286,7 +287,7 @@ describe('package parts', () => {
   });
 
   it('scrubs the generator name', () => {
-    expect(scrubGeneratorName('<a>PptxGenJS</a>')).toBe('<a>FigmaDeck</a>');
+    expect(scrubGeneratorName('<a>PptxGenJS</a>')).toBe(`<a>${CONFIG.meta.application}</a>`);
   });
 });
 

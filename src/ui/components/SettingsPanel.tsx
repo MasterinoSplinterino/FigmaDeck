@@ -80,6 +80,9 @@ export interface SettingsPanelProps {
   fonts: FontInfo[] | null;
   /** Main never answered the font request: show a message instead of the spinner. */
   fontsFailed?: boolean;
+  /** Developer tools (IR JSON export in the Export menu): a UI-only preference, see dev-tools.ts. */
+  devTools: boolean;
+  onDevTools: (on: boolean) => void;
   /** Frames that will be exported, in order (slide size summary). */
   frames: readonly FrameSize[];
   onChange: (patch: Partial<ExportSettings>) => void;
@@ -140,6 +143,9 @@ export function SettingsPanel(props: SettingsPanelProps): JSX.Element {
                 ]}
                 onChange={(language) => set({ language })}
               />
+            </Row>
+            <Row label={t('settings.devTools')} hint={t('settings.devToolsHint')}>
+              <Switch checked={props.devTools} label={t('settings.devTools')} onChange={props.onDevTools} />
             </Row>
           </Section>
 

@@ -1636,10 +1636,9 @@ a.link:hover {
   min-width: 0;
 }
 
+/* Family and style wrap instead of being cut: the style is what the row is about. */
 .font-name {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  overflow-wrap: break-word;
 }
 
 .font-dot {

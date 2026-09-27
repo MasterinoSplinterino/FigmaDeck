@@ -1,8 +1,8 @@
 /**
  * Top bar of the deck view: editable deck title (text that turns into an input on click),
- * Settings, Clear All and the Export split button. The main button exports "PowerPoint — editable";
+ * Settings, Clear all and the Export split button. The main button exports "PowerPoint — editable";
  * the menu lists the four export targets (PowerPoint editable / images, PDF vector / images) and,
- * separated at the bottom, the IR JSON debug dump.
+ * separated at the bottom and only with Settings → General → Developer tools on, the IR JSON dump.
  */
 import { Fragment, type JSX } from 'preact';
 import { useEffect, useRef, useState } from 'preact/hooks';
@@ -88,7 +88,7 @@ function hintOf(item: MenuItem, mode: ExportMode): MessageKey {
   return item.format === 'pptx' && editableMode(mode) === 'exact' ? 'export.pptxHintExact' : item.hint;
 }
 
-function ExportButton(props: { disabled: boolean; mode: ExportMode; onExport: (format: ExportFormat) => void }): JSX.Element {
+function ExportButton(props: { disabled: boolean; mode: ExportMode; devTools: boolean; onExport: (format: ExportFormat) => void }): JSX.Element {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
@@ -141,7 +141,7 @@ function ExportButton(props: { disabled: boolean; mode: ExportMode; onExport: (f
       </button>
       {open ? (
         <div class="menu" role="menu">
-          {MENU.map((item) => (
+          {MENU.filter((item) => !item.debug || props.devTools).map((item) => (
             <Fragment key={item.format}>
               {item.separatorBefore ? <div class="menu-sep" role="separator" /> : null}
               <button type="button" role="menuitem" class={item.debug ? 'menu-item debug' : 'menu-item'} onClick={() => choose(item.format)}>
@@ -168,6 +168,8 @@ export interface TopBarProps {
   canExport: boolean;
   /** Settings mode (the editable target's hint follows it). */
   mode: ExportMode;
+  /** Developer tools on: the IR JSON export is listed. */
+  devTools: boolean;
   onTitle: (title: string) => void;
   onSettings: () => void;
   onClear: () => void;
@@ -186,7 +188,7 @@ export function TopBar(props: TopBarProps): JSX.Element {
         <button type="button" class="btn" onClick={props.onClear}>
           {t('top.clearAll')}
         </button>
-        <ExportButton disabled={!props.canExport} mode={props.mode} onExport={props.onExport} />
+        <ExportButton disabled={!props.canExport} mode={props.mode} devTools={props.devTools} onExport={props.onExport} />
       </div>
     </header>
   );

@@ -19,6 +19,7 @@ import { ObjectUrlCache, listen, send } from '../bridge';
 import { createCompressor } from '../compressor';
 import { copyText, downloadBytes } from '../download';
 import { cleanErrorMessage } from '../errors';
+import { loadDevTools, saveDevTools } from '../dev-tools';
 import { Exporter, type ExporterEvent } from '../exporter';
 import { getLang, resolveLang, setLang, t, toastText, tp } from '../i18n';
 import { processAssets } from '../images';
@@ -107,6 +108,11 @@ export function App(): JSX.Element {
   const [bootAttempt, setBootAttempt] = useState(0);
   const [fontsTimedOut, setFontsTimedOut] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [devTools, setDevToolsState] = useState(() => loadDevTools());
+  const setDevTools = useCallback((on: boolean) => {
+    setDevToolsState(on);
+    saveDevTools(on);
+  }, []);
   const [confirmClear, setConfirmClear] = useState(false);
   const [progress, setProgress] = useState<ProgressState | null>(null);
   const [outcome, setOutcome] = useState<ExportOutcome | null>(null);
@@ -488,6 +494,7 @@ export function App(): JSX.Element {
             placeholder={state.fileName || t('top.titlePlaceholder')}
             canExport={exportableCount(state.slides) > 0 && !progress}
             mode={state.settings.mode}
+            devTools={devTools}
             onTitle={setTitle}
             onSettings={openSettings}
             onClear={() => setConfirmClear(true)}
@@ -515,6 +522,8 @@ export function App(): JSX.Element {
           settings={state.settings}
           fonts={state.fonts}
           fontsFailed={fontsTimedOut && state.fonts === null}
+          devTools={devTools}
+          onDevTools={setDevTools}
           frames={exportFrames}
           onChange={updateSettings}
           onReset={resetSettings}

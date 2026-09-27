@@ -129,6 +129,8 @@ export function normalizeSettings(raw: unknown): ExportSettings {
   s.preserveGroups = !!s.preserveGroups;
   s.nativeGradients = !!s.nativeGradients;
   s.author = typeof s.author === 'string' ? s.author : DEFAULT_SETTINGS.author;
+  // Settings saved by pre-release builds carry the old internal name as the author.
+  if (s.author === 'FigmaDeck') s.author = DEFAULT_SETTINGS.author;
   s.company = typeof s.company === 'string' ? s.company : DEFAULT_SETTINGS.company;
   return s;
 }

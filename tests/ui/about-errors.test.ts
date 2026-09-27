@@ -59,3 +59,28 @@ describe('reflowLicense', () => {
     expect(reflowLicense(heading)).toBe(heading);
   });
 });
+
+describe('developer tools preference', () => {
+  it('off by default; saved as "1" / "0"; storage that throws never breaks the UI', async () => {
+    const { loadDevTools, saveDevTools } = await import('../../src/ui/dev-tools');
+    const map = new Map<string, string>();
+    const store = { getItem: (k: string) => map.get(k) ?? null, setItem: (k: string, v: string) => void map.set(k, v) };
+    expect(loadDevTools(store)).toBe(false);
+    saveDevTools(true, store);
+    expect(loadDevTools(store)).toBe(true);
+    saveDevTools(false, store);
+    expect(loadDevTools(store)).toBe(false);
+    const refusing = {
+      getItem: () => {
+        throw new DOMException('denied', 'SecurityError');
+      },
+      setItem: () => {
+        throw new DOMException('denied', 'SecurityError');
+      },
+    };
+    expect(loadDevTools(refusing)).toBe(false);
+    expect(() => saveDevTools(true, refusing)).not.toThrow();
+    expect(loadDevTools(null)).toBe(false);
+    expect(loadDevTools()).toBe(false); // Node: no localStorage
+  });
+});

@@ -1,6 +1,6 @@
 {
   "name": "figmadeck",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "private": true,
   "description": "Figma plugin: export frames to an editable PPTX (native text, shapes, groups) or PDF. Fully local, no network.",
   "license": "MIT",

@@ -49,6 +49,9 @@ const suffix = `${theme === 'light' ? '-light' : ''}${lang === 'ru' ? '-ru' : ''
 const only = arg('only', '') ? new Set(arg('only', '').split(',').map((x) => x.trim()).filter(Boolean)) : null;
 /** The default plugin window (CONFIG.ui.windowWidth × windowHeight) or its minimum size (minWidth × minHeight). */
 const WINDOW = windowSize === 'min' ? { width: 720, height: 480 } : { width: 1000, height: 640 };
+/** Screenshots at 2× (sharp in the Community carousel); demo slides are drawn at 2× the plugin's sizes too. */
+const SCALE = 2;
+const THUMB_WIDTH = 320 * SCALE;
 const OTHER = lang === 'ru' ? { lang: 'en', segment: 1, title: 'Settings' } : { lang: 'ru', segment: 2, title: 'Настройки' };
 
 // ─── Bundle (the options of scripts/build.mjs, not minified) ─────────────────
@@ -71,23 +74,51 @@ function findChromium() {
   throw new Error('Chromium not found (set PLAYWRIGHT_BROWSERS_PATH)');
 }
 
-// ─── Demo data ───────────────────────────────────────────────────────────────
+// ─── Demo data (fictional: no real people, brands or events) ─────────────────
+
+const RU = lang === 'ru';
+/** Texts of the demo slides; the Russian screenshots get a Russian demo. */
+const COPY = RU
+  ? {
+      deck: 'Запуск продукта 2026',
+      led: 'Запуск продукта — LED',
+      poster: { name: 'Итоги квартала', kicker: 'Acme · III квартал 2026', title: ['Рекордный', 'квартал'], titleSize: 118, sub: 'Выручка выросла на 48 % за год', label: 'Главное', people: ['Анна Смирнова', 'Иван Петров'] },
+      launch: ['PRODUCT', 'LAUNCH 2026', '14 октября 2026 · Онлайн'],
+      agenda: { name: 'Программа', title: 'Программа', items: ['Приветствие', 'Обзор продукта', 'Живое демо', 'Тарифы', 'Вопросы'] },
+      chart: { name: 'Метрики роста', title: 'Метрики роста', note: 'Годовая выручка, год к году' },
+      team: { name: 'Команда', title: 'Команда', people: ['Анна', 'Иван', 'Мария', 'Олег'], roles: ['CEO', 'Дизайн', 'Разработка', 'Маркетинг'] },
+      missing: 'Старое интро',
+      ledNames: ['LED — открытие', 'LED — спикеры', 'LED — партнёры'],
+      ledTitles: ['ЗАПУСК 2026', 'СПИКЕРЫ', 'ПАРТНЁРЫ'],
+      ledSub: '14 октября 2026 · Онлайн',
+      author: 'Анна Смирнова',
+    }
+  : {
+      deck: 'Product Launch 2026',
+      led: 'Product Launch LED',
+      poster: { name: 'Quarterly review', kicker: 'Acme · Q3 2026', title: ['Record', 'quarter'], titleSize: 150, sub: 'Revenue up 48% year over year', label: 'Highlights', people: ['Alex Morgan', 'Jamie Lee'] },
+      launch: ['PRODUCT', 'LAUNCH 2026', 'October 14, 2026 · Online'],
+      agenda: { name: 'Agenda', title: 'Agenda', items: ['Welcome', 'Product tour', 'Live demo', 'Pricing', 'Q&A'] },
+      chart: { name: 'Growth metrics', title: 'Growth metrics', note: 'ARR year over year' },
+      team: { name: 'Team', title: 'Team', people: ['Alex', 'Jamie', 'Sam', 'Taylor'], roles: ['CEO', 'Design', 'Engineering', 'Marketing'] },
+      missing: 'Old intro',
+      ledNames: ['LED — opening', 'LED — speakers', 'LED — partners'],
+      ledTitles: ['LAUNCH 2026', 'SPEAKERS', 'PARTNERS'],
+      ledSub: 'October 14, 2026 · Online',
+      author: 'Alex Morgan',
+    };
 
 const SLIDES = [
-  { id: '1:10', name: lang === 'ru' ? 'Взрывной рост' : 'Explosive growth', width: 1080, height: 1440, pageId: '0:1', pageName: 'Deck', art: 'poster' },
-  { id: '1:11', name: 'Startup Summit 2026', width: 1920, height: 1080, pageId: '0:1', pageName: 'Deck', art: 'title' },
-  { id: '1:12', name: lang === 'ru' ? 'Программа' : 'Agenda', width: 1920, height: 1080, pageId: '0:1', pageName: 'Deck', art: 'agenda' },
-  { id: '1:13', name: lang === 'ru' ? 'Метрики роста' : 'Growth metrics', width: 1920, height: 1080, pageId: '0:1', pageName: 'Deck', art: 'chart' },
-  { id: '1:14', name: lang === 'ru' ? 'Команда' : 'Team', width: 1920, height: 1080, pageId: '0:1', pageName: 'Deck', art: 'team' },
-  { id: '1:15', name: lang === 'ru' ? 'Старое интро' : 'Old intro', width: 1920, height: 1080, pageId: '0:1', pageName: 'Deck', art: 'title', missing: true },
+  { id: '1:10', name: COPY.poster.name, width: 1080, height: 1440, pageId: '0:1', pageName: 'Slides', art: 'poster' },
+  { id: '1:11', name: COPY.deck, width: 1920, height: 1080, pageId: '0:1', pageName: 'Slides', art: 'title' },
+  { id: '1:12', name: COPY.agenda.name, width: 1920, height: 1080, pageId: '0:1', pageName: 'Slides', art: 'agenda' },
+  { id: '1:13', name: COPY.chart.name, width: 1920, height: 1080, pageId: '0:1', pageName: 'Slides', art: 'chart' },
+  { id: '1:14', name: COPY.team.name, width: 1920, height: 1080, pageId: '0:1', pageName: 'Slides', art: 'team' },
+  { id: '1:15', name: COPY.missing, width: 1920, height: 1080, pageId: '0:1', pageName: 'Slides', art: 'title', missing: true },
 ];
 
 /** A deck of 4992×1536 LED-screen frames (the slide size scene). */
-const LED_SLIDES = [
-  { id: '2:1', name: lang === 'ru' ? 'LED — открытие' : 'LED — opening', width: 4992, height: 1536, pageId: '0:2', pageName: 'LED', art: 'led', title: 'STARTUP SUMMIT 2026' },
-  { id: '2:2', name: lang === 'ru' ? 'LED — спикеры' : 'LED — speakers', width: 4992, height: 1536, pageId: '0:2', pageName: 'LED', art: 'led', title: lang === 'ru' ? 'СПИКЕРЫ' : 'SPEAKERS' },
-  { id: '2:3', name: lang === 'ru' ? 'LED — партнёры' : 'LED — partners', width: 4992, height: 1536, pageId: '0:2', pageName: 'LED', art: 'led', title: lang === 'ru' ? 'ПАРТНЁРЫ' : 'PARTNERS' },
-];
+const LED_SLIDES = [0, 1, 2].map((i) => ({ id: `2:${i + 1}`, name: COPY.ledNames[i], width: 4992, height: 1536, pageId: '0:2', pageName: 'LED', art: 'led', title: COPY.ledTitles[i] }));
 
 const SETTINGS = {
   mode: 'editable',
@@ -107,15 +138,15 @@ const SETTINGS = {
   slideSizeMode: 'frame',
   slideWidthIn: 13.333,
   slideHeightIn: 7.5,
-  author: 'Anna Petrova',
-  company: 'Startup Summit',
+  author: COPY.author,
+  company: 'Acme Inc.',
 };
 
 const FONTS = [
-  { family: 'SB Sans Display', style: 'Semibold', count: 42, missing: false },
-  { family: 'SB Sans Display', style: 'Bold', count: 12, missing: false },
-  { family: 'SB Sans Text', style: 'Regular', count: 118, missing: false },
-  { family: 'SB Sans Text', style: 'Italic', count: 6, missing: false },
+  { family: 'Manrope', style: 'Semibold', count: 42, missing: false },
+  { family: 'Manrope', style: 'Bold', count: 12, missing: false },
+  { family: 'Source Sans 3', style: 'Regular', count: 118, missing: false },
+  { family: 'Source Sans 3', style: 'Italic', count: 6, missing: false },
   { family: 'Inter', style: 'Medium', count: 9, missing: false },
   { family: 'Montserrat', style: 'Black', count: 3, missing: false },
   { family: 'Gilroy', style: 'ExtraBold', count: 2, missing: true },
@@ -147,12 +178,21 @@ function demoReport(slideIds, slideNames) {
   ];
 }
 
+/** Test fixtures dressed as a neutral demo deck: slide names and font families replaced. */
+const FIXTURE_NAMES = RU
+  ? { 'Kitchen sink': 'Обзор продукта', 'Full HD': 'Итоги квартала', Square: 'Пост для соцсетей', '4K': 'Дорожная карта', Диплом: 'Сертификат' }
+  : { 'Kitchen sink': 'Product overview', 'Full HD': 'Quarterly review', Square: 'Social post', '4K': 'Roadmap', Диплом: 'Certificate' };
+const FIXTURE_FONTS = { 'SB Sans Display': 'Manrope', 'SB Sans Text': 'Source Sans 3' };
+
 async function loadFixtures() {
   const names = ['kitchen-sink', 'mixed-sizes', 'diploma'];
   const slides = [];
   const assets = {};
   for (const n of names) {
-    const deck = JSON.parse(await readFile(resolve(root, `tests/fixtures/${n}.ir.json`), 'utf8'));
+    let text = await readFile(resolve(root, `tests/fixtures/${n}.ir.json`), 'utf8');
+    for (const [from, to] of Object.entries(FIXTURE_FONTS)) text = text.split(`"fontFamily":"${from}"`).join(`"fontFamily":"${to}"`).split(`"fontFamily": "${from}"`).join(`"fontFamily": "${to}"`);
+    const deck = JSON.parse(text);
+    for (const sl of deck.slides) sl.name = FIXTURE_NAMES[sl.name] ?? sl.name;
     slides.push(...deck.slides);
     Object.assign(assets, deck.assets);
   }
@@ -163,21 +203,37 @@ async function loadFixtures() {
 
 const INIT_SCRIPT = `
   window.__sent = [];
+  // Previews main would render: request-preview for a registered id is answered like main does.
+  window.__previews = {};
   // Top-level page: parent === window, so the UI's parent.postMessage lands here. Only plugin
   // messages are captured; everything else (JSZip's setImmediate polyfill uses postMessage) passes.
   const originalPostMessage = window.postMessage.bind(window);
   window.postMessage = function (data, ...rest) {
-    if (data && typeof data === 'object' && 'pluginMessage' in data) window.__sent.push(data.pluginMessage);
-    else originalPostMessage(data, ...rest);
+    if (data && typeof data === 'object' && 'pluginMessage' in data) {
+      const m = data.pluginMessage;
+      window.__sent.push(m);
+      if (m && m.type === 'request-preview' && window.__previews[m.id]) {
+        const bytes = window.__previews[m.id];
+        setTimeout(() => window.__inject({ type: 'preview', id: m.id, bytes: bytes.slice() }), 30);
+      }
+    } else originalPostMessage(data, ...rest);
   };
   window.__inject = function (msg) { window.dispatchEvent(new MessageEvent('message', { data: { pluginMessage: msg } })); };
   window.__b64 = function (s) { const bin = atob(s); const out = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i); return out; };
 `;
 
-/** Draws a fake slide into a canvas and returns PNG bytes (runs in the page). */
-async function renderSlidePng(page, slide, width) {
+/** Preview width for a demo slide: about 2× what the stage shows (sharp at deviceScaleFactor 2). */
+function previewWidth(slide) {
+  return Math.min(2000, Math.round(1100 * (slide.width / slide.height)));
+}
+
+/**
+ * Draws a demo slide into a canvas (in the page) as PNG: `mode` 'thumbnail' injects it as main's
+ * thumbnail, 'preview' registers it for the request-preview responder, otherwise the bytes are returned.
+ */
+async function renderSlidePng(page, slide, width, mode = 'bytes') {
   return page.evaluate(
-    async ({ slide, width }) => {
+    async ({ slide, width, mode, copy }) => {
       const h = Math.round((width * slide.height) / slide.width);
       const c = document.createElement('canvas');
       c.width = width;
@@ -212,7 +268,7 @@ async function renderSlidePng(page, slide, width) {
           g.fillRect(0, 0, width, h);
         }
         text(slide.title, 300, 900, 800, 420, '#fff');
-        text('14–16.10 · Moscow', 320, 1180, 400, 120, 'rgba(255,255,255,0.7)');
+        text(copy.ledSub, 320, 1180, 400, 120, 'rgba(255,255,255,0.7)');
       } else if (slide.art === 'poster') {
         const bg = g.createLinearGradient(0, 0, width, h);
         bg.addColorStop(0, '#1b0b6b');
@@ -227,13 +283,14 @@ async function renderSlidePng(page, slide, width) {
           g.fillStyle = rad;
           g.fillRect(0, 0, width, h);
         }
-        text('Технологическая премия', 560, 120, 700, 44, '#fff');
-        text('Взрывной', 110, 520, 700, 150, '#fff');
-        text('рост', 110, 680, 700, 150, '#fff');
-        text('Диплом за стремительный рывок и вклад в будущее', 110, 780, 400, 30, 'rgba(255,255,255,0.85)');
-        text('Победитель', 110, 960, 700, 52, '#fff');
-        text('Алексей Катков', 110, 1260, 700, 30, '#fff');
-        text('Наталья Сергунина', 460, 1260, 700, 30, '#fff');
+        const p = copy.poster;
+        text(p.kicker, 110, 130, 700, 40, 'rgba(255,255,255,0.85)');
+        text(p.title[0], 110, 520, 700, p.titleSize, '#fff');
+        text(p.title[1], 110, 680, 700, p.titleSize, '#fff');
+        text(p.sub, 110, 780, 400, 36, 'rgba(255,255,255,0.85)');
+        text(p.label, 110, 960, 700, 52, '#fff');
+        text(p.people[0], 110, 1260, 700, 30, '#fff');
+        text(p.people[1], 460, 1260, 700, 30, '#fff');
         text('2026', 860, 1340, 400, 40, 'rgba(255,255,255,0.7)');
       } else if (slide.art === 'title') {
         const bg = g.createLinearGradient(0, 0, width, h);
@@ -243,14 +300,14 @@ async function renderSlidePng(page, slide, width) {
         g.fillRect(0, 0, width, h);
         rr(1180, 160, 580, 760, 48, 'rgba(56,189,248,0.18)');
         rr(1260, 240, 420, 420, 210, 'rgba(56,189,248,0.55)');
-        text('STARTUP', 140, 420, 800, 150, '#fff');
-        text('SUMMIT 2026', 140, 580, 800, 150, '#38bdf8');
-        text('Moscow · 14–16 October', 140, 700, 400, 48, 'rgba(255,255,255,0.75)');
+        text(copy.launch[0], 140, 420, 800, 150, '#fff');
+        text(copy.launch[1], 140, 580, 800, 150, '#38bdf8');
+        text(copy.launch[2], 140, 700, 400, 48, 'rgba(255,255,255,0.75)');
       } else if (slide.art === 'agenda') {
         g.fillStyle = '#f4f1ea';
         g.fillRect(0, 0, width, h);
-        text('Agenda', 140, 230, 800, 110, '#111');
-        const items = ['Opening keynote', 'Founders panel', 'Demo day', 'Investor meetings', 'Awards'];
+        text(copy.agenda.title, 140, 230, 800, 110, '#111');
+        const items = copy.agenda.items;
         items.forEach((it, i) => {
           rr(140, 330 + i * 130, 90, 90, 45, i === 2 ? '#ff5b2e' : '#111');
           text(String(i + 1), 172, 392 + i * 130, 700, 44, '#fff');
@@ -260,26 +317,30 @@ async function renderSlidePng(page, slide, width) {
       } else if (slide.art === 'chart') {
         g.fillStyle = '#111318';
         g.fillRect(0, 0, width, h);
-        text('Growth metrics', 140, 200, 800, 96, '#fff');
+        text(copy.chart.title, 140, 200, 800, 96, '#fff');
         const bars = [220, 340, 300, 480, 560, 720];
         bars.forEach((v, i) => rr(160 + i * 200, 960 - v, 130, v, 16, i === bars.length - 1 ? '#22c55e' : '#3b82f6'));
-        text('+214%', 1440, 420, 800, 140, '#22c55e');
-        text('ARR year over year', 1440, 500, 400, 40, 'rgba(255,255,255,0.7)');
+        text('+214%', 1380, 420, 800, 120, '#22c55e');
+        text(copy.chart.note, 1380, 500, 400, 40, 'rgba(255,255,255,0.7)');
       } else {
         g.fillStyle = '#ffffff';
         g.fillRect(0, 0, width, h);
-        text('Team', 140, 220, 800, 110, '#111');
+        text(copy.team.title, 140, 220, 800, 110, '#111');
         const colors = ['#f97316', '#8b5cf6', '#06b6d4', '#ec4899'];
         colors.forEach((col, i) => {
           rr(150 + i * 420, 360, 300, 300, 150, col);
-          text(['Anna', 'Boris', 'Carla', 'Dmitri'][i], 190 + i * 420, 760, 700, 56, '#111');
-          text('Co-founder', 190 + i * 420, 830, 400, 36, '#666');
+          text(copy.team.people[i], 190 + i * 420, 760, 700, 56, '#111');
+          text(copy.team.roles[i], 190 + i * 420, 830, 400, 36, '#666');
         });
       }
       const blob = await new Promise((res) => c.toBlob(res, 'image/png'));
-      return Array.from(new Uint8Array(await blob.arrayBuffer()));
+      const bytes = new Uint8Array(await blob.arrayBuffer());
+      if (mode === 'thumbnail') window.__inject({ type: 'thumbnail', id: slide.id, bytes });
+      else if (mode === 'preview') window.__previews[slide.id] = bytes;
+      else return Array.from(bytes);
+      return null;
     },
-    { slide, width },
+    { slide, width, mode, copy: COPY },
   );
 }
 
@@ -468,7 +529,7 @@ const browser = await chromium.launch({ executablePath: findChromium() });
 try {
   const context = await browser.newContext({
     viewport: WINDOW,
-    deviceScaleFactor: 1,
+    deviceScaleFactor: SCALE,
     locale: lang === 'ru' ? 'ru-RU' : 'en-US',
     colorScheme: theme === 'light' ? 'light' : 'dark',
     acceptDownloads: true,
@@ -486,19 +547,16 @@ try {
   }, theme === 'light');
 
   // 1. Empty state
-  await inject(page, { type: 'init', slides: [], settings: SETTINGS, deckTitle: 'Startup Summit - 2026', fileName: 'Startup Summit - 2026', selection: { frameCount: 0, alreadyInDeck: 0 } });
+  await inject(page, { type: 'init', slides: [], settings: SETTINGS, deckTitle: COPY.deck, fileName: COPY.deck, selection: { frameCount: 0, alreadyInDeck: 0 } });
   await page.waitForSelector('.empty');
   await shot(page, 'empty');
 
   // 2. Deck view with thumbnails and a preview
   const slides = SLIDES.map(({ art, ...s }) => s);
-  await inject(page, { type: 'init', slides, settings: SETTINGS, deckTitle: 'Startup Summit - 2026', fileName: 'Startup Summit - 2026', selection: { frameCount: 2, alreadyInDeck: 0 } });
+  for (const s of SLIDES.filter((x) => !x.missing)) await renderSlidePng(page, s, previewWidth(s), 'preview');
+  await inject(page, { type: 'init', slides, settings: SETTINGS, deckTitle: COPY.deck, fileName: COPY.deck, selection: { frameCount: 2, alreadyInDeck: 0 } });
   await page.waitForSelector('.slide-row');
-  for (const s of SLIDES.filter((x) => !x.missing)) {
-    await injectBytes(page, { type: 'thumbnail', id: s.id }, 'bytes', await renderSlidePng(page, s, 320));
-  }
-  await page.waitForTimeout(200);
-  await injectBytes(page, { type: 'preview', id: SLIDES[0].id }, 'bytes', await renderSlidePng(page, SLIDES[0], 1400));
+  for (const s of SLIDES.filter((x) => !x.missing)) await renderSlidePng(page, s, THUMB_WIDTH, 'thumbnail');
   await page.waitForFunction(() => {
     const img = document.querySelector('.stage-img');
     return img && img.complete && img.naturalWidth > 0 && !document.querySelector('.stage-loading');
@@ -521,9 +579,10 @@ try {
   await page.keyboard.press('Escape');
   await page.mouse.up();
 
-  // 2b. Export menu
+  // 2b. Export menu (four targets; the IR JSON debug export only with Settings → Developer tools)
   await page.click('.split-toggle');
   await page.waitForSelector('.menu');
+  if ((await page.$$('.menu-item')).length !== 4) throw new Error('The export menu should list 4 targets by default (no IR JSON)');
   await shot(page, 'export-menu');
   await page.keyboard.press('Escape');
 
@@ -584,6 +643,8 @@ try {
   await page.waitForFunction((title) => document.querySelector('.drawer .dialog-title')?.textContent !== title, OTHER.title);
   await page.waitForTimeout(600);
   console.log(`language switch checks passed (${lang} → ${OTHER.lang} → auto, live, saved)`);
+  // Developer tools: reveals the IR JSON export (checked in the vector PDF scene: 5 menu items).
+  await page.locator('.drawer-body .section').first().locator('.switch').click();
   await page.keyboard.press('Escape');
   await page.waitForSelector('.drawer', { state: 'detached' });
 
@@ -646,7 +707,7 @@ try {
   const names = fx.slides.map((s) => s.name);
   await inject(page, {
     type: 'export-extracted',
-    meta: { title: 'Startup Summit - 2026', author: 'Anna Petrova', company: 'Startup Summit', sourceFile: 'Startup Summit - 2026' },
+    meta: { title: COPY.deck, author: COPY.author, company: 'Acme Inc.', sourceFile: COPY.deck },
     report: demoReport(ids, names),
   });
   // "Compressing images i of N" with the sample's size while the worker works on it.
@@ -737,7 +798,7 @@ try {
   await page.click('.split-toggle');
   await page.waitForSelector('.menu');
   const items = await page.$$eval('.menu-item .menu-label', (els) => els.map((e) => e.textContent));
-  if (items.length !== 5) throw new Error(`Export menu has ${items.length} items: ${items.join(' | ')}`);
+  if (items.length !== 5) throw new Error(`Export menu with developer tools has ${items.length} items: ${items.join(' | ')}`);
   await page.locator('.menu-item').nth(2).click(); // "PDF — vector"
   await page.waitForFunction(() => window.__sent.some((m) => m && m.type === 'start-export' && m.format === 'pdf'));
   const pdfSlides = SLIDES.filter((x) => !x.missing && x.id !== '1:13');
@@ -750,7 +811,7 @@ try {
   const missingName = SLIDES.find((x) => x.missing).name;
   await inject(page, {
     type: 'export-pdf-done',
-    meta: { title: 'Startup Summit - 2026' },
+    meta: { title: COPY.deck },
     report: [{ level: 'warning', code: 'missing-frame', slideId: '1:15', slideName: missingName, message: `Frame "${missingName}" no longer exists and was skipped.` }],
   });
   const pdfFile = await pdfDownload;
@@ -835,9 +896,11 @@ try {
 
   // 8. LED deck: slide size settings with the agency template preset (letterbox warning)
   const ledSlides = LED_SLIDES.map(({ art, title, ...x }) => x);
-  await inject(page, { type: 'init', slides: ledSlides, settings: SETTINGS, deckTitle: 'Startup Summit LED', fileName: 'Startup Summit LED', selection: { frameCount: 0, alreadyInDeck: 0 } });
+  // Previews for the LED slides except the second one (its preview "fails" in scene 9).
+  for (const x of [LED_SLIDES[0], LED_SLIDES[2]]) await renderSlidePng(page, x, previewWidth(x), 'preview');
+  await inject(page, { type: 'init', slides: ledSlides, settings: SETTINGS, deckTitle: COPY.led, fileName: COPY.led, selection: { frameCount: 0, alreadyInDeck: 0 } });
   await page.waitForFunction((n) => document.querySelectorAll('.slide-row').length === n, LED_SLIDES.length);
-  for (const x of LED_SLIDES) await injectBytes(page, { type: 'thumbnail', id: x.id }, 'bytes', await renderSlidePng(page, x, 320));
+  for (const x of LED_SLIDES) await renderSlidePng(page, x, THUMB_WIDTH, 'thumbnail');
   await page.click('.topbar-actions .btn:first-child');
   await page.waitForSelector('.drawer');
   await inject(page, { type: 'fonts', fonts: FONTS });
@@ -867,7 +930,7 @@ try {
   await shot(page, 'preview-failed');
 
   // 9b. Figma menu "Settings": init with command 'settings' opens the drawer; coded toasts are localized.
-  await inject(page, { type: 'init', command: 'settings', slides: ledSlides, settings: SETTINGS, deckTitle: 'Startup Summit LED', fileName: 'Startup Summit LED', selection: { frameCount: 0, alreadyInDeck: 0 } });
+  await inject(page, { type: 'init', command: 'settings', slides: ledSlides, settings: SETTINGS, deckTitle: COPY.led, fileName: COPY.led, selection: { frameCount: 0, alreadyInDeck: 0 } });
   await page.waitForSelector('.drawer');
   await page.keyboard.press('Escape');
   await page.waitForSelector('.drawer', { state: 'detached' });
@@ -882,7 +945,7 @@ try {
 
   // 10. Web Workers refused (as a strict CSP in the plugin iframe would): the same export compresses
   //     on the main thread, and the report says so.
-  const strict = await browser.newContext({ viewport: WINDOW, deviceScaleFactor: 1, locale: lang === 'ru' ? 'ru-RU' : 'en-US', acceptDownloads: true });
+  const strict = await browser.newContext({ viewport: WINDOW, deviceScaleFactor: SCALE, locale: lang === 'ru' ? 'ru-RU' : 'en-US', acceptDownloads: true });
   const noWorker = await strict.newPage();
   noWorker.on('pageerror', (e) => errors.push(e.message));
   await noWorker.addInitScript(`${INIT_SCRIPT}\n  window.Worker = function () { throw new DOMException('Refused to create a worker (test)', 'SecurityError'); };`);
