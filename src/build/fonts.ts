@@ -5,18 +5,30 @@ import { resolveFont, type ResolvedFont } from '../fonts/mapping';
 import { fontKey, type FontOverride } from '../shared/settings';
 import type { FontReportItem } from './api';
 
+export type FontNaming = 'ribbi' | 'full';
+
 export class FontTracker {
   private readonly items = new Map<string, FontReportItem>();
   private readonly cache = new Map<string, ResolvedFont>();
+  private readonly naming: FontNaming;
 
-  constructor(private readonly overrides: Record<string, FontOverride>) {}
+  /**
+   * `naming` = face naming rule for non-overridden fonts (`BuildOptions.fontNaming`); anything other
+   * than `'full'` means `'ribbi'`. Overrides always win.
+   */
+  constructor(
+    private readonly overrides: Record<string, FontOverride>,
+    naming: FontNaming | undefined = 'ribbi',
+  ) {
+    this.naming = naming === 'full' ? 'full' : 'ribbi';
+  }
 
-  /** RIBBI mapping (+ user overrides) of a Figma family / style, memoized. */
+  /** Naming rule (RIBBI or full names) + user overrides of a Figma family / style, memoized. */
   resolve(family: string, style: string): ResolvedFont {
     const key = fontKey(family, style);
     let r = this.cache.get(key);
     if (!r) {
-      r = resolveFont(family, style, this.overrides);
+      r = resolveFont(family, style, this.overrides, this.naming);
       this.cache.set(key, r);
     }
     return r;
