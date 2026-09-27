@@ -28,7 +28,11 @@ export interface FontOverride {
   italic: boolean;
 }
 
+export type UiLanguage = 'auto' | 'en' | 'ru';
+
 export interface ExportSettings {
+  /** Interface language: `auto` follows the Figma/browser language (Russian → ru, otherwise en). */
+  language: UiLanguage;
   mode: ExportMode;
   /** Raster export scale. */
   rasterScale: 1 | 2 | 3;
@@ -81,6 +85,7 @@ export interface ExportSettings {
 }
 
 export const DEFAULT_SETTINGS: ExportSettings = {
+  language: 'auto',
   mode: 'editable',
   rasterScale: CONFIG.raster.defaultScale,
   compression: 'balanced',
@@ -105,6 +110,7 @@ export const DEFAULT_SETTINGS: ExportSettings = {
 /** Merge persisted (possibly older / partial) settings with defaults and clamp values. */
 export function normalizeSettings(raw: unknown): ExportSettings {
   const s = { ...DEFAULT_SETTINGS, ...(raw && typeof raw === 'object' ? (raw as Partial<ExportSettings>) : {}) };
+  if (!['auto', 'en', 'ru'].includes(s.language)) s.language = DEFAULT_SETTINGS.language;
   if (!['editable', 'exact', 'image'].includes(s.mode)) s.mode = DEFAULT_SETTINGS.mode;
   if (![1, 2, 3].includes(s.rasterScale)) s.rasterScale = DEFAULT_SETTINGS.rasterScale;
   if (!(s.jpegQuality >= 0.3 && s.jpegQuality <= 1)) s.jpegQuality = DEFAULT_SETTINGS.jpegQuality;

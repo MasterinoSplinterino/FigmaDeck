@@ -68,6 +68,8 @@ export type UiToMain =
 export type MainToUi =
   | {
       type: 'init';
+      /** Figma menu command that opened the plugin (e.g. 'settings' → open the settings panel). */
+      command?: string;
       slides: SlideInfo[];
       settings: ExportSettings;
       deckTitle: string;
@@ -108,4 +110,8 @@ export type MainToUi =
   | { type: 'export-pdf-done'; meta: DeckMeta; report: ReportEntry[] }
   | { type: 'export-cancelled' }
   | { type: 'export-error'; message: string }
-  | { type: 'toast'; message: string; error?: boolean };
+  /**
+   * `message` is the English text; when `code` is set the UI shows its localized string for
+   * `toast.<code>` (with `{name}`-style `params`) instead.
+   */
+  | { type: 'toast'; message: string; error?: boolean; code?: string; params?: Record<string, string | number> };
