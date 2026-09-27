@@ -7,7 +7,7 @@ import type { Deck, Hyperlink, Rect, ReportEntry, ReportLevel, Slide, Transform 
 import type { BuildOptions } from './api';
 import type { FontTracker } from './fonts';
 import type { SlidePlacement } from './layout';
-import type { EmuRect, LinkTarget, ManifestObject, SlideManifest } from './manifest';
+import type { EmuRect, LinkTarget, ManifestGroup, ManifestObject, SlideManifest } from './manifest';
 import { sanitizeUrl } from './xml';
 import { ptToEmu } from './units';
 
@@ -30,6 +30,8 @@ export interface DeckState {
   slideNumbers: Map<string, number>;
   /** SVG assets referenced by pictures. */
   svgAssets: Record<string, Uint8Array>;
+  /** pptxgenjs data URLs (`image/png;base64,…`) by asset id — each asset is encoded once. */
+  dataUrls: Map<string, string>;
   /** Counter for `fd:<n>` names (unique across the deck). */
   nextObjectId: number;
 }
@@ -44,6 +46,7 @@ export interface EmuTransform extends EmuRect {
 export class SlideContext {
   readonly manifest: SlideManifest;
   private readonly linkKeys = new Map<string, number>();
+  private readonly byName = new Map<string, ManifestObject | ManifestGroup>();
 
   constructor(
     readonly state: DeckState,
@@ -91,6 +94,17 @@ export class SlideContext {
 
   addObject(obj: ManifestObject): void {
     this.manifest.objects.push(obj);
+    this.byName.set(obj.name, obj);
+  }
+
+  addGroup(group: ManifestGroup): void {
+    this.manifest.groups.push(group);
+    this.byName.set(group.name, group);
+  }
+
+  /** Emitted object or group by its `fd:<n>` name. */
+  lookup(name: string): ManifestObject | ManifestGroup | undefined {
+    return this.byName.get(name);
   }
 
   /**

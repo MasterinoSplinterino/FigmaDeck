@@ -175,9 +175,6 @@ function emitPart(ctx: SlideContext, el: ShapeElement, part: ShapePart, link: nu
 /** Emit a shape element; returns the object names written (1, or 2 for a split fill + stroke). */
 export function emitShape(ctx: SlideContext, el: ShapeElement): string[] {
   const link = ctx.linkIndex(el.hyperlink, el.id, el.name);
-  if (el.shadow && el.shadow.spread) {
-    ctx.addReport('warning', 'effect-approximated', `Shadow spread ${el.shadow.spread}px is not supported natively and was ignored.`, el.id, el.name);
-  }
   const t = el.transform;
   const radius = el.geometry === 'roundRect' ? Math.max(0, el.cornerRadius || 0) : 0;
 
