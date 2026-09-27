@@ -11,7 +11,9 @@
 // image compression ran in the Web Worker (the main thread keeps painting meanwhile) and that the
 // sample was stored as a smaller palette PNG in the downloaded .pptx; the vector PDF scene merges
 // synthetic per-frame PDFs (the same photo in every frame, made with pdf-lib here) and checks that
-// the duplicate image was stored once. The settings scene checks the image compression control.
+// the duplicate image was stored once. The settings scene checks the image compression control;
+// "Cancel" during a long compression must close the overlay at once (worker terminated, the next
+// export uses a new one); with `Worker` refused (strict CSP) compression falls back to the main thread.
 //
 // Usage: npm run ui:screenshots -- [--theme dark|light] [--lang en|ru] [--out docs/screenshots] [--only deck,settings]
 //   --only  save just these scenes (all scenes still run, so the interaction checks always happen)
@@ -314,6 +316,8 @@ function noisePng(width, height, seed) {
  * so it takes the lossy palette path; about 1–3 s of work in the worker.
  */
 const SAMPLE = { width: 1200, height: 750 };
+/** A bigger one for the cancel check: its palette search takes seconds, cancelling must not wait for it. */
+const BIG_SAMPLE = { width: 2400, height: 1500 };
 function samplePng(w, h) {
   const p = new PNG({ width: w, height: h });
   const out = p.data;
@@ -333,8 +337,9 @@ function samplePng(w, h) {
       let cg = 60 + 60 * (1 - t);
       let cb = 200 - 90 * t;
       for (const s of discs) {
-        let cov = 0;
-        for (let k = 0; k < 16; k++) if (Math.hypot(x + ((k & 3) + 0.5) / 4 - s.x * w, y + ((k >> 2) + 0.5) / 4 - s.y * h) < s.r * h) cov++;
+        const dist = Math.hypot(x + 0.5 - s.x * w, y + 0.5 - s.y * h) - s.r * h;
+        let cov = dist < -1 ? 16 : 0;
+        if (Math.abs(dist) <= 1) for (let k = 0; k < 16; k++) if (Math.hypot(x + ((k & 3) + 0.5) / 4 - s.x * w, y + ((k >> 2) + 0.5) / 4 - s.y * h) < s.r * h) cov++;
         const sa = cov / 16;
         if (sa === 0) continue;
         const na = sa + a * (1 - sa);
@@ -356,6 +361,37 @@ function samplePng(w, h) {
     }
   }
   return PNG.sync.write(p);
+}
+
+/** Image compression summary of the open report dialog (its data-* attributes), or null. */
+function reportImages(page) {
+  return page.evaluate(() => {
+    const el = document.querySelector('.report-images');
+    return el ? { thread: el.dataset.thread, before: Number(el.dataset.bytesBefore), after: Number(el.dataset.bytesAfter), methods: JSON.parse(el.dataset.methods), text: el.textContent } : null;
+  });
+}
+
+/** Starts a one-slide PPTX export from the UI and feeds main's messages: `slide` + `assets` + the sample PNG. */
+async function runSampleExport(page, slide, assets, sampleBytes, size) {
+  const count = await page.evaluate(() => window.__sent.filter((m) => m && m.type === 'start-export').length);
+  await page.click('.split-main');
+  await page.waitForFunction((n) => window.__sent.filter((m) => m && m.type === 'start-export').length > n, count);
+  await inject(page, { type: 'export-started', format: 'pptx', total: 1 });
+  const all = { ...assets, sample: { id: 'sample', mime: 'image/png', role: 'raster', data: sampleBytes.toString('base64'), width: size.width, height: size.height, hasAlpha: true } };
+  await page.evaluate(
+    ({ slide, assets }) => {
+      const decoded = Object.values(assets).map((a) => ({ ...a, data: window.__b64(a.data) }));
+      window.__inject({ type: 'export-slide', index: 0, total: 1, slide, assets: decoded });
+    },
+    { slide, assets: all },
+  );
+  await inject(page, { type: 'export-extracted', meta: { title: 'Compression check' }, report: [] });
+}
+
+/** Regex source matching "W × H px" as the overlay prints it (en / ru digit grouping). */
+function sizePattern(size) {
+  const n = (v) => String(v).replace(/\B(?=(\d{3})+(?!\d))/g, '[,\\u00a0\\u202f ]?');
+  return `${n(size.width)} × ${n(size.height)} px`;
 }
 
 /** PNG media of a .pptx with their IHDR (size, colour type). */
@@ -555,9 +591,8 @@ try {
     report: demoReport(ids, names),
   });
   // "Compressing images i of N" with the sample's size while the worker works on it.
-  const sampleSize = new RegExp(`200 × ${SAMPLE.height} px`);
   await page
-    .waitForFunction((src) => new RegExp(src).test(document.querySelector('.progress-detail')?.textContent ?? ''), sampleSize.source, { timeout: 30000 })
+    .waitForFunction((src) => new RegExp(src).test(document.querySelector('.progress-detail')?.textContent ?? ''), sizePattern(SAMPLE), { timeout: 30000 })
     .then(() => shot(page, 'progress-images'))
     .catch(() => console.warn('warning: the images phase passed before it could be captured (progress-images not saved)'));
   const download = await downloadPromise.catch(async (e) => {
@@ -574,10 +609,7 @@ try {
     window.__frames.on = false;
     return window.__frames;
   });
-  const imageStats = await page.evaluate(() => {
-    const el = document.querySelector('.report-images');
-    return el ? { thread: el.dataset.thread, before: Number(el.dataset.bytesBefore), after: Number(el.dataset.bytesAfter), methods: JSON.parse(el.dataset.methods), text: el.textContent } : null;
-  });
+  const imageStats = await reportImages(page);
   if (!imageStats) throw new Error('The report has no image compression summary');
   console.log(`image compression: ${imageStats.thread === 'worker' ? 'Web Worker' : imageStats.thread} path — ${imageStats.text}`);
   console.log(`main thread while compressing: ${frames.frames} frames, longest gap ${Math.round(frames.maxGap)} ms`);
@@ -619,6 +651,27 @@ try {
   const removed = await sentOf('remove-slides');
   if (JSON.stringify(removed[0]?.ids) !== '["1:13"]') throw new Error(`Unexpected removal: ${JSON.stringify(removed)}`);
   console.log('interaction checks passed (drag reorder, ↓ selection, Delete)');
+
+  // 6b. Cancel while a big image is being compressed: the worker is terminated at once (no waiting
+  //     for the job); the next export compresses in a fresh worker.
+  await runSampleExport(page, fx.slides[0], fx.assets, samplePng(BIG_SAMPLE.width, BIG_SAMPLE.height), BIG_SAMPLE);
+  await page.waitForFunction((src) => new RegExp(src).test(document.querySelector('.progress-detail')?.textContent ?? ''), sizePattern(BIG_SAMPLE), { timeout: 30000 });
+  const cancelStart = Date.now();
+  await page.click('.progress-foot .btn');
+  await page.waitForSelector('.progress-dialog', { state: 'detached', timeout: 10000 });
+  const cancelMs = Date.now() - cancelStart;
+  const toastText = await page.textContent('.toasts');
+  if (!/Export cancelled|Экспорт отменён/.test(toastText ?? '')) throw new Error(`No "cancelled" toast after Cancel: ${toastText}`);
+  if (cancelMs > 1000) throw new Error(`Cancel took ${cancelMs} ms during image compression (the worker job was not terminated)`);
+  const again = page.waitForEvent('download', { timeout: 120000 });
+  await runSampleExport(page, fx.slides[0], fx.assets, sample, SAMPLE);
+  await (await again).path();
+  await page.waitForSelector('.report-dialog');
+  const rerun = await reportImages(page);
+  if (rerun?.thread !== 'worker' || !(rerun.methods['palette-lossy'] >= 1)) throw new Error(`Export after a cancelled compression did not use a fresh worker: ${JSON.stringify(rerun)}`);
+  console.log(`cancel during compression: overlay closed in ${cancelMs} ms (worker terminated); the next export compressed in a new worker`);
+  await page.keyboard.press('Escape');
+  await page.waitForSelector('.report-dialog', { state: 'detached' });
 
   // 7. Vector PDF: Figma's per-frame PDFs → merged, duplicate photo stored once → report
   await page.click('.split-toggle');
@@ -688,6 +741,27 @@ try {
 
   const sent = await page.evaluate(() => window.__sent.map((m) => m && m.type));
   console.log(`UI → main: ${[...new Set(sent)].join(', ')}`);
+
+  // 10. Web Workers refused (as a strict CSP in the plugin iframe would): the same export compresses
+  //     on the main thread, and the report says so.
+  const strict = await browser.newContext({ viewport: WINDOW, deviceScaleFactor: 1, locale: lang === 'ru' ? 'ru-RU' : 'en-US', acceptDownloads: true });
+  const noWorker = await strict.newPage();
+  noWorker.on('pageerror', (e) => errors.push(e.message));
+  await noWorker.addInitScript(`${INIT_SCRIPT}\n  window.Worker = function () { throw new DOMException('Refused to create a worker (test)', 'SecurityError'); };`);
+  await noWorker.goto(pathToFileURL(htmlPath).href);
+  await inject(noWorker, { type: 'init', slides: SLIDES.map(({ art, ...x }) => x), settings: SETTINGS, deckTitle: 'No worker', fileName: 'No worker', selection: { frameCount: 0, alreadyInDeck: 0 } });
+  await noWorker.waitForSelector('.slide-row');
+  const fallbackDownload = noWorker.waitForEvent('download', { timeout: 120000 });
+  await runSampleExport(noWorker, fx.slides[0], fx.assets, sample, SAMPLE);
+  await (await fallbackDownload).path();
+  await noWorker.waitForSelector('.report-dialog');
+  const fallback = await reportImages(noWorker);
+  const fallbackNote = await noWorker.textContent('.report-note.warn-text').catch(() => null);
+  if (fallback?.thread !== 'main' || !(fallback.methods['palette-lossy'] >= 1) || !fallbackNote) {
+    throw new Error(`Main-thread fallback failed: ${JSON.stringify(fallback)} / note: ${fallbackNote}`);
+  }
+  console.log(`no Web Worker: main-thread fallback path — ${fallback.text} | ${fallbackNote}`);
+  await strict.close();
   if (errors.length > 0) {
     console.error('Page errors:\n' + errors.join('\n'));
     process.exitCode = 1;
