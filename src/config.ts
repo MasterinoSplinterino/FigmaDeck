@@ -106,6 +106,33 @@ export const CONFIG = {
   gradient: {
     /** Stops closer than this (0..1) are merged when clamping to the OOXML 0..100% range. */
     stopEpsilon: 1e-4,
+    /**
+     * A gradient whose parameter changes by less than this across the whole box (|∇t| × longest side,
+     * gradient units) is written as a solid fill of its first stop.
+     */
+    degenerateLength: 1e-6,
+  },
+
+  /** PPTX writer choices (build/ + post/). */
+  pptx: {
+    /** Notes page size, EMU: a normal portrait page (pptxgenjs writes the swapped slide size). */
+    notesWidthEmu: 6858000,
+    notesHeightEmu: 9144000,
+    /** `baseline` of superscript / subscript runs (1/1000 %; PowerPoint's own defaults). */
+    superscriptBaseline: 30000,
+    subscriptBaseline: -25000,
+    /** Miter limit written for `join: miter` strokes (1/1000 %; 800 % = PowerPoint default). */
+    miterLimit: 800000,
+    /** Keep the run color on hyperlinks (Office 2019+ `ahyp:hlinkClr val="tx"`) instead of the theme hyperlink color. */
+    hyperlinkUseTextColor: true,
+    /** Store byte-identical media files once (a logo or background repeated on every slide). */
+    dedupeMedia: true,
+    /**
+     * Inside / outside strokes are emulated by shrinking / growing the geometry. When the stroke is
+     * semi-transparent or the fill is a gradient, emit the fill and the stroke as two shapes so the fill
+     * keeps its original geometry.
+     */
+    splitAlignedStroke: true,
   },
 
   ui: {
@@ -122,6 +149,37 @@ export const CONFIG = {
     yieldEveryNodes: 25,
     /** Max parallel exportAsync calls. */
     exportConcurrency: 4,
+  },
+
+  /** Extraction (main thread, extract/): tolerances and Figma-behavior assumptions. */
+  extract: {
+    /**
+     * Tolerance (unitless) when checking that a transform is a pure rotation / flip: axes orthogonal
+     * and of unit length. Beyond it the node counts as skewed / scaled and is rasterized (`transform`).
+     */
+    matrixEpsilon: 1e-3,
+    /** Rotations within this many degrees of a multiple of 90° are snapped to it (float noise). */
+    rotationSnapDeg: 0.01,
+    /** Geometric tolerance (px) for containment, "covers the frame" and rounded-corner tests. */
+    geometryEpsilonPx: 0.5,
+    /** Two siblings overlap (group-opacity rule) when their render bounds share more than this area (px²). */
+    overlapMinAreaPx2: 1,
+    /** Crop fractions (0..1) below this are written as 0. */
+    cropEpsilon: 1e-4,
+    /**
+     * `exportAsync` renders the node with its own opacity baked into the bitmap, so a rasterized node
+     * gets only its ancestors' opacity in the IR. Flip if calibration shows otherwise.
+     */
+    exportIncludesOwnOpacity: true,
+    /** SVG exports: text as outlines (exact look, no font dependency in the SVG). */
+    svgOutlineText: true,
+    /** An SVG whose root size differs from the PNG region by more than this (px) is dropped (PNG only). */
+    svgSizeTolerancePx: 1.5,
+    /** Max size (bytes) of an SVG export that is kept next to the PNG fallback. */
+    svgMaxBytes: 2000000,
+    /** Name + plugin-data marker of temporary composite nodes (so leftovers can be found and removed). */
+    tempNodeName: '[FigmaDeck temp]',
+    tempPluginDataKey: 'figmadeck.temp',
   },
 
   /** Metadata written to docProps (never the PptxGenJS defaults). */
