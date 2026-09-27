@@ -42,11 +42,46 @@ Consequence: place a raster at `(renderBounds.x, renderBounds.y)` with size `png
   all `filters` 0 → original image bytes + cover crop.
 * Frame blend mode on containers is `PASS_THROUGH` (treat like NORMAL).
 
-## Not verified yet (Figma MCP Starter-plan call limit reached)
+## Clipping (verified on temporary test nodes)
 
-* Temporary clone moved to the page root with `relativeTransform = original.absoluteTransform`
-  keeps the same `absoluteRenderBounds` (expected).
-* `exportAsync({contentsOnly:false})` of a node includes the backdrop underneath (expected per
-  typings: "any overlapping layer in the same area") — would allow backdrop-dependent effects
-  (background blur, blend modes) to be flattened with their backdrop while texts stay native.
-* Whether a child's default export is clipped by an ancestor with `clipsContent`.
+* `absoluteRenderBounds` **is already clipped by ancestors with `clipsContent`**: a 200×50 child
+  sticking out of a 100×100 clipping frame reports render bounds 100×50, and its default
+  `exportAsync` is the clipped 100×50 bitmap.
+* A visible node entirely outside its clipping ancestor has `absoluteRenderBounds === null`, and
+  `exportAsync` returns a **1×1 PNG** — exactly the 157 empty 1×1 images in the Deck reference file.
+  → `absoluteRenderBounds === null` ⇒ skip the node (report `outside-clip`).
+* Rasters therefore need no manual crop for rectangular clips: place the PNG at the (clipped)
+  render bounds with size `png / scale`. Manual geometry clipping is only needed for NATIVE
+  elements (shapes, text, original image fills).
+* Drop shadow (offset 4,6, radius 8) and OUTSIDE strokes grow the render bounds accordingly.
+
+## Rotation
+
+* `rotation = 30` (Figma, counter-clockwise on screen) → `relativeTransform [[0.866, 0.5, tx], [-0.5, 0.866, ty]]`.
+  Clockwise PowerPoint angle = `atan2(m10, m00)` = −30° → normalized 330°. Export of the rotated
+  node = axis-aligned render bounds (44.64×37.32 → 45×38 PNG).
+
+## Temporary clones (verified)
+
+* `node.clone()` of a NESTED node puts the clone on the **current page** (not in the original parent);
+  the original auto-layout parent keeps its children. Instances clone to an INSTANCE on the page.
+* With `clone.relativeTransform = original.absoluteTransform` the clone's bounding and render
+  bounds equal the original's exactly.
+* `opacity = 0` on the clone's TEXT layers gives a byte-identical PNG to removing them, and the
+  auto-layout frame keeps its size (FIXED sizing). For HUG-sized auto-layout frames set
+  `layoutMode = 'NONE'` (or fixed sizing) before removing children, otherwise the frame shrinks.
+* `instanceClone.detachInstance()` returns a **new FRAME node with a new id**; the instance id is
+  gone afterwards. Track the returned node for cleanup.
+* A removed COMPONENT stays resolvable by `getNodeByIdAsync` (with `parent === null`) — check
+  `node.parent`/`node.removed`, not just existence, when verifying cleanup.
+* `exportAsync({contentsOnly:false})` output differs from `contentsOnly:true` for the same node
+  (includes overlapping layers / backdrop). Not used: it would also capture layers above the node.
+
+## Text runtime notes
+
+* Figma keeps U+2028 in `characters`; `getStyledTextSegments` does not split on it.
+* Inter 12 px, `lineHeight AUTO`: 5 lines → height 75 px ⇒ AUTO = **15 px = 1.25 × size**
+  (not 1.2). AUTO line height is font-specific and rounded; measure it (temporary text node with
+  the same font/size, two lines) when the font is available, fall back to CONFIG.text.autoLineHeight.
+* A literal U+2028 inside a JS string literal is a syntax error in the plugin sandbox — bundles must
+  escape it (esbuild's default ASCII charset does).
