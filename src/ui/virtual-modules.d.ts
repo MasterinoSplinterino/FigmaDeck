@@ -4,3 +4,9 @@ declare module 'figmadeck:compress-worker' {
   const code: string;
   export default code;
 }
+
+declare module 'figmadeck:licenses' {
+  /** License notices of the npm packages bundled into the plugin (THIRD_PARTY_NOTICES.md), sorted by name. */
+  const notices: ReadonlyArray<{ name: string; version: string; license: string; url: string; text: string }>;
+  export default notices;
+}

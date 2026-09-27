@@ -1,11 +1,12 @@
 /**
- * Report after a successful export: summary tiles, fonts (not embedded!), rasterized layers by slide
- * with localized reasons, skipped layers per slide, warnings / notes; Copy report, Download again.
+ * Report after a successful export: the file (with a "Download again" hint), summary tiles, fonts (not
+ * embedded!), rasterized layers by slide with localized reasons, skipped layers per slide, warnings /
+ * notes; Copy report, Download again.
  */
 import type { ComponentChildren, JSX } from 'preact';
 import { useMemo } from 'preact/hooks';
 import { CONFIG } from '../../config';
-import { formatBytes, formatDuration, reasonLabel, t, tp } from '../i18n';
+import { formatBytes, formatDuration, getLang, reasonLabel, t, tp } from '../i18n';
 import {
   FORMAT_LABEL,
   buildReportModel,
@@ -54,6 +55,8 @@ export function ReportDialog(props: { outcome: ExportOutcome; onClose: () => voi
   const threadNote = imagesThreadNote(o.images);
   const dedupe = dedupeText(o.pdfDedupe);
   const limit = CONFIG.ui.reportMaxItemsPerSlide;
+  // Entries without a localized text show main's English message; as a tooltip it only helps in English.
+  const detail = (e: { message: string }) => (getLang() === 'en' ? e.message : undefined);
 
   return (
     <Modal title={t('report.title')} class="report-dialog" onClose={props.onClose}>
@@ -65,12 +68,14 @@ export function ReportDialog(props: { outcome: ExportOutcome; onClose: () => voi
           </span>
           <span class="tag">{t(FORMAT_LABEL[o.format])}</span>
         </div>
+        <div class="report-download-hint">{t('report.downloadHint')}</div>
 
         <div class="stats">
           <Stat label={t('report.slides')} value={o.slideCount} />
           <Stat label={t('report.size')} value={formatBytes(o.data.byteLength)} />
           <Stat label={t('report.duration')} value={formatDuration(o.durationMs)} />
-          {o.stats ? (
+          {o.stats && o.format === 'pptx' ? (
+            // Editable PowerPoint only: an image PowerPoint has one picture per slide and nothing else.
             <>
               <Stat label={t('report.texts')} value={o.stats.texts} />
               <Stat label={t('report.shapes')} value={o.stats.shapes} />
@@ -192,7 +197,7 @@ export function ReportDialog(props: { outcome: ExportOutcome; onClose: () => voi
           <Block title={t('report.warnings')} count={model.warnings.length} tone="warn">
             <ul class="plain-list">
               {model.warnings.map((e, i) => (
-                <li key={i} title={e.message}>
+                <li key={i} title={detail(e)}>
                   <IconWarning size={14} class="warn" />
                   <span>
                     <span class="slide-ref">{e.slideName}</span> {entryText(e)}
@@ -207,7 +212,7 @@ export function ReportDialog(props: { outcome: ExportOutcome; onClose: () => voi
           <Block title={t('report.notes')} count={model.infos.length} open={false}>
             <ul class="plain-list">
               {model.infos.map((e, i) => (
-                <li key={i} title={e.message}>
+                <li key={i} title={detail(e)}>
                   <IconInfo size={14} />
                   <span>
                     <span class="slide-ref">{e.slideName}</span> {entryText(e)}

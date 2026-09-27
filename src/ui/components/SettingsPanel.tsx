@@ -1,16 +1,18 @@
 /**
- * Settings drawer: mode of the editable PowerPoint target, images (scale, compression level, JPEG
- * quality…), text, shapes & layers, slide size, metadata, fonts (naming rule + mapping). Every change
- * is applied immediately (App persists it with a debounced `save-settings`).
+ * Settings drawer: general (interface language), mode of the editable PowerPoint target, images
+ * (scale, compression level, JPEG quality…), text, shapes & layers, slide size, metadata, fonts
+ * (naming rule + mapping), about (version, privacy, support, open-source licenses). Every change is
+ * applied immediately — the language too — and App persists it with a debounced `save-settings`.
  */
 import type { JSX } from 'preact';
 import { useEffect, useRef } from 'preact/hooks';
 import { CONFIG } from '../../config';
 import type { FontInfo } from '../../shared/messages';
-import type { ExportSettings } from '../../shared/settings';
-import { formatNumber, formatPercent, t, tp, type MessageKey } from '../i18n';
+import type { ExportSettings, UiLanguage } from '../../shared/settings';
+import { formatPercent, t, tp, type MessageKey } from '../i18n';
 import { editableMode } from '../options';
 import type { FrameSize } from '../slide-size';
+import { AboutSection } from './About';
 import { Row, Section, Segmented, Slider, Switch } from './controls';
 import { FontMapping } from './FontMapping';
 import { IconClose, IconReset } from './icons';
@@ -76,6 +78,8 @@ function TextField(props: { value: string; label: string; onChange: (v: string) 
 export interface SettingsPanelProps {
   settings: ExportSettings;
   fonts: FontInfo[] | null;
+  /** Main never answered the font request: show a message instead of the spinner. */
+  fontsFailed?: boolean;
   /** Frames that will be exported, in order (slide size summary). */
   frames: readonly FrameSize[];
   onChange: (patch: Partial<ExportSettings>) => void;
@@ -124,6 +128,21 @@ export function SettingsPanel(props: SettingsPanelProps): JSX.Element {
         </header>
 
         <div class="drawer-body">
+          <Section title={t('settings.section.general')}>
+            <Row label={t('settings.language')} hint={t('settings.languageHint')}>
+              <Segmented<UiLanguage>
+                value={s.language}
+                ariaLabel={t('settings.language')}
+                options={[
+                  { value: 'auto', label: t('settings.language.auto') },
+                  { value: 'en', label: t('settings.language.en') },
+                  { value: 'ru', label: t('settings.language.ru') },
+                ]}
+                onChange={(language) => set({ language })}
+              />
+            </Row>
+          </Section>
+
           <Section title={t('settings.section.mode')}>
             <ChoiceCards choices={MODES} value={mode} label={t('settings.section.mode')} onChange={(next) => set({ mode: next })} />
             <div class="row-hint">{t('settings.modeNote')}</div>
@@ -159,7 +178,7 @@ export function SettingsPanel(props: SettingsPanelProps): JSX.Element {
                 max={CONFIG.ui.jpegQualityMax}
                 step={CONFIG.ui.jpegQualityStep}
                 label={t('settings.jpegQuality')}
-                format={(v) => `${Math.round(v * 100)}%`}
+                format={(v) => formatPercent(v, undefined, 0)}
                 disabled={s.compression === 'off'}
                 onChange={(jpegQuality) => set({ jpegQuality })}
               />
@@ -201,7 +220,7 @@ export function SettingsPanel(props: SettingsPanelProps): JSX.Element {
                 max={CONFIG.ui.widthSlackMax}
                 step={CONFIG.ui.widthSlackStep}
                 label={t('settings.widthSlack')}
-                format={(v) => `${formatNumber(v, undefined, 1)}%`}
+                format={(v) => formatPercent(v / 100, undefined, 1)}
                 onChange={(widthSlackPercent) => set({ widthSlackPercent })}
               />
             </Row>
@@ -239,8 +258,10 @@ export function SettingsPanel(props: SettingsPanelProps): JSX.Element {
           </Section>
 
           <Section title={t('settings.section.fonts')} aside={props.fonts ? <span class="badge">{tp('settings.fonts.count', fontCount)}</span> : null}>
-            <FontMapping fonts={props.fonts} settings={s} onChange={set} />
+            <FontMapping fonts={props.fonts} failed={!!props.fontsFailed} settings={s} onChange={set} />
           </Section>
+
+          <AboutSection />
         </div>
 
         <footer class="drawer-foot">

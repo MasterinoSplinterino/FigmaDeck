@@ -1,8 +1,10 @@
 /**
- * "No active slides": wireframe illustration, explanation and the "Add slides" button.
+ * "No slides yet": wireframe illustration, one sentence on what the plugin does and how to start
+ * (select frames → Add slides), the "Add slides" button, and Settings in the corner.
  */
 import type { JSX } from 'preact';
 import { t, tp } from '../i18n';
+import { IconSettings } from './icons';
 
 /** Slide frame with corner handles, an image block and three text lines over a fading grid. */
 function Illustration(): JSX.Element {
@@ -45,11 +47,15 @@ function Illustration(): JSX.Element {
   );
 }
 
-export function EmptyState(props: { newFrames: number; allInDeck: boolean; onAdd: () => void }): JSX.Element {
+export function EmptyState(props: { newFrames: number; allInDeck: boolean; onAdd: () => void; onSettings: () => void }): JSX.Element {
   const disabled = props.newFrames === 0;
   const hint = props.allInDeck ? t('empty.hintAllInDeck') : t('empty.hintNoFrames');
   return (
     <div class="empty">
+      <button type="button" class="btn ghost empty-settings" onClick={props.onSettings}>
+        <IconSettings />
+        {t('top.settings')}
+      </button>
       <Illustration />
       <h1 class="empty-title">{t('empty.title')}</h1>
       <p class="empty-text">{t('empty.text')}</p>

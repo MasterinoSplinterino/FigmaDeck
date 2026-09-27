@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { countColors, hasTransparency, type RgbaPixels } from '../../src/compress';
 import { CONFIG } from '../../src/config';
-import type { Asset } from '../../src/ir/types';
+import type { Asset, Slide } from '../../src/ir/types';
 import { inThreadCompressor, runPixelJob, type PixelCompressor, type PixelJob, type PixelLib, type PixelResult } from '../../src/ui/compress-job';
 import {
   ImagesCancelledError,
@@ -12,6 +12,8 @@ import {
   planAsset,
   processAssets,
   selectEncoding,
+  slideMattes,
+  WHITE,
   type BitmapInput,
   type ImageCodec,
   type ImageOptions,
@@ -352,16 +354,55 @@ describe('selectEncoding', () => {
     expect(release).toHaveBeenCalledOnce();
   });
 
-  it('image targets: opaque slide pictures go straight to JPEG; a transparent frame gets PNG candidates', async () => {
-    const target: ImageOptions = { ...OPTS, imageTarget: true };
+  it('image targets: every slide picture becomes a JPEG — a transparent one is flattened onto its matte first', async () => {
+    const target: ImageOptions = { ...OPTS, imageTarget: true, jpegQuality: 0.7 };
     const compressor = recordingCompressor();
     const flat = flatIcon(80, 60, FLAT_COLORS);
-    const opaque = await selectEncoding(input(flat, 80, 60, { role: 'background' }), target, { compressor, encodeJpeg: fakeJpeg(0.5, 80, 60).encode });
-    expect(opaque.method).toBe('jpeg');
+    // Opaque, even when the JPEG is far bigger than the PNG original.
+    const jpeg = fakeJpeg(5, 80, 60);
+    const opaque = await selectEncoding(input(flat, 80, 60, { role: 'background', original: { bytes: 100, mime: 'image/png' } }), target, { compressor, encodeJpeg: jpeg.encode });
+    expect(opaque).toMatchObject({ method: 'jpeg', mime: 'image/jpeg', transparent: false });
+    expect(jpeg.calls).toEqual([0.7]);
+    // Transparent (rounded corners): flattened onto the matte, then JPEG; no PNG attempt.
+    const order: string[] = [];
+    const flattened: unknown[] = [];
+    const matte = { r: 0.1, g: 0.2, b: 0.3 };
+    const rounded = await selectEncoding(input(smoothGradient(80, 60), 80, 60, { role: 'background', matte }), target, {
+      compressor,
+      encodeJpeg: async (q) => {
+        order.push(`jpeg ${q}`);
+        return new Uint8Array(10);
+      },
+      flatten: (m) => {
+        order.push('flatten');
+        flattened.push(m);
+      },
+      release: () => order.push('release'),
+    });
+    expect(rounded).toMatchObject({ method: 'jpeg', mime: 'image/jpeg', transparent: false, job: null });
+    expect(order).toEqual(['flatten', 'jpeg 0.7', 'release']);
+    expect(flattened).toEqual([matte]);
+    // Strong compression caps the quality as for any JPEG.
+    const strong: string[] = [];
+    await selectEncoding(input(smoothGradient(80, 60), 80, 60, { role: 'background' }), { ...target, compression: 'strong', jpegQuality: 0.95 }, {
+      compressor,
+      encodeJpeg: async (q) => (strong.push(String(q)), new Uint8Array(1)),
+      flatten: (m) => void strong.push(JSON.stringify(m)),
+    });
+    expect(strong).toEqual([JSON.stringify(WHITE), String(CONFIG.ui.imageStrongJpegQuality)]);
     expect(compressor.jobs).toHaveLength(0);
-    const transparent = await selectEncoding(input(smoothGradient(80, 60), 80, 60, { role: 'background' }), target, { compressor, encodeJpeg: fakeJpeg(0.01, 80, 60).encode });
-    expect(transparent.method).not.toBe('jpeg');
+    // Only the slide pictures of image targets: a transparent raster layer still gets the PNG candidates.
+    const layer = await selectEncoding(input(smoothGradient(80, 60), 80, 60, { role: 'raster' }), target, { compressor, encodeJpeg: fakeJpeg(0.01, 80, 60).encode, flatten: () => undefined });
+    expect(layer.method).not.toBe('jpeg');
     expect(compressor.jobs).toHaveLength(1);
+  });
+
+  it('without image targets a transparent background keeps the PNG candidates (no flattening)', async () => {
+    const compressor = recordingCompressor();
+    const flatten = vi.fn();
+    const result = await selectEncoding(input(smoothGradient(80, 60), 80, 60, { role: 'background' }), OPTS, { compressor, encodeJpeg: fakeJpeg(0.01, 80, 60).encode, flatten });
+    expect(result.method).not.toBe('jpeg');
+    expect(flatten).not.toHaveBeenCalled();
   });
 
   it('releases the bitmap source before the pixel job', async () => {
@@ -392,6 +433,9 @@ function fakeCodec(bitmaps: Record<number, { rgba: Uint8Array; width: number; he
   const codec = {
     calls: [] as string[],
     released: 0,
+    /** Minimum alpha of each surface encoded as JPEG (255 = no transparent pixel left). */
+    encodedAlpha: [] as number[],
+    flattened: [] as Uint8Array[],
     async render(data: Uint8Array, mime: string, width: number, height: number): Promise<FakeSurface> {
       codec.calls.push(`render ${mime} ${width}x${height}`);
       const src = bitmaps[data[0]];
@@ -412,13 +456,29 @@ function fakeCodec(bitmaps: Record<number, { rgba: Uint8Array; width: number; he
     },
     async encode(s: FakeSurface, mime: string, quality: number): Promise<Uint8Array> {
       codec.calls.push(`encode ${mime} ${quality}`);
+      if (mime === 'image/jpeg') {
+        let min = 255;
+        for (let i = 3; i < s.rgba.length; i += 4) min = Math.min(min, s.rgba[i]);
+        codec.encodedAlpha.push(min);
+      }
       const size = Math.round(s.width * s.height * (mime === 'image/jpeg' ? jpeg * quality : png));
       return new Uint8Array(Math.max(1, size));
+    },
+    /** Straight-alpha "over" onto the opaque matte, like the canvas codec's destination-over fill. */
+    flatten(s: FakeSurface, m: { r: number; g: number; b: number }): void {
+      codec.calls.push(`flatten ${[m.r, m.g, m.b].map((v) => Math.round(v * 255)).join(',')}`);
+      const bg = [m.r, m.g, m.b].map((v) => v * 255);
+      for (let i = 0; i < s.rgba.length; i += 4) {
+        const a = s.rgba[i + 3] / 255;
+        for (let c = 0; c < 3; c++) s.rgba[i + c] = Math.round(s.rgba[i + c] * a + bg[c] * (1 - a));
+        s.rgba[i + 3] = 255;
+      }
+      codec.flattened.push(s.rgba.slice());
     },
     release(): void {
       codec.released++;
     },
-  } satisfies ImageCodec<FakeSurface> & { calls: string[]; released: number };
+  } satisfies ImageCodec<FakeSurface> & { calls: string[]; released: number; encodedAlpha: number[]; flattened: Uint8Array[] };
   return codec;
 }
 
@@ -532,8 +592,69 @@ describe('processAssets', () => {
     expect(onError).not.toHaveBeenCalled();
   });
 
+  it('image targets: slide pictures with rounded corners become JPEG, flattened onto the slide background', async () => {
+    // A 64×48 "frame" with transparent corners (rounded) over a smooth opaque body.
+    const w = 64;
+    const h = 48;
+    const rgba = photo(w, h);
+    const corners = [0, w - 1, (h - 1) * w, h * w - 1];
+    for (const i of corners) rgba[i * 4 + 3] = 0;
+    const ROUNDED = { rgba, width: w, height: h };
+    const assets: Record<string, Asset> = {
+      a: bitmapAsset('a', 4, w * h * 4, { role: 'background', width: w, height: h }),
+      b: bitmapAsset('b', 4, w * h * 4, { role: 'background', width: w, height: h }),
+    };
+    const codec = fakeCodec({ 4: ROUNDED });
+    const mattes = { a: { r: 1, g: 0, b: 0 } }; // b: no slide background → white
+    const stats = await processAssets(assets, { ...OPTS, imageTarget: true, jpegQuality: 0.8, compression: 'off', mattes }, { yieldFn: noYield }, codec);
+    expect([assets.a.mime, assets.b.mime]).toEqual(['image/jpeg', 'image/jpeg']);
+    expect([assets.a.hasAlpha, assets.b.hasAlpha]).toEqual([false, false]);
+    expect(codec.calls.filter((c) => c.startsWith('flatten'))).toEqual(['flatten 255,0,0', 'flatten 255,255,255']);
+    expect(codec.calls.filter((c) => c.startsWith('encode'))).toEqual(['encode image/jpeg 0.8', 'encode image/jpeg 0.8']);
+    expect(codec.encodedAlpha).toEqual([255, 255]);
+    // The transparent corner took the matte colour; the opaque body is untouched.
+    const px = (buf: Uint8Array, i: number) => Array.from(buf.subarray(i * 4, i * 4 + 4));
+    expect(px(codec.flattened[0], 0)).toEqual([255, 0, 0, 255]);
+    expect(px(codec.flattened[1], w - 1)).toEqual([255, 255, 255, 255]);
+    expect(px(codec.flattened[0], w + 1)).toEqual(px(rgba, w + 1));
+    expect(stats.methods.jpeg).toBe(2);
+  });
+
   it('nothing eligible → no codec needed', async () => {
     const stats = await processAssets({ i: asset({ id: 'i', role: 'svg', mime: 'image/svg+xml' }) }, OPTS);
     expect(stats).toEqual(emptyImageStats('balanced'));
+  });
+});
+
+describe('slideMattes', () => {
+  const slide = (id: string, background: Slide['background'], assetIds: string[], nested = false): Slide => {
+    const images = assetIds.map((assetId, i) => ({
+      type: 'image' as const,
+      id: `${id}:${i}`,
+      name: 'x',
+      transform: { x: 0, y: 0, w: 10, h: 10, rotation: 0, flipH: false, flipV: false },
+      opacity: 1,
+      assetId,
+      svgAssetId: null,
+      crop: null,
+      geometry: 'rect' as const,
+      cornerRadius: 0,
+    }));
+    const elements = nested ? [{ type: 'group' as const, id: `${id}:g`, name: 'g', transform: images[0].transform, opacity: 1, children: images }] : images;
+    return { id, name: id, width: 10, height: 10, background, elements } as unknown as Slide;
+  };
+
+  it('slide background per picture; white without one; groups visited; the first slide wins', () => {
+    const solid = (r: number, g: number, b: number, a = 1): Slide['background'] => ({ type: 'solid', color: { r, g, b, a } });
+    expect(
+      slideMattes([slide('1', solid(0, 0, 1), ['a']), slide('2', null, ['b', 'a']), slide('3', solid(1, 0, 0), ['c'], true), slide('4', solid(0, 0, 0, 0.5), ['d'])]),
+    ).toEqual({ a: { r: 0, g: 0, b: 1 }, b: WHITE, c: { r: 1, g: 0, b: 0 }, d: { r: 0.5, g: 0.5, b: 0.5 } });
+  });
+
+  it('planAsset: slide pictures of image targets are compressed even with compression off', () => {
+    const bg = asset({ id: 'bg', role: 'background' });
+    expect(planAsset(bg, { ...OPTS, compression: 'off', imageTarget: true })).toMatchObject({ kind: 'compress' });
+    expect(planAsset(bg, { ...OPTS, compression: 'off' })).toBeNull();
+    expect(planAsset(asset({ id: 'r', role: 'raster' }), { ...OPTS, compression: 'off', imageTarget: true })).toBeNull();
   });
 });

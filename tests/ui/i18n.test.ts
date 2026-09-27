@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest';
+import { CONFIG } from '../../src/config';
 import type { RasterReason } from '../../src/ir/types';
 import {
   DICTIONARIES,
@@ -9,8 +10,10 @@ import {
   getLang,
   pluralIndex,
   reasonLabel,
+  resolveLang,
   setLang,
   t,
+  toastText,
   tp,
   type Lang,
 } from '../../src/ui/i18n';
@@ -79,9 +82,9 @@ describe('detectLang', () => {
 
 describe('t / tp', () => {
   it('interpolates and leaves unknown placeholders alone', () => {
-    expect(t('progress.extract', { i: 3, n: 10 }, 'en')).toBe('Extracting slide 3 of 10');
-    expect(t('progress.extract', { i: 3 }, 'en')).toBe('Extracting slide 3 of {n}');
-    expect(t('progress.extract', { i: 3, n: 10 }, 'ru')).toBe('Извлечение слайда 3 из 10');
+    expect(t('progress.extract', { i: 3, n: 10 }, 'en')).toBe('Processing slide 3 of 10');
+    expect(t('progress.extract', { i: 3 }, 'en')).toBe('Processing slide 3 of {n}');
+    expect(t('progress.extract', { i: 3, n: 10 }, 'ru')).toBe('Обработка слайда 3 из 10');
   });
 
   it('English plurals', () => {
@@ -133,5 +136,58 @@ describe('formatting', () => {
     expect(codeLabel('missing-font', 'en')).toMatch(/font/i);
     expect(codeLabel('missing-font', 'ru')).toMatch(/шрифт/i);
     expect(codeLabel('something-new', 'en')).toBeNull();
+  });
+});
+
+describe('language setting', () => {
+  it('auto → Russian only for a Russian system language; en / ru as chosen', () => {
+    expect(resolveLang('auto', 'ru-RU')).toBe('ru');
+    expect(resolveLang('auto', 'en-GB')).toBe('en');
+    expect(resolveLang('auto', 'de-DE')).toBe('en');
+    expect(resolveLang('auto', 'uk-UA')).toBe('en');
+    expect(resolveLang('auto', '')).toBe('en');
+    expect(resolveLang('en', 'ru-RU')).toBe('en');
+    expect(resolveLang('ru', 'en-US')).toBe('ru');
+    expect(resolveLang(undefined, 'ru')).toBe('ru');
+  });
+
+  it('language names are the same in both dictionaries (each in its own language)', () => {
+    for (const key of ['settings.language.en', 'settings.language.ru'] as const) expect(DICTIONARIES.ru[key]).toBe(DICTIONARIES.en[key]);
+  });
+});
+
+describe('toastText (main-thread toasts)', () => {
+  it('localizes known codes, plural when params.n is a number; falls back to the English message', () => {
+    expect(toastText({ message: 'x', code: 'no-frames-selected' }, 'ru')).toBe(DICTIONARIES.ru['toast.no-frames-selected']);
+    expect(toastText({ message: 'x', code: 'slides-added', params: { n: 1 } }, 'en')).toBe('Added 1 slide to the deck');
+    expect(toastText({ message: 'x', code: 'slides-added', params: { n: 3 } }, 'en')).toBe('Added 3 slides to the deck');
+    expect(toastText({ message: 'x', code: 'slides-added', params: { n: 5 } }, 'ru')).toBe('В презентацию добавлено 5 слайдов');
+    expect(toastText({ message: 'x', code: 'error', params: { message: 'Quota' } }, 'en')).toBe('Something went wrong: Quota');
+    expect(toastText({ message: 'English fallback', code: 'unknown-code' }, 'ru')).toBe('English fallback');
+    expect(toastText({ message: 'No code' }, 'ru')).toBe('No code');
+  });
+
+  it('every toast code main sends has a string', () => {
+    for (const code of ['no-frames-selected', 'already-in-deck', 'slides-added', 'frame-missing', 'export-busy', 'fonts-failed', 'error']) {
+      expect(`toast.${code}` in DICTIONARIES.en, code).toBe(true);
+    }
+  });
+});
+
+describe('copy', () => {
+  it('{product} is the configured product name; no old or competitor names anywhere', () => {
+    expect(t('report.textHeader', undefined, 'en')).toBe(`${CONFIG.meta.productName} export report`);
+    for (const lang of LANGS) {
+      for (const [key, value] of Object.entries(DICTIONARIES[lang])) {
+        expect(value, `${lang}:${key}`).not.toMatch(/FigmaDeck|\bDeck\b|TinyPNG/);
+      }
+    }
+  });
+
+  it('English strings contain no Cyrillic except the Russian language name', () => {
+    for (const [key, value] of Object.entries(DICTIONARIES.en)) {
+      if (key === 'settings.language.ru') continue;
+      expect(value, key).not.toMatch(/[\u0400-\u04ff]/);
+    }
   });
 });

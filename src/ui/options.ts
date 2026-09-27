@@ -74,7 +74,7 @@ export function fileKindOf(format: ExportFormat): FileKind {
     case 'pdf-image':
       return { extension: '.pdf', mime: 'application/pdf' };
     case 'ir-json':
-      return { extension: '.figmadeck.json', mime: 'application/json' };
+      return { extension: '.ir.json', mime: 'application/json' };
   }
 }
 

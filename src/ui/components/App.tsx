@@ -1,6 +1,13 @@
 /**
  * Root component: wires the main-thread bridge, deck state, images, keyboard, settings persistence
  * and the export pipeline to the views (empty state / deck view + dialogs).
+ *
+ * - Language: Settings → General → Language (`auto` / `en` / `ru`), applied on the next render.
+ * - `init.command === 'settings'` (Figma menu "Settings") opens the settings drawer.
+ * - Nothing waits forever: the start-up spinner turns into "Can't connect" + retry
+ *   (CONFIG.ui.bootTimeoutMs), the preview / fonts spinners and the thumbnail shimmer stop after
+ *   their timeouts, "Cancel" always closes the export overlay (Exporter), unexpected errors become
+ *   one-line toasts (the error boundary in main.tsx catches render errors).
  */
 import type { JSX } from 'preact';
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'preact/hooks';
@@ -11,8 +18,9 @@ import { DEFAULT_SETTINGS, type ExportFormat, type ExportSettings } from '../../
 import { ObjectUrlCache, listen, send } from '../bridge';
 import { createCompressor } from '../compressor';
 import { copyText, downloadBytes } from '../download';
+import { cleanErrorMessage } from '../errors';
 import { Exporter, type ExporterEvent } from '../exporter';
-import { t, tp } from '../i18n';
+import { getLang, resolveLang, setLang, t, toastText, tp } from '../i18n';
 import { processAssets } from '../images';
 import { imageDeckToPdf, mergePdfs } from '../pdf';
 import type { ProgressState } from '../progress';
@@ -21,6 +29,7 @@ import { buildReportModel, reportToText, type ExportOutcome } from '../report';
 import { INITIAL_STATE, deckReducer, effectiveTitle, exportableCount, newFramesInSelection } from '../state';
 import { Modal, Spinner } from './controls';
 import { EmptyState } from './EmptyState';
+import { StatusScreen } from './ErrorBoundary';
 import { Preview } from './Preview';
 import { ProgressOverlay } from './ProgressOverlay';
 import { ReportDialog } from './ReportDialog';
@@ -43,6 +52,11 @@ function withoutKey<T>(map: Record<string, T>, key: string): Record<string, T> {
   const next = { ...map };
   delete next[key];
   return next;
+}
+
+/** Chromium reports this benign layout notice as a window error: not worth a toast. */
+function isBenignError(message: string): boolean {
+  return /ResizeObserver loop/i.test(message);
 }
 
 function ConfirmClear(props: { count: number; onConfirm: () => void; onCancel: () => void }): JSX.Element {
@@ -70,6 +84,13 @@ export function App(): JSX.Element {
   const stateRef = useRef(state);
   stateRef.current = state;
 
+  // Interface language: every t() call below (and in the children) uses it.
+  const lang = resolveLang(state.settings.language);
+  if (getLang() !== lang) setLang(lang);
+  useEffect(() => {
+    document.documentElement.lang = lang;
+  }, [lang]);
+
   const thumbCache = useMemo(() => new ObjectUrlCache(), []);
   const previewCache = useMemo(() => new ObjectUrlCache(), []);
   const [thumbs, setThumbs] = useState<Record<string, string>>({});
@@ -78,7 +99,13 @@ export function App(): JSX.Element {
   /** Slides whose preview main could not render (id → error text, may be empty). */
   const [failedPreviews, setFailedPreviews] = useState<Record<string, string>>({});
   const requestedThumbs = useRef(new Set<string>());
+  /** Slides whose thumbnail never came (no thumbnail at all for CONFIG.ui.thumbnailStallMs). */
+  const [failedThumbs, setFailedThumbs] = useState<Record<string, true>>({});
+  const thumbWatch = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  const [bootFailed, setBootFailed] = useState(false);
+  const [bootAttempt, setBootAttempt] = useState(0);
+  const [fontsTimedOut, setFontsTimedOut] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [confirmClear, setConfirmClear] = useState(false);
   const [progress, setProgress] = useState<ProgressState | null>(null);
@@ -102,12 +129,14 @@ export function App(): JSX.Element {
         break;
       case 'cancelled':
         setProgress(null);
-        toast(t('error.cancelled'));
+        toast(() => t('error.cancelled'));
         break;
-      case 'error':
+      case 'error': {
         setProgress(null);
-        toast(t('error.export', { message: e.message }), true);
+        const message = e.message;
+        toast(() => (message ? t('error.export', { message }) : t('error.exportUnknown')), true);
         break;
+      }
     }
   };
   const exporter = useMemo(
@@ -129,6 +158,36 @@ export function App(): JSX.Element {
     [],
   );
 
+  const openSettings = useCallback(() => {
+    setSettingsOpen(true);
+    send({ type: 'request-fonts' });
+  }, []);
+  const closeSettings = useCallback(() => setSettingsOpen(false), []);
+
+  /**
+   * (Re)start the thumbnail watchdog: when no thumbnail arrives for CONFIG.ui.thumbnailStallMs, the
+   * slides still without one stop their loading shimmer (main skips frames it cannot export).
+   */
+  const armThumbWatch = useCallback(() => {
+    if (thumbWatch.current) clearTimeout(thumbWatch.current);
+    thumbWatch.current = setTimeout(() => {
+      thumbWatch.current = null;
+      const pending = stateRef.current.slides.filter((s) => !s.missing && !thumbCache.get(s.id)).map((s) => s.id);
+      if (pending.length === 0) return;
+      setFailedThumbs((prev) => {
+        const next = { ...prev };
+        for (const id of pending) next[id] = true;
+        return next;
+      });
+    }, CONFIG.ui.thumbnailStallMs);
+  }, []);
+  useEffect(
+    () => () => {
+      if (thumbWatch.current) clearTimeout(thumbWatch.current);
+    },
+    [],
+  );
+
   // ─── Messages from main ────────────────────────────────────────────────────
   useEffect(() => {
     const inDeck = (id: string) => stateRef.current.slides.some((s) => s.id === id);
@@ -139,6 +198,9 @@ export function App(): JSX.Element {
           if (!inDeck(msg.id)) return; // removed while its thumbnail was being rendered
           thumbCache.set(msg.id, msg.bytes);
           setThumbs(thumbCache.snapshot());
+          setFailedThumbs((prev) => withoutKey(prev, msg.id));
+          if (stateRef.current.slides.some((s) => !s.missing && !thumbCache.get(s.id))) armThumbWatch();
+          else if (thumbWatch.current) clearTimeout(thumbWatch.current);
           return;
         case 'preview':
           if (!inDeck(msg.id)) return;
@@ -154,7 +216,13 @@ export function App(): JSX.Element {
           setLoadingPreview((current) => (current === msg.id ? null : current));
           return;
         case 'toast':
-          toast(msg.message, !!msg.error);
+          // Localized from its code (re-evaluated on a language switch); main's English text otherwise.
+          toast(() => toastText(msg), !!msg.error);
+          return;
+        case 'init':
+          setBootFailed(false);
+          if (msg.command === 'settings') openSettings();
+          dispatch({ type: 'main', msg });
           return;
         default:
           dispatch({ type: 'main', msg });
@@ -179,8 +247,39 @@ export function App(): JSX.Element {
     if (need.length > 0) {
       for (const id of need) requestedThumbs.current.add(id);
       send({ type: 'request-thumbnails', ids: need });
+      armThumbWatch();
     }
   }, [state.slides]);
+
+  // ─── Start-up: no `init` from main → "Can't connect" with a retry ─────────
+  useEffect(() => {
+    if (state.ready) return;
+    const timer = setTimeout(() => setBootFailed(true), CONFIG.ui.bootTimeoutMs);
+    return () => clearTimeout(timer);
+  }, [state.ready, bootAttempt]);
+  const retryBoot = useCallback(() => {
+    setBootFailed(false);
+    setBootAttempt((n) => n + 1);
+    send({ type: 'ui-ready' });
+  }, []);
+
+  // ─── Unexpected errors (async code, event handlers): one readable line, never a stack ──
+  useEffect(() => {
+    const report = (reason: unknown) => {
+      const message = cleanErrorMessage(reason);
+      if (isBenignError(message)) return;
+      console.error(reason);
+      toast(() => (message ? t('toast.error', { message }) : t('crash.title')), true);
+    };
+    const onRejection = (e: PromiseRejectionEvent) => report(e.reason);
+    const onError = (e: ErrorEvent) => report(e.error ?? e.message);
+    window.addEventListener('unhandledrejection', onRejection);
+    window.addEventListener('error', onError);
+    return () => {
+      window.removeEventListener('unhandledrejection', onRejection);
+      window.removeEventListener('error', onError);
+    };
+  }, []);
 
   // Coming back from the canvas: frames may have changed (no document change events with dynamic-page).
   useEffect(() => {
@@ -211,7 +310,11 @@ export function App(): JSX.Element {
     setLoadingPreview(id);
     setFailedPreviews((prev) => withoutKey(prev, id)); // retried on every selection
     const request = setTimeout(() => send({ type: 'request-preview', id }), CONFIG.ui.previewRequestDelayMs);
-    const giveUp = setTimeout(() => setLoadingPreview((current) => (current === id ? null : current)), CONFIG.ui.previewTimeoutMs);
+    const giveUp = setTimeout(() => {
+      // No answer at all: stop the spinner and say so (unless an earlier preview is still shown).
+      setLoadingPreview((current) => (current === id ? null : current));
+      if (!previewCache.get(id)) setFailedPreviews((prev) => (id in prev ? prev : { ...prev, [id]: '' }));
+    }, CONFIG.ui.previewTimeoutMs);
     return () => {
       clearTimeout(request);
       clearTimeout(giveUp);
@@ -233,17 +336,23 @@ export function App(): JSX.Element {
   }, [state.settings]);
 
   const resetSettings = useCallback(() => {
-    // Keep the font mapping and document properties: they are content, not preferences.
+    // Keep the font mapping and document properties (content, not preferences) and the language.
     const s = stateRef.current.settings;
     settingsDirty.current = true;
-    dispatch({ type: 'replace-settings', settings: { ...DEFAULT_SETTINGS, fontOverrides: s.fontOverrides, author: s.author, company: s.company } });
+    dispatch({
+      type: 'replace-settings',
+      settings: { ...DEFAULT_SETTINGS, language: s.language, fontOverrides: s.fontOverrides, author: s.author, company: s.company },
+    });
   }, []);
 
-  const openSettings = useCallback(() => {
-    setSettingsOpen(true);
-    send({ type: 'request-fonts' });
-  }, []);
-  const closeSettings = useCallback(() => setSettingsOpen(false), []);
+  // Settings → Fonts: main answers `fonts` (an empty list on failure); if nothing comes, stop the spinner.
+  const fontsPending = settingsOpen && state.fonts === null;
+  useEffect(() => {
+    setFontsTimedOut(false);
+    if (!fontsPending) return;
+    const timer = setTimeout(() => setFontsTimedOut(true), CONFIG.ui.fontsTimeoutMs);
+    return () => clearTimeout(timer);
+  }, [fontsPending]);
 
   // ─── Deck actions ──────────────────────────────────────────────────────────
   const removeSlide = useCallback((id: string) => {
@@ -279,12 +388,12 @@ export function App(): JSX.Element {
     (format: ExportFormat) => {
       const st = stateRef.current;
       if (exportableCount(st.slides) === 0) {
-        toast(t('export.noSlides'), true);
+        toast(() => t('export.noSlides'), true);
         return;
       }
       setOutcome(null);
       const names = st.slides.filter((s) => !s.missing).map((s) => s.name);
-      if (!exporter.start(format, st.settings, effectiveTitle(st), names)) toast(t('error.busy'), true);
+      if (!exporter.start(format, st.settings, effectiveTitle(st), names)) toast(() => t('error.busy'), true);
     },
     [exporter],
   );
@@ -329,8 +438,13 @@ export function App(): JSX.Element {
   }, [outcome]);
   const copyReport = useCallback(async () => {
     if (!outcome) return;
-    const text = reportToText(outcome, buildReportModel(outcome.entries, outcome.fonts, outcome.slideIds));
-    toast((await copyText(text)) ? t('report.copied') : t('report.copyFailed'), false);
+    let copied = false;
+    try {
+      copied = await copyText(reportToText(outcome, buildReportModel(outcome.entries, outcome.fonts, outcome.slideIds)));
+    } catch {
+      copied = false;
+    }
+    toast(() => (copied ? t('report.copied') : t('report.copyFailed')), !copied);
   }, [outcome]);
 
   // ─── View ──────────────────────────────────────────────────────────────────
@@ -341,13 +455,15 @@ export function App(): JSX.Element {
 
   let body: JSX.Element;
   if (!state.ready) {
-    body = (
+    body = bootFailed ? (
+      <StatusScreen title={t('boot.timeoutTitle')} text={t('boot.timeoutText')} onRetry={retryBoot} />
+    ) : (
       <div class="boot">
         <Spinner size={24} label={t('common.loading')} />
       </div>
     );
   } else if (state.slides.length === 0) {
-    body = <EmptyState newFrames={newFrames} allInDeck={allInDeck} onAdd={addSlides} />;
+    body = <EmptyState newFrames={newFrames} allInDeck={allInDeck} onAdd={addSlides} onSettings={openSettings} />;
   } else {
     body = (
       <div class="deck">
@@ -355,6 +471,7 @@ export function App(): JSX.Element {
           slides={state.slides}
           selectedId={state.selectedId}
           thumbs={thumbs}
+          failedThumbs={failedThumbs}
           addLabel={newFrames > 0 ? tp('add.buttonSidebarN', newFrames) : t('add.buttonSidebar')}
           addDisabled={newFrames === 0}
           addHint={addHint}
@@ -394,7 +511,15 @@ export function App(): JSX.Element {
     <div class="app">
       {body}
       {settingsOpen ? (
-        <SettingsPanel settings={state.settings} fonts={state.fonts} frames={exportFrames} onChange={updateSettings} onReset={resetSettings} onClose={closeSettings} />
+        <SettingsPanel
+          settings={state.settings}
+          fonts={state.fonts}
+          fontsFailed={fontsTimedOut && state.fonts === null}
+          frames={exportFrames}
+          onChange={updateSettings}
+          onReset={resetSettings}
+          onClose={closeSettings}
+        />
       ) : null}
       {confirmClear ? <ConfirmClear count={state.slides.length} onConfirm={clearAll} onCancel={() => setConfirmClear(false)} /> : null}
       {progress ? <ProgressOverlay progress={progress} onCancel={() => exporter.cancel()} /> : null}

@@ -166,6 +166,8 @@ function FontRow(props: { font: FontInfo; settings: FontSettings; onOverrides: (
 
 export function FontMapping(props: {
   fonts: FontInfo[] | null;
+  /** The font list never came (see App): a message instead of the spinner. */
+  failed?: boolean;
   settings: FontSettings;
   onChange: (patch: Partial<ExportSettings>) => void;
 }): JSX.Element {
@@ -175,7 +177,9 @@ export function FontMapping(props: {
       <NamingPicker value={props.settings.fontNaming} fonts={props.fonts} onChange={(fontNaming) => props.onChange({ fontNaming })} />
       <div class="row-label font-mapping-title">{t('settings.fonts.mapping')}</div>
 
-      {fonts === null ? (
+      {fonts === null && props.failed ? (
+        <div class="font-empty">{t('settings.fonts.failed')}</div>
+      ) : fonts === null ? (
         <div class="font-loading">
           <Spinner size={16} />
           <span>{t('common.loading')}</span>

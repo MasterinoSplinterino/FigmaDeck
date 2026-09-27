@@ -164,3 +164,23 @@ export const IconGrip = (p: IconProps) => (
     <path d="M13 7l-6 6M13 10.5L10.5 13" />
   </Svg>
 );
+
+export const IconLock = (p: IconProps) => (
+  <Svg {...p}>
+    <rect x="3.5" y="7" width="9" height="6.5" rx="1.25" />
+    <path d="M5.5 7V5a2.5 2.5 0 015 0v2" />
+  </Svg>
+);
+
+export const IconMail = (p: IconProps) => (
+  <Svg {...p}>
+    <rect x="2.5" y="3.5" width="11" height="9" rx="1.25" />
+    <path d="M3 4.5l5 4 5-4" />
+  </Svg>
+);
+
+export const IconExternal = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M9.5 3h3.5v3.5M13 3L7.5 8.5M11.5 9.5V13H3V4.5h3.5" />
+  </Svg>
+);

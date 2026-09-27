@@ -4,11 +4,12 @@
  * use CompressorClient / inThreadCompressor directly.
  */
 import workerCode from 'figmadeck:compress-worker';
+import { CONFIG } from '../config';
 import { CompressorClient, browserWorkerFactories } from './compress-client';
 
 export function createCompressor(): CompressorClient {
   const ways = ['blob: URL', 'data: URL'];
   return new CompressorClient(browserWorkerFactories(workerCode), {
-    onStartFailure: (i, reason) => console.warn(`FigmaDeck: compression worker (${ways[i] ?? i}) unavailable: ${reason}`),
+    onStartFailure: (i, reason) => console.warn(`${CONFIG.meta.productName}: compression worker (${ways[i] ?? i}) unavailable: ${reason}`),
   });
 }

@@ -1,5 +1,5 @@
 {
-  "name": "FigmaDeck — Export to PPTX",
+  "name": "Ewento Slides",
   "id": "1432100000000000001",
   "api": "1.0.0",
   "main": "dist/code.js",
@@ -9,5 +9,11 @@
   "networkAccess": {
     "allowedDomains": ["none"],
     "reasoning": "All processing happens locally in the plugin; no network access is needed."
-  }
+  },
+  "menu": [
+    { "name": "Open", "command": "open" },
+    { "name": "Add selected frames", "command": "add-selection" },
+    { "separator": true },
+    { "name": "Settings", "command": "settings" }
+  ]
 }

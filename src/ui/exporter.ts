@@ -2,7 +2,7 @@
  * UI-side export pipeline. One run at a time:
  *
  *   start() → `start-export` → main: export-started → export-progress / export-slide… → export-extracted
- *     ir-json     → serializeDeck → "<title>.figmadeck.json"
+ *     ir-json     → serializeDeck → "<title>.ir.json"
  *     pptx(-image) → processAssets (images) → buildPptx → "<title>.pptx"
  *     pdf-image   → processAssets → imageDeckToPdf → "<title>.pdf"
  *   pdf: main → export-pdf-page… → export-pdf-done → mergePdfs (+ duplicate resources merged) → "<title>.pdf"
@@ -10,7 +10,9 @@
  * Cancel: while main is working, `cancel-export` is sent and the run ends when main confirms
  * (`export-cancelled`, or after CONFIG.ui.cancelTimeoutMs); during UI-side phases the pipeline stops
  * at the next checkpoint (between images / slides / pages), and a running image compression job is
- * aborted right away (the run's AbortSignal terminates the compression worker).
+ * aborted right away (the run's AbortSignal terminates the compression worker). Either way the run
+ * ends after CONFIG.ui.cancelTimeoutMs at the latest (a late result is dropped), so "Cancel" never
+ * leaves the progress overlay stuck.
  *
  * All side effects are injected (`ExporterDeps`) so the whole flow runs in Node tests.
  */
@@ -21,8 +23,9 @@ import { IR_VERSION, type Asset, type Deck, type DeckMeta, type ReportEntry, typ
 import type { MainToUi, UiToMain } from '../shared/messages';
 import type { ExportFormat, ExportSettings } from '../shared/settings';
 import { fileNameFor } from './download';
+import { cleanErrorMessage } from './errors';
 import { t } from './i18n';
-import type { ImageOptions, ProcessHooks } from './images';
+import { slideMattes, type ImageOptions, type ProcessHooks } from './images';
 import { buildOptionsFromSettings, fileKindOf, settingsForFormat } from './options';
 import type { ImagePdfResult, MergeResult, PdfHooks, PdfMeta } from './pdf';
 import type { ProgressPhase, ProgressState } from './progress';
@@ -78,9 +81,9 @@ export class ExportCancelledError extends Error {
   }
 }
 
+/** One readable line for the error toast ('' → the UI shows a generic text). */
 function errorText(e: unknown): string {
-  if (e instanceof Error) return e.message || e.name;
-  return String(e);
+  return cleanErrorMessage(e);
 }
 
 function isCancellation(e: unknown): boolean {
@@ -156,8 +159,9 @@ export class Exporter {
     run.cancelled = true;
     run.abort.abort();
     this.progress(run, { ...run.progress, cancelling: true });
-    if (run.local) return; // the local pipeline stops at its next checkpoint
-    this.deps.send({ type: 'cancel-export' });
+    // The local pipeline stops at its next checkpoint; main is asked to stop. Neither may keep the
+    // overlay open forever.
+    if (!run.local) this.deps.send({ type: 'cancel-export' });
     run.cancelTimer = this.deps.setTimeout(() => {
       if (this.run === run) this.finish(run, { type: 'cancelled' });
     }, CONFIG.ui.cancelTimeoutMs);
@@ -206,7 +210,7 @@ export class Exporter {
         if (run && !run.local) this.finish(run, { type: 'cancelled' });
         return true;
       case 'export-error':
-        if (run && !run.local) this.finish(run, run.cancelled ? { type: 'cancelled' } : { type: 'error', message: msg.message });
+        if (run && !run.local) this.finish(run, run.cancelled ? { type: 'cancelled' } : { type: 'error', message: cleanErrorMessage(msg.message) });
         return true;
       default:
         return false;
@@ -269,9 +273,12 @@ export class Exporter {
   private async processImages(run: Run): Promise<ImageStats> {
     const s = run.settings;
     const imageTarget = run.format === 'pptx-image' || run.format === 'pdf-image';
+    const options: ImageOptions = { rasterScale: s.rasterScale, compression: s.compression, jpegQuality: s.jpegQuality, imageTarget };
+    // Slide pictures of image targets become JPEG, flattened onto the slide background.
+    if (imageTarget) options.mattes = slideMattes(run.slides.filter((x): x is Slide => !!x));
     return this.deps.processAssets(
       run.assets,
-      { rasterScale: s.rasterScale, compression: s.compression, jpegQuality: s.jpegQuality, imageTarget },
+      options,
       {
         isCancelled: () => run.cancelled,
         signal: run.abort.signal,

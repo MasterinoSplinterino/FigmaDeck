@@ -1,7 +1,7 @@
 // Renders the plugin UI standalone in headless Chromium and saves screenshots of its main states:
-//   docs/screenshots/{empty,deck,drag,export-menu,settings,settings-compression,settings-fonts,progress,
-//                     progress-images,report,report-details,report-pdf,settings-slide-size,preview-failed}
-//                     [-light][-ru].png
+//   docs/screenshots/{empty,deck,drag,export-menu,settings,settings-compression,settings-fonts,
+//                     settings-about,progress,progress-images,report,report-details,report-pdf,
+//                     report-images,settings-slide-size,preview-failed}[-light][-ru][-min].png
 //
 // The UI is bundled with the options of scripts/build.mjs (imported from it: same esbuild options,
 // Node-only modules stubbed, the compression worker injected, JS + CSS inlined into
@@ -14,9 +14,15 @@
 // the duplicate image was stored once. The settings scene checks the image compression control;
 // "Cancel" during a long compression must close the overlay at once (worker terminated, the next
 // export uses a new one); with `Worker` refused (strict CSP) compression falls back to the main thread.
+// Also checked: the interface language switches live from Settings → General (and is saved), Settings
+// → About shows the build version, the support e-mail and the bundled licenses, the Figma menu
+// command "settings" opens the settings, main's coded toasts are localized, and the image PowerPoint
+// stores a slide with rounded (transparent) corners as a JPEG flattened onto white.
 //
-// Usage: npm run ui:screenshots -- [--theme dark|light] [--lang en|ru] [--out docs/screenshots] [--only deck,settings]
-//   --only  save just these scenes (all scenes still run, so the interaction checks always happen)
+// Usage: npm run ui:screenshots -- [--theme dark|light] [--lang en|ru] [--window default|min] [--out docs/screenshots] [--only deck,settings]
+//   --lang    browser locale; the plugin's language setting stays "Auto" (en-US → English, ru-RU → Russian)
+//   --window  default 1000×640, or min = the smallest plugin window (CONFIG.ui.minWidth × minHeight)
+//   --only    save just these scenes (all scenes still run, so the interaction checks always happen)
 import * as esbuild from 'esbuild';
 import JSZip from 'jszip';
 import { existsSync, readdirSync } from 'node:fs';
@@ -37,10 +43,13 @@ function arg(name, fallback) {
 }
 const theme = arg('theme', 'dark');
 const lang = arg('lang', 'en');
+const windowSize = arg('window', 'default');
 const outDir = resolve(root, arg('out', 'docs/screenshots'));
-const suffix = `${theme === 'light' ? '-light' : ''}${lang === 'ru' ? '-ru' : ''}`;
+const suffix = `${theme === 'light' ? '-light' : ''}${lang === 'ru' ? '-ru' : ''}${windowSize === 'min' ? '-min' : ''}`;
 const only = arg('only', '') ? new Set(arg('only', '').split(',').map((x) => x.trim()).filter(Boolean)) : null;
-const WINDOW = { width: 1000, height: 640 };
+/** The default plugin window (CONFIG.ui.windowWidth × windowHeight) or its minimum size (minWidth × minHeight). */
+const WINDOW = windowSize === 'min' ? { width: 720, height: 480 } : { width: 1000, height: 640 };
+const OTHER = lang === 'ru' ? { lang: 'en', segment: 1, title: 'Settings' } : { lang: 'ru', segment: 2, title: 'Настройки' };
 
 // ─── Bundle (the options of scripts/build.mjs, not minified) ─────────────────
 
@@ -363,6 +372,26 @@ function samplePng(w, h) {
   return PNG.sync.write(p);
 }
 
+/** An opaque slide picture with transparent rounded corners (a frame with a corner radius, image mode). */
+const ROUNDED = { width: 480, height: 270, radius: 48 };
+function roundedSlidePng() {
+  const { width: w, height: h, radius: r } = ROUNDED;
+  const p = new PNG({ width: w, height: h });
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      const cx = Math.min(Math.max(x + 0.5, r), w - r);
+      const cy = Math.min(Math.max(y + 0.5, r), h - r);
+      const inside = Math.hypot(x + 0.5 - cx, y + 0.5 - cy) <= r;
+      const i = (y * w + x) * 4;
+      p.data[i] = 30 + Math.round((x / w) * 60);
+      p.data[i + 1] = 60;
+      p.data[i + 2] = 160;
+      p.data[i + 3] = inside ? 255 : 0;
+    }
+  }
+  return PNG.sync.write(p);
+}
+
 /** Image compression summary of the open report dialog (its data-* attributes), or null. */
 function reportImages(page) {
   return page.evaluate(() => {
@@ -525,6 +554,36 @@ try {
   console.log('compression control checks passed (levels, slider disabled when Off, save-settings)');
   await page.evaluate(() => document.querySelector('.font-mapping').closest('.section').scrollIntoView({ block: 'start' }));
   await shot(page, 'settings-fonts');
+
+  // 3b. Settings → About: version from package.json, support e-mail, bundled licenses (read-only text)
+  await page.locator('.licenses summary').click();
+  await page.waitForSelector('.licenses-text');
+  const about = await page.evaluate(() => ({
+    version: document.querySelector('.about-version')?.textContent ?? '',
+    name: document.querySelector('.about-name')?.textContent ?? '',
+    mail: document.querySelector('.about-links a[href^="mailto:"]')?.getAttribute('href') ?? '',
+    licenses: document.querySelector('.licenses-text')?.textContent ?? '',
+  }));
+  const pkgVersion = JSON.parse(await readFile(resolve(root, 'package.json'), 'utf8')).version;
+  if (!about.version.includes(pkgVersion)) throw new Error(`About shows "${about.version}", expected version ${pkgVersion}`);
+  for (const lib of ['pptxgenjs', 'jszip', 'pdf-lib', 'pako', 'preact']) if (!about.licenses.includes(lib)) throw new Error(`Licenses miss ${lib}`);
+  if (/FigmaDeck/.test(await page.textContent('.drawer'))) throw new Error('The settings still say "FigmaDeck"');
+  await page.evaluate(() => document.querySelector('.licenses').closest('.section').scrollIntoView({ block: 'start' }));
+  await shot(page, 'settings-about');
+  console.log(`about: ${about.name} ${about.version}, ${about.mail || 'no support e-mail'}, licenses ${about.licenses.length} chars`);
+
+  // 3c. Language: switched live from Settings → General (no reload), saved with save-settings, back to Auto
+  const languageSegments = page.locator('.drawer-body .section').first().locator('.segment');
+  await languageSegments.nth(OTHER.segment).click();
+  await page.waitForFunction((title) => document.querySelector('.drawer .dialog-title')?.textContent === title, OTHER.title);
+  if ((await page.evaluate(() => document.documentElement.lang)) !== OTHER.lang) throw new Error('<html lang> did not follow the language');
+  await page.waitForTimeout(600); // debounced save-settings
+  const languageSave = (await page.evaluate(() => window.__sent.filter((m) => m && m.type === 'save-settings'))).pop();
+  if (languageSave?.settings.language !== OTHER.lang) throw new Error(`Language not saved: ${JSON.stringify(languageSave?.settings.language)}`);
+  await languageSegments.nth(0).click(); // Auto
+  await page.waitForFunction((title) => document.querySelector('.drawer .dialog-title')?.textContent !== title, OTHER.title);
+  await page.waitForTimeout(600);
+  console.log(`language switch checks passed (${lang} → ${OTHER.lang} → auto, live, saved)`);
   await page.keyboard.press('Escape');
   await page.waitForSelector('.drawer', { state: 'detached' });
 
@@ -634,6 +693,7 @@ try {
   await page.waitForSelector('.report-dialog', { state: 'detached' });
   const sentOf = (type) => page.evaluate((t) => window.__sent.filter((m) => m && m.type === t), type);
   if ((await sentOf('reorder-slides')).length !== 0) throw new Error('A cancelled drag sent reorder-slides');
+  await page.evaluate(() => (document.querySelector('.slide-list').scrollTop = 0)); // rows 1–3 in view (small windows too)
   const a = await rowCenter(1);
   const b = await rowCenter(3);
   await page.mouse.move(a.x, a.y);
@@ -706,6 +766,73 @@ try {
   await page.keyboard.press('Escape');
   await page.waitForSelector('.report-dialog', { state: 'detached' });
 
+  // 7b. PowerPoint — images: a slide picture with transparent rounded corners becomes a JPEG,
+  //     flattened onto white (the slide has no background), never a PNG.
+  await page.click('.split-toggle');
+  await page.waitForSelector('.menu');
+  await page.locator('.menu-item').nth(1).click(); // "PowerPoint — images (JPEG)"
+  await page.waitForFunction(() => window.__sent.some((m) => m && m.type === 'start-export' && m.format === 'pptx-image'));
+  const roundedPng = roundedSlidePng();
+  const roundedSlide = {
+    id: '3:1',
+    name: 'Rounded',
+    width: ROUNDED.width,
+    height: ROUNDED.height,
+    background: null,
+    elements: [
+      {
+        type: 'image',
+        id: '~image:3:1',
+        name: 'Rounded',
+        transform: { x: 0, y: 0, w: ROUNDED.width, h: ROUNDED.height, rotation: 0, flipH: false, flipV: false },
+        opacity: 1,
+        assetId: 'rounded',
+        svgAssetId: null,
+        crop: null,
+        geometry: 'rect',
+        cornerRadius: 0,
+        rasterized: { reasons: ['image-mode'] },
+      },
+    ],
+  };
+  const imageDownload = page.waitForEvent('download', { timeout: 60000 });
+  await inject(page, { type: 'export-started', format: 'pptx-image', total: 1 });
+  await page.evaluate(
+    ({ slide, data, size }) =>
+      window.__inject({
+        type: 'export-slide',
+        index: 0,
+        total: 1,
+        slide,
+        assets: [{ id: 'rounded', mime: 'image/png', role: 'background', data: window.__b64(data), width: size.width, height: size.height, hasAlpha: true }],
+      }),
+    { slide: roundedSlide, data: roundedPng.toString('base64'), size: ROUNDED },
+  );
+  await inject(page, { type: 'export-extracted', meta: { title: 'Rounded corners' }, report: [] });
+  const imagePptx = await readFile(await (await imageDownload).path());
+  const imageZip = await JSZip.loadAsync(imagePptx);
+  const mediaNames = Object.keys(imageZip.files).filter((n) => n.startsWith('ppt/media/'));
+  const jpegs = mediaNames.filter((n) => /\.jpe?g$/i.test(n));
+  if (jpegs.length !== 1 || mediaNames.some((n) => /\.png$/i.test(n))) throw new Error(`Image PowerPoint media: ${mediaNames.join(', ')} (expected one JPEG, no PNG)`);
+  const jpegBytes = await imageZip.file(jpegs[0]).async('uint8array');
+  const pixels = await page.evaluate(async ({ bytes, w, h }) => {
+    const bitmap = await createImageBitmap(new Blob([new Uint8Array(bytes)], { type: 'image/jpeg' }));
+    const c = document.createElement('canvas');
+    c.width = bitmap.width;
+    c.height = bitmap.height;
+    const g = c.getContext('2d');
+    g.drawImage(bitmap, 0, 0);
+    const at = (x, y) => Array.from(g.getImageData(x, y, 1, 1).data);
+    return { size: [bitmap.width, bitmap.height], corner: at(2, 2), center: at(Math.round(w / 2), Math.round(h / 2)) };
+  }, { bytes: Array.from(jpegBytes), w: ROUNDED.width, h: ROUNDED.height });
+  if (pixels.corner.slice(0, 3).some((v) => v < 235)) throw new Error(`Rounded corner not flattened onto white: ${JSON.stringify(pixels)}`);
+  if (Math.abs(pixels.center[2] - 160) > 16 || Math.abs(pixels.center[1] - 60) > 16) throw new Error(`Slide body changed: ${JSON.stringify(pixels)}`);
+  await page.waitForSelector('.report-dialog');
+  await shot(page, 'report-images');
+  console.log(`image PowerPoint: rounded-corner slide → ${jpegs[0]} (${jpegBytes.length} bytes), corner ${pixels.corner.slice(0, 3).join(',')} (white), body ${pixels.center.slice(0, 3).join(',')}`);
+  await page.keyboard.press('Escape');
+  await page.waitForSelector('.report-dialog', { state: 'detached' });
+
   // 8. LED deck: slide size settings with the agency template preset (letterbox warning)
   const ledSlides = LED_SLIDES.map(({ art, title, ...x }) => x);
   await inject(page, { type: 'init', slides: ledSlides, settings: SETTINGS, deckTitle: 'Startup Summit LED', fileName: 'Startup Summit LED', selection: { frameCount: 0, alreadyInDeck: 0 } });
@@ -738,6 +865,17 @@ try {
   await page.waitForSelector('.stage-badge');
   if (await page.$('.stage-loading')) throw new Error('Spinner still visible after preview-failed');
   await shot(page, 'preview-failed');
+
+  // 9b. Figma menu "Settings": init with command 'settings' opens the drawer; coded toasts are localized.
+  await inject(page, { type: 'init', command: 'settings', slides: ledSlides, settings: SETTINGS, deckTitle: 'Startup Summit LED', fileName: 'Startup Summit LED', selection: { frameCount: 0, alreadyInDeck: 0 } });
+  await page.waitForSelector('.drawer');
+  await page.keyboard.press('Escape');
+  await page.waitForSelector('.drawer', { state: 'detached' });
+  await inject(page, { type: 'toast', code: 'slides-added', params: { n: 2 }, message: 'Added 2 slides to the deck.' });
+  const addedToast = await page.textContent('.toasts');
+  const expectedToast = lang === 'ru' ? 'В презентацию добавлено 2 слайда' : 'Added 2 slides to the deck';
+  if (!addedToast?.includes(expectedToast)) throw new Error(`Coded toast not localized: ${addedToast}`);
+  console.log('menu command "settings" and coded toast checks passed');
 
   const sent = await page.evaluate(() => window.__sent.map((m) => m && m.type));
   console.log(`UI → main: ${[...new Set(sent)].join(', ')}`);

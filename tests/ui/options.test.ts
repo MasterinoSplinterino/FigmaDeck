@@ -111,7 +111,7 @@ describe('file kinds', () => {
     expect(fileKindOf('pptx-image')).toEqual({ extension: '.pptx', mime: PPTX_MIME });
     expect(fileKindOf('pdf')).toEqual({ extension: '.pdf', mime: 'application/pdf' });
     expect(fileKindOf('pdf-image').extension).toBe('.pdf');
-    expect(fileKindOf('ir-json')).toEqual({ extension: '.figmadeck.json', mime: 'application/json' });
+    expect(fileKindOf('ir-json')).toEqual({ extension: '.ir.json', mime: 'application/json' });
     expect(PPTX_MIME).toBe('application/vnd.openxmlformats-officedocument.presentationml.presentation');
   });
 

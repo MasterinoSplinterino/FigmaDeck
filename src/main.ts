@@ -8,6 +8,14 @@
  *   PNG per slide at `settings.rasterScale`; the UI re-encodes it (JPEG) and builds the file;
  * - `pdf`: Figma's own vector PDF per frame (`export-pdf-page`), merged by the UI.
  *
+ * Figma menu (manifest.json `menu`, `figma.command`): `open` (default, also for an unknown / empty
+ * command), `add-selection` (adds the selected frames, then shows the deck — or a toast when nothing
+ * valid is selected) and `settings` (the UI opens its settings). The command reaches the UI with the
+ * first `init`.
+ *
+ * Toasts carry a `code` (the UI shows its localized `toast.<code>` string); `message` is the English
+ * fallback.
+ *
  * Sandbox constraints: `documentAccess: "dynamic-page"` → only async node access
  * (`getNodeByIdAsync`, `page.loadAsync()`, `setCurrentPageAsync`), no `documentchange`; no DOM,
  * no TextEncoder / atob / structuredClone / fetch.
@@ -42,16 +50,49 @@ const loadedPages = new Set<string>();
 let availableFonts: Set<string> | null = null;
 let exportRun: { cancelled: boolean; temp: TempNodes } | null = null;
 
+/** Commands of the manifest's `menu`. */
+type LaunchCommand = 'open' | 'add-selection' | 'settings';
+
+function launchCommand(raw: unknown): LaunchCommand {
+  return raw === 'add-selection' || raw === 'settings' ? raw : 'open';
+}
+
+/** The command the plugin was started with, until the first `init` has delivered it to the UI. */
+let pendingCommand: LaunchCommand | null = launchCommand(figma.command);
+
+type ToastMsg = Extract<MainToUi, { type: 'toast' }>;
+/** Codes of main's toasts (the UI's `toast.<code>` strings). */
+type ToastCode = 'no-frames-selected' | 'already-in-deck' | 'slides-added' | 'frame-missing' | 'export-busy' | 'fonts-failed' | 'error';
+
 function post(msg: MainToUi): void {
   figma.ui.postMessage(msg);
 }
 
-function toast(message: string, error = false): void {
-  post({ type: 'toast', message, error });
+function toastMsg(code: ToastCode, message: string, error = false, params?: Record<string, string | number>): ToastMsg {
+  const msg: ToastMsg = { type: 'toast', code, message, error };
+  if (params) msg.params = params;
+  return msg;
 }
 
+function toast(code: ToastCode, message: string, error = false, params?: Record<string, string | number>): void {
+  post(toastMsg(code, message, error, params));
+}
+
+/** One readable line (no stack, no "Error:" prefix, bounded length) for toasts and export errors. */
 function errorMessage(e: unknown): string {
-  return e instanceof Error ? e.message : String(e);
+  const raw = e instanceof Error ? e.message : typeof e === 'string' ? e : '';
+  const line = raw
+    .split(/\r?\n/)
+    .map((l) => l.trim())
+    .find((l) => l && !/^at\s/.test(l));
+  const text = (line ?? '').replace(/^(?:[A-Z][A-Za-z]*)?Error:\s*/, '');
+  const max = CONFIG.ui.errorMessageMaxChars;
+  return text.length > max ? `${text.slice(0, max - 1)}…` : text || 'Unexpected error';
+}
+
+function unexpectedError(e: unknown): void {
+  const message = errorMessage(e);
+  toast('error', `Something went wrong: ${message}`, true, { message });
 }
 
 const yieldToFigma = () => new Promise<void>((resolve) => setTimeout(resolve, 0));
@@ -96,7 +137,8 @@ async function slideInfos(): Promise<SlideInfo[]> {
       const cached = infoCache.get(id);
       out.push({
         id,
-        name: cached ? cached.name : 'Missing frame',
+        // No known name: '' (the UI shows its localized "Missing frame").
+        name: cached ? cached.name : '',
         width: cached ? cached.width : 0,
         height: cached ? cached.height : 0,
         pageId: cached ? cached.pageId : '',
@@ -127,32 +169,66 @@ function sendSelection(): void {
 
 // ─── Handlers ────────────────────────────────────────────────────────────────
 
+/** Persisted settings; unreadable storage counts as "nothing stored" (defaults). */
+async function storedSettings(): Promise<unknown> {
+  try {
+    return await figma.clientStorage.getAsync(STORAGE_KEYS.settings);
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * `ui-ready` → `init`. The launch command goes with the first `init` only (a UI that reloads gets
+ * none); "Add selected frames" is applied before, so `init` already lists the new slides, and its
+ * outcome follows as a toast.
+ */
 async function init(): Promise<void> {
-  settings = normalizeSettings(await figma.clientStorage.getAsync(STORAGE_KEYS.settings));
+  settings = normalizeSettings(await storedSettings());
+  const command = pendingCommand;
+  pendingCommand = null;
+  let notice: ToastMsg | null = null;
+  if (command === 'add-selection') {
+    const result = await enqueueDeck(addSelectedFrames);
+    notice =
+      result.notice ??
+      toastMsg('slides-added', `Added ${result.added} slide${result.added === 1 ? '' : 's'} to the deck.`, false, { n: result.added });
+  }
   post({
     type: 'init',
+    ...(command ? { command } : {}),
     slides: await slideInfos(),
     settings,
     deckTitle: deckTitle || figma.root.name,
     fileName: figma.root.name,
     selection: selectionInfo(),
   });
+  if (notice) post(notice);
 }
 
-async function addSelection(): Promise<void> {
+/**
+ * Append the selected frames (sections expand, nested layers climb to their frame) that are not in
+ * the deck yet, in canvas order. Returns how many were added, or the toast that explains why none was.
+ */
+async function addSelectedFrames(): Promise<{ added: number; notice: ToastMsg | null }> {
   const frames = framesFromSelection(figma.currentPage.selection);
   if (frames.length === 0) {
-    toast('Select frames (or a section) to add them as slides.', true);
-    return;
+    return { added: 0, notice: toastMsg('no-frames-selected', 'Select frames (or a section) to add them as slides.', true) };
   }
   const fresh = frames.filter((f) => !deckIds.includes(f.id));
-  if (fresh.length === 0) {
-    toast('The selected frames are already in the deck.');
-    return;
-  }
+  if (fresh.length === 0) return { added: 0, notice: toastMsg('already-in-deck', 'The selected frames are already in the deck.') };
   const sorted = sortNodesByCanvas(fresh, figma.root.children);
   deckIds = [...deckIds, ...sorted.map((f) => f.id)];
   saveDeck();
+  return { added: sorted.length, notice: null };
+}
+
+async function addSelection(): Promise<void> {
+  const result = await addSelectedFrames();
+  if (result.notice) {
+    post(result.notice);
+    return;
+  }
   await sendSlides();
   sendSelection();
 }
@@ -195,7 +271,7 @@ async function requestThumbnails(ids: readonly string[]): Promise<void> {
 async function focusSlide(id: string): Promise<void> {
   const node = await resolveSlide(id);
   if (!node) {
-    toast('This frame no longer exists.', true);
+    toast('frame-missing', 'This frame no longer exists.', true);
     return;
   }
   const page = pageOf(node);
@@ -206,7 +282,17 @@ async function focusSlide(id: string): Promise<void> {
   figma.viewport.scrollAndZoomIntoView([node]);
 }
 
+/** The deck's fonts; a failure still answers (an empty list) so the settings stop waiting. */
 async function requestFonts(): Promise<void> {
+  try {
+    await sendFonts();
+  } catch {
+    post({ type: 'fonts', fonts: [] });
+    toast('fonts-failed', 'Could not read the fonts used in the deck.', true);
+  }
+}
+
+async function sendFonts(): Promise<void> {
   if (!availableFonts) {
     const list = await figma.listAvailableFontsAsync();
     availableFonts = new Set(list.map((f) => fontKey(f.fontName.family, f.fontName.style)));
@@ -277,7 +363,7 @@ async function framesForExport(): Promise<{ frames: SlideNode[]; missing: Report
 
 async function startExport(format: ExportFormat, rawSettings: ExportSettings): Promise<void> {
   if (exportRun) {
-    toast('An export is already running.', true);
+    toast('export-busy', 'An export is already running.', true);
     return;
   }
   const s = normalizeSettings(rawSettings);
@@ -428,9 +514,12 @@ async function handle(msg: UiToMain): Promise<void> {
 const DECK_MESSAGES = new Set<UiToMain['type']>(['add-selection', 'remove-slides', 'clear-slides', 'reorder-slides', 'sort-slides']);
 let deckQueue: Promise<void> = Promise.resolve();
 
-function enqueueDeck(task: () => Promise<void>): Promise<void> {
+function enqueueDeck<T>(task: () => Promise<T>): Promise<T> {
   const next = deckQueue.then(task, task);
-  deckQueue = next.catch(() => undefined); // a failed handler must not block the next ones
+  deckQueue = next.then(
+    () => undefined,
+    () => undefined, // a failed handler must not block the next ones
+  );
   return next;
 }
 
@@ -469,7 +558,7 @@ figma.showUI(__html__, {
   width: CONFIG.ui.windowWidth,
   height: CONFIG.ui.windowHeight,
   themeColors: true,
-  title: 'FigmaDeck',
+  title: CONFIG.meta.productName,
 });
 
 removeLeftovers().catch(() => undefined);
@@ -480,7 +569,7 @@ figma.ui.onmessage = (raw: unknown) => {
   const done = DECK_MESSAGES.has(msg.type) ? enqueueDeck(() => handle(msg)) : handle(msg);
   done.catch((e) => {
     if (msg.type === 'start-export') post({ type: 'export-error', message: errorMessage(e) });
-    else toast(errorMessage(e), true);
+    else unexpectedError(e);
   });
 };
 

@@ -3,6 +3,7 @@
  * main.ts bootstraps on import, so every test imports a fresh module.
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { CONFIG } from '../../src/config';
 import { readPngInfo } from '../../src/extract/png';
 import type { ReportEntry, Slide } from '../../src/ir/types';
 import { DEFAULT_SETTINGS } from '../../src/shared/settings';
@@ -10,12 +11,15 @@ import { FakeEnv, doc, frame, installFigmaGlobal, page, radial, rect, resetIds, 
 
 beforeEach(() => resetIds());
 
-async function boot(document: MockNode, opts: Parameters<typeof installFigmaGlobal>[2] = {}) {
+async function boot(document: MockNode, opts: Parameters<typeof installFigmaGlobal>[2] & { command?: string } = {}) {
   vi.resetModules();
   const env = new FakeEnv();
   const g = installFigmaGlobal(env, document, opts);
+  const shown: unknown[] = [];
+  g.api.showUI = (_html: string, options: unknown) => shown.push(options);
+  if (opts.command !== undefined) g.api.command = opts.command;
   await import('../../src/main');
-  return { env, g };
+  return { env, g, shown };
 }
 
 const tick = (ms = 5) => new Promise((r) => setTimeout(r, ms));
@@ -63,11 +67,11 @@ describe('main: deck list', () => {
 
     g.posted.length = 0;
     g.send({ type: 'add-selection' });
-    await g.waitFor('toast');
+    expect(await g.waitFor('toast')).toMatchObject({ code: 'already-in-deck', message: expect.stringContaining('already in the deck') });
     p.selection = [];
     g.posted.length = 0;
     g.send({ type: 'add-selection' });
-    expect(await g.waitFor('toast')).toMatchObject({ error: true });
+    expect(await g.waitFor('toast')).toMatchObject({ code: 'no-frames-selected', error: true });
   });
 
   it('reorder (validated), remove, clear, sort, title', async () => {
@@ -203,7 +207,7 @@ describe('main: export', () => {
     const { g } = await boot(d);
     g.send({ type: 'start-export', format: 'pptx', settings: DEFAULT_SETTINGS });
     g.send({ type: 'start-export', format: 'pdf', settings: DEFAULT_SETTINGS });
-    expect(await g.waitFor('toast')).toMatchObject({ message: expect.stringContaining('already running'), error: true });
+    expect(await g.waitFor('toast')).toMatchObject({ code: 'export-busy', message: expect.stringContaining('already running'), error: true });
     await g.waitFor('export-extracted');
     expect(g.posted.filter((m) => m.type === 'export-started')).toHaveLength(1);
   });
@@ -292,5 +296,101 @@ describe('main: formats and protocol fields', () => {
     expect(slide.elements.map((e) => e.id)).toEqual(['~bg:f', 'r']);
     expect(slide.elements[0].transform).toMatchObject({ x: 0, y: 0, w: 800, h: 600 });
     expect(env.liveClones()).toEqual([]);
+  });
+});
+
+describe('main: menu commands, window, toasts', () => {
+  it('the window title is the product name', async () => {
+    const { d } = fileWith([]);
+    const { shown } = await boot(d);
+    expect(shown).toEqual([expect.objectContaining({ title: CONFIG.meta.productName, themeColors: true })]);
+  });
+
+  it('no / unknown command → "open"; the command goes with the first init only', async () => {
+    for (const command of [undefined, '', 'something-else', 'open']) {
+      const { d } = fileWith([]);
+      const { g } = await boot(d, { command });
+      g.send({ type: 'ui-ready' });
+      expect(await g.waitFor('init')).toMatchObject({ command: 'open' });
+    }
+    const { d } = fileWith([]);
+    const { g } = await boot(d, { command: 'settings' });
+    g.send({ type: 'ui-ready' });
+    expect(await g.waitFor('init')).toMatchObject({ command: 'settings' });
+    g.posted.length = 0;
+    g.send({ type: 'ui-ready' }); // the UI reloaded: no command any more
+    expect((await g.waitFor('init')).command).toBeUndefined();
+    expect(g.posted.some((m) => m.type === 'toast')).toBe(false);
+  });
+
+  it('"add-selection": the selected frames are in the first init, then a "slides-added" toast', async () => {
+    const f1 = frame({ id: 'f1', x: 500 });
+    const f2 = frame({ id: 'f2', x: 0 });
+    const { d, p } = fileWith([f1, f2, frame({ id: 'f3', x: 900 })], ['f3']);
+    p.selection = [f1, f2];
+    const { g } = await boot(d, { command: 'add-selection' });
+    g.send({ type: 'ui-ready' });
+    const init = await g.waitFor('init');
+    expect(init.command).toBe('add-selection');
+    expect((init.slides as Array<{ id: string }>).map((s) => s.id)).toEqual(['f3', 'f2', 'f1']);
+    expect(init.selection).toEqual({ frameCount: 2, alreadyInDeck: 2 });
+    expect(JSON.parse(d.getPluginData('figmadeck.slides'))).toEqual(['f3', 'f2', 'f1']);
+    const types = g.posted.map((m) => m.type);
+    expect(types.indexOf('toast')).toBeGreaterThan(types.indexOf('init'));
+    expect(await g.waitFor('toast')).toMatchObject({ code: 'slides-added', params: { n: 2 }, error: false, message: 'Added 2 slides to the deck.' });
+  });
+
+  it('"add-selection" with nothing valid selected: the UI opens anyway, with the localized toast', async () => {
+    const { d, p } = fileWith([frame({ id: 'f1' })]);
+    p.selection = [];
+    const { g } = await boot(d, { command: 'add-selection' });
+    g.send({ type: 'ui-ready' });
+    expect(await g.waitFor('init')).toMatchObject({ command: 'add-selection', slides: [] });
+    expect(await g.waitFor('toast')).toMatchObject({ code: 'no-frames-selected', error: true });
+    expect(d.getPluginData('figmadeck.slides')).toBe('');
+  });
+
+  it('unreadable client storage still initializes with the defaults', async () => {
+    const { d } = fileWith([]);
+    const { g } = await boot(d);
+    (g.api.clientStorage as { getAsync: unknown }).getAsync = async () => {
+      throw new Error('storage unavailable');
+    };
+    g.send({ type: 'ui-ready' });
+    expect(await g.waitFor('init')).toMatchObject({ settings: DEFAULT_SETTINGS });
+  });
+
+  it('fonts that cannot be listed: an empty list (no endless spinner) + a coded toast', async () => {
+    const { d } = fileWith([frame({ id: 'f', children: [text()] })], ['f']);
+    const { g } = await boot(d);
+    g.api.listAvailableFontsAsync = async () => {
+      throw new Error('fonts unavailable');
+    };
+    g.send({ type: 'request-fonts' });
+    expect(await g.waitFor('fonts')).toMatchObject({ fonts: [] });
+    expect(await g.waitFor('toast')).toMatchObject({ code: 'fonts-failed', error: true });
+  });
+
+  it('unexpected handler errors become one-line "error" toasts (no stack)', async () => {
+    const { d } = fileWith([]);
+    const { g } = await boot(d);
+    g.api.clientStorage = {
+      getAsync: async () => undefined,
+      setAsync: async () => {
+        const e = new Error('Quota exceeded\n    at setAsync (storage.js:1:1)');
+        throw e;
+      },
+    };
+    g.send({ type: 'save-settings', settings: DEFAULT_SETTINGS });
+    const t = await g.waitFor('toast');
+    expect(t).toMatchObject({ code: 'error', error: true, params: { message: 'Quota exceeded' } });
+    expect(String(t.message)).not.toContain('\n');
+  });
+
+  it('a missing frame without a cached name is sent with an empty name (the UI localizes it)', async () => {
+    const { d } = fileWith([], ['gone']);
+    const { g } = await boot(d);
+    g.send({ type: 'ui-ready' });
+    expect(((await g.waitFor('init')).slides as Array<{ name: string; missing?: boolean }>)[0]).toMatchObject({ name: '', missing: true });
   });
 });

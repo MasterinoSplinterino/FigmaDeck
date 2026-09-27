@@ -10,7 +10,7 @@
  * name) — read it as CONFIG.meta.productName. Change it together with manifest.json "name":
  * `node scripts/rename.mjs "New Name"` (Figma does not allow "Figma" in Community plugin names).
  */
-const PRODUCT_NAME = 'FigmaDeck';
+const PRODUCT_NAME = 'Ewento Slides';
 
 export const CONFIG = {
   /** Unit system. 1 Figma px == 1 pt (slide inches = px / 72). */
@@ -320,7 +320,7 @@ export const CONFIG = {
     /** Max size (bytes) of an SVG export that is kept next to the PNG fallback. */
     svgMaxBytes: 2000000,
     /** Name + plugin-data marker of temporary composite nodes (so leftovers can be found and removed). */
-    tempNodeName: '[FigmaDeck temp]',
+    tempNodeName: `[${PRODUCT_NAME} temp]`,
     tempPluginDataKey: 'figmadeck.temp',
     /** Walk progress is reported every N visited layers… */
     progressEveryNodes: 100,
@@ -495,7 +495,7 @@ export const CONFIG = {
     defaultCompany: '',
     /** Settings → About: support page (https://…) and e-mail. Each is shown only when non-empty. */
     supportUrl: '' as string,
-    supportEmail: '' as string,
+    supportEmail: 'support@ewento.app' as string,
   },
 } as const;
 

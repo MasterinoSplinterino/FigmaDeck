@@ -89,6 +89,6 @@ describe('file names', () => {
 
   it('adds the extension', () => {
     expect(fileNameFor('Deck', '.pptx')).toBe('Deck.pptx');
-    expect(fileNameFor('', '.figmadeck.json')).toBe(`${CONFIG.ui.fallbackFileName}.figmadeck.json`);
+    expect(fileNameFor('', '.ir.json')).toBe(`${CONFIG.ui.fallbackFileName}.ir.json`);
   });
 });

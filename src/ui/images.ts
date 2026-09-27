@@ -18,25 +18,38 @@
  *   is never used for transparent bitmaps nor vector fallbacks, and must be ≤
  *   CONFIG.raster.jpegMinSavingRatio × the best PNG (PNG keeps edges and text sharp). Nothing larger
  *   than the original bytes is ever kept. JPEG originals are re-encoded only when downscaled.
- * - Image-only targets (pptx-image / pdf-image): the slide pictures (`background`) go straight to
- *   JPEG when opaque (a transparent frame gets the PNG candidates).
+ * - Image-only targets (pptx-image / pdf-image): every slide picture (`background`) becomes a JPEG
+ *   at `jpegQualityFor(options)`, whatever the compression level. Transparent pixels (rounded
+ *   corners, a translucent frame) are first flattened onto the slide's background colour — white when
+ *   it has none (`slideMattes`), i.e. what PowerPoint / the PDF page shows behind them.
  */
 import { hasTransparency, type CompressLevel, type RgbaPixels } from '../compress';
 import { CONFIG } from '../config';
-import type { Asset, AssetMime, AssetRole } from '../ir/types';
+import type { Asset, AssetMime, AssetRole, Element, Slide } from '../ir/types';
 import type { ExportSettings } from '../shared/settings';
 import { CompressCancelledError, inThreadCompressor, type CompressMethod, type PixelCompressor, type PixelResult } from './compress-job';
 import type { AssetStat, ImageStats } from './report';
 
 export type Compression = ExportSettings['compression'];
 
+/** Opaque colour, 0..1 channels (the IR's convention). */
+export interface Rgb {
+  r: number;
+  g: number;
+  b: number;
+}
+
+export const WHITE: Rgb = { r: 1, g: 1, b: 1 };
+
 export interface ImageOptions {
   rasterScale: 1 | 2 | 3;
   compression: Compression;
   /** 0..1 (`strong` caps it at CONFIG.ui.imageStrongJpegQuality). */
   jpegQuality: number;
-  /** Image-only targets (pptx-image / pdf-image): opaque slide pictures go straight to JPEG. */
+  /** Image-only targets (pptx-image / pdf-image): every slide picture becomes a JPEG. */
   imageTarget?: boolean;
+  /** Image-only targets: colour behind each slide picture (asset id → colour; missing = white), see `slideMattes`. */
+  mattes?: Readonly<Record<string, Rgb>>;
 }
 
 export interface AssetPlan {
@@ -59,6 +72,35 @@ export type RasterMime = 'image/png' | 'image/jpeg';
 
 function isRasterMime(mime: AssetMime): mime is RasterMime {
   return mime === 'image/png' || mime === 'image/jpeg';
+}
+
+/** A whole-slide picture of an image-only target: always encoded as JPEG. */
+function isSlidePicture(role: AssetRole, options: Pick<ImageOptions, 'imageTarget'>): boolean {
+  return !!options.imageTarget && role === 'background';
+}
+
+/** An opaque colour: `c` composited over white (alpha < 1 only happens for hand-made IR). */
+function opaque(c: { r: number; g: number; b: number; a?: number }): Rgb {
+  const a = typeof c.a === 'number' ? Math.max(0, Math.min(1, c.a)) : 1;
+  return { r: c.r * a + (1 - a), g: c.g * a + (1 - a), b: c.b * a + (1 - a) };
+}
+
+/**
+ * Image-only targets: the colour each slide picture sits on — the slide's solid background (as
+ * PowerPoint draws it, and as the image PDF paints the page), white when the slide has none (a frame
+ * with rounded corners or without a fill). Keyed by asset id; the first slide showing an asset wins.
+ */
+export function slideMattes(slides: readonly Slide[]): Record<string, Rgb> {
+  const out: Record<string, Rgb> = {};
+  const visit = (elements: readonly Element[], matte: Rgb) => {
+    for (const e of elements) {
+      if (e.type === 'image') {
+        if (!(e.assetId in out)) out[e.assetId] = matte;
+      } else if (e.type === 'group') visit(e.children, matte);
+    }
+  };
+  for (const s of slides) visit(s.elements, s.background ? opaque(s.background.color) : WHITE);
+  return out;
 }
 
 /** JPEG quality of a compression level (strong: capped at CONFIG.ui.imageStrongJpegQuality). */
@@ -90,8 +132,9 @@ export function planAsset(asset: Asset, options: ImageOptions): AssetPlan | null
   if (!PROCESSABLE_ROLES.has(asset.role) || !isRasterMime(asset.mime)) return null;
   if (!(asset.width > 0 && asset.height > 0) || asset.data.byteLength === 0) return null;
   const target = downscaleTarget(asset, options.rasterScale);
-  // Compression off, or a JPEG original (JPEG → JPEG is generation loss): only a downscale is worth it.
-  if (options.compression === 'off' || asset.mime === 'image/jpeg') {
+  // Compression off (except for the slide pictures of image targets, which always become JPEG), or a
+  // JPEG original (JPEG → JPEG is generation loss): only a downscale is worth it.
+  if ((options.compression === 'off' && !isSlidePicture(asset.role, options)) || asset.mime === 'image/jpeg') {
     return target ? { ...target, downscale: true, kind: 'resample' } : null;
   }
   return { width: target?.width ?? asset.width, height: target?.height ?? asset.height, downscale: target !== null, kind: 'compress' };
@@ -131,12 +174,19 @@ export interface BitmapInput {
   height: number;
   role: AssetRole;
   original: { bytes: number; mime: RasterMime };
+  /** Image-only targets: colour a transparent slide picture is flattened onto (default white). */
+  matte?: Rgb;
 }
 
 export interface SelectDeps {
   compressor: PixelCompressor;
   /** JPEG of the bitmap (canvas). Called at most once, before the pixel job. */
   encodeJpeg: (quality: number) => Promise<Uint8Array>;
+  /**
+   * Composite the bitmap source (what `encodeJpeg` encodes) onto an opaque colour. Used for the
+   * transparent slide pictures of image targets; without it they keep the PNG candidates.
+   */
+  flatten?: (matte: Rgb) => void | Promise<void>;
   /** The bitmap source (canvas) is no longer needed: called before the (slow) pixel job. */
   release?: () => void;
   signal?: AbortSignal;
@@ -159,6 +209,13 @@ export interface Selection {
 export async function selectEncoding(input: BitmapInput, options: ImageOptions, deps: SelectDeps): Promise<Selection> {
   const transparent = hasTransparency(input.rgba);
   const keep = (job: PixelResult | null): Selection => ({ method: 'original', bytes: null, mime: input.original.mime, transparent, job });
+  if (isSlidePicture(input.role, options) && (!transparent || deps.flatten)) {
+    // Image targets: one JPEG per slide, always (even when a PNG would be smaller).
+    if (transparent) await deps.flatten!(input.matte ?? WHITE);
+    const bytes = await deps.encodeJpeg(jpegQualityFor(options));
+    deps.release?.();
+    return { method: 'jpeg', bytes, mime: 'image/jpeg', transparent: false, job: null };
+  }
   if (options.compression === 'off') {
     deps.release?.();
     return keep(null);
@@ -169,17 +226,13 @@ export async function selectEncoding(input: BitmapInput, options: ImageOptions, 
 
   const candidates: Array<{ method: Exclude<CompressMethod, 'original'>; bytes: Uint8Array }> = [];
   if (jpeg) candidates.push({ method: 'jpeg', bytes: jpeg });
-  let job: PixelResult | null = null;
-  const jpegOnly = !!jpeg && !!options.imageTarget && input.role === 'background';
-  if (!jpegOnly) {
-    // A PNG is useful only when smaller than the original and than JPEG / ratio (see pickEncoding).
-    const maxBytes = Math.min(input.original.bytes, jpeg ? jpeg.byteLength / CONFIG.raster.jpegMinSavingRatio : Infinity);
-    job = await deps.compressor.run(
-      { rgba: input.rgba, width: input.width, height: input.height, level, maxBytes, originalBytes: input.original.bytes, hasJpeg: jpeg !== null },
-      deps.signal,
-    );
-    if (job.method && job.bytes) candidates.push({ method: job.method, bytes: job.bytes });
-  }
+  // A PNG is useful only when smaller than the original and than JPEG / ratio (see pickEncoding).
+  const maxBytes = Math.min(input.original.bytes, jpeg ? jpeg.byteLength / CONFIG.raster.jpegMinSavingRatio : Infinity);
+  const job = await deps.compressor.run(
+    { rgba: input.rgba, width: input.width, height: input.height, level, maxBytes, originalBytes: input.original.bytes, hasJpeg: jpeg !== null },
+    deps.signal,
+  );
+  if (job.method && job.bytes) candidates.push({ method: job.method, bytes: job.bytes });
   const method = pickEncoding(
     input.original,
     candidates.map((c) => ({ method: c.method, bytes: c.bytes.byteLength })),
@@ -203,6 +256,8 @@ export interface ImageCodec<S extends Surface = Surface> {
   /** Straight RGBA of the surface (a fresh buffer the caller owns). */
   pixels(surface: S): RgbaPixels;
   encode(surface: S, mime: RasterMime, quality: number): Promise<Uint8Array>;
+  /** Composite the surface onto an opaque colour (no transparent pixels left). */
+  flatten(surface: S, matte: Rgb): void;
   release(surface: S): void;
 }
 
@@ -247,11 +302,16 @@ export async function processAsset<S extends Surface>(
       method = pickEncoding({ bytes: asset.data.byteLength, mime }, [{ method: isJpeg ? 'jpeg' : 'lossless', bytes: data.byteLength }]);
       bytes = method === 'original' ? null : data;
     } else {
-      const selection = await selectEncoding(
-        { rgba: codec.pixels(surface), width: surface.width, height: surface.height, role: asset.role, original: { bytes: asset.data.byteLength, mime } },
-        options,
-        { compressor, encodeJpeg: (q) => codec.encode(surface, 'image/jpeg', q), release, signal },
-      );
+      const input: BitmapInput = { rgba: codec.pixels(surface), width: surface.width, height: surface.height, role: asset.role, original: { bytes: asset.data.byteLength, mime } };
+      const matte = options.mattes?.[asset.id];
+      if (matte) input.matte = matte;
+      const selection = await selectEncoding(input, options, {
+        compressor,
+        encodeJpeg: (q) => codec.encode(surface, 'image/jpeg', q),
+        flatten: (m) => codec.flatten(surface, m),
+        release,
+        signal,
+      });
       ({ method, bytes } = selection);
       outMime = selection.mime;
       hasAlpha = selection.transparent;
@@ -460,6 +520,15 @@ export function createCanvasCodec(): ImageCodec<CanvasSurface> {
     },
     encode(s, mime, quality) {
       return canvasToBytes(s.canvas, mime, quality);
+    },
+    flatten(s, m) {
+      // Paint the colour BEHIND the bitmap: result = bitmap over colour, fully opaque.
+      const channel = (v: number) => Math.round(Math.max(0, Math.min(1, v)) * 255);
+      s.ctx.save();
+      s.ctx.globalCompositeOperation = 'destination-over';
+      s.ctx.fillStyle = `rgb(${channel(m.r)}, ${channel(m.g)}, ${channel(m.b)})`;
+      s.ctx.fillRect(0, 0, s.width, s.height);
+      s.ctx.restore();
     },
     release(s) {
       // Free the backing store right away (large canvases are otherwise kept until GC).

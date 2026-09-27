@@ -27,11 +27,13 @@ export function Preview(props: {
   onFocus: (id: string) => void;
 }): JSX.Element {
   const s = props.slide;
+  // A missing frame main knows no name of is shown as "Missing frame".
+  const name = s ? s.name || (s.missing ? t('sidebar.missingName') : '') : '';
   return (
     <div class="preview">
       <div class="preview-head">
-        <span class="preview-name" title={s?.name}>
-          {s ? `${slideNumberLabel(props.index)}. ${s.name}` : ''}
+        <span class="preview-name" title={name}>
+          {s ? `${slideNumberLabel(props.index)}. ${name}` : ''}
         </span>
         <span class="preview-count">{s ? t('preview.counter', { i: props.index + 1, n: props.total }) : ''}</span>
       </div>
@@ -47,16 +49,16 @@ export function Preview(props: {
             <div class="stage-missing-text">{t('preview.missingHint')}</div>
           </div>
         ) : props.url ? (
-          <img class="stage-img" src={props.url} alt={s?.name ?? ''} draggable={false} />
+          <img class="stage-img" src={props.url} alt={name} draggable={false} />
         ) : props.failed !== null && s ? (
-          <div class="stage-missing" title={props.failed || undefined}>
+          <div class="stage-missing">
             <IconWarning size={22} />
             <div class="stage-missing-title">{t('preview.failed')}</div>
             <div class="stage-missing-text">{t('preview.failedHint')}</div>
           </div>
         ) : null}
         {props.failed !== null && props.url && !s?.missing && !props.loading ? (
-          <div class="stage-badge" title={props.failed || t('preview.failedHint')}>
+          <div class="stage-badge" title={t('preview.failedHint')}>
             <IconWarning size={13} />
             <span>{t('preview.failed')}</span>
           </div>

@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { CONFIG } from '../../src/config';
 import { AssetStore } from '../../src/extract/assets';
 import { exportComposite, exportPicture, exportScale, remapPaths, TempNodes, wantsSvg } from '../../src/extract/raster';
 import {
@@ -127,7 +128,7 @@ describe('raster helpers', () => {
     p.appendChild(b);
     temp.track(scene(a));
     temp.track(scene(b));
-    expect(a.name).toBe('[FigmaDeck temp]');
+    expect(a.name).toBe(`[${CONFIG.meta.productName} temp]`);
     expect(a.getPluginData('figmadeck.temp')).toBe('1');
     temp.removeAll();
     expect(p.children).toEqual([]);

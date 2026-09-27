@@ -3,13 +3,14 @@ import { PDFDocument } from 'pdf-lib';
 import { beforeAll, describe, expect, it, vi } from 'vitest';
 import { buildPptx } from '../../src/build';
 import type { BuildPptx } from '../../src/build/api';
+import { CONFIG } from '../../src/config';
 import { deserializeDeck } from '../../src/ir/serialize';
 import type { Asset, Deck, ReportEntry } from '../../src/ir/types';
 import type { MainToUi, UiToMain } from '../../src/shared/messages';
 import { DEFAULT_SETTINGS, type ExportFormat, type ExportSettings } from '../../src/shared/settings';
 import { Exporter, type ExporterDeps, type ExporterEvent } from '../../src/ui/exporter';
 import { setLang } from '../../src/ui/i18n';
-import { emptyImageStats, type ProcessHooks } from '../../src/ui/images';
+import { emptyImageStats, slideMattes, type ProcessHooks } from '../../src/ui/images';
 import { PPTX_MIME } from '../../src/ui/options';
 import { imageDeckToPdf, mergePdfs } from '../../src/ui/pdf';
 import type { ImageStats } from '../../src/ui/report';
@@ -232,7 +233,7 @@ describe('Exporter: PPTX', () => {
     const h = harness();
     h.exporter.start('pptx', settings(), 'x');
     h.feed({ type: 'export-started', format: 'pptx', total: 0 }, { type: 'export-extracted', meta: { title: 't' }, report: [] });
-    expect(await h.settled()).toEqual({ type: 'error', message: 'No slides were extracted.' });
+    expect(await h.settled()).toEqual({ type: 'error', message: 'No slides could be exported.' });
   });
 
   it('download failure → error event', async () => {
@@ -257,7 +258,7 @@ describe('Exporter: IR JSON', () => {
     const done = await h.settled();
     expect(done.type).toBe('done');
     expect(processAssets).not.toHaveBeenCalled();
-    expect(h.downloads[0].fileName).toBe(`${deck.meta.title}.figmadeck.json`);
+    expect(h.downloads[0].fileName).toBe(`${deck.meta.title}.ir.json`);
     expect(h.downloads[0].mime).toBe('application/json');
     const back = deserializeDeck(new TextDecoder().decode(h.downloads[0].data));
     expect(back.slides).toEqual(deck.slides);
@@ -332,8 +333,10 @@ describe('Exporter: PDF', () => {
     expect(h.downloads[0].fileName).toBe('Diploma.pdf');
     const doc = await PDFDocument.load(h.downloads[0].data);
     expect(doc.getPageCount()).toBe(deck.slides.length);
-    // Baked JPEG pages at the JPEG quality of the settings.
-    expect(processAssets).toHaveBeenCalledWith(expect.any(Object), { rasterScale: 1, compression: 'balanced', jpegQuality: 0.7, imageTarget: true }, expect.any(Object));
+    // Baked JPEG pages at the JPEG quality of the settings, flattened onto each slide's background.
+    const mattes = slideMattes(deck.slides);
+    expect(Object.keys(mattes).length).toBeGreaterThan(0);
+    expect(processAssets).toHaveBeenCalledWith(expect.any(Object), { rasterScale: 1, compression: 'balanced', jpegQuality: 0.7, imageTarget: true, mattes }, expect.any(Object));
     // 1 px = 1 pt.
     expect(doc.getPages().map((p) => [p.getWidth(), p.getHeight()])).toEqual(deck.slides.map((sl) => [sl.width, sl.height]));
   });
@@ -406,6 +409,26 @@ describe('Exporter: cancel', () => {
     expect(build).not.toHaveBeenCalled();
   });
 
+  it('during UI-side work that never reaches a checkpoint: the run still ends after the cancel timeout', async () => {
+    let started = false;
+    const h = harness({
+      processAssets: () => {
+        started = true;
+        return new Promise<ImageStats>(() => undefined); // stuck: never settles, never checks `isCancelled`
+      },
+    });
+    h.exporter.start('pptx', settings(), 'x');
+    h.feed(...extractedMessages(loadFixture('tiny')));
+    await vi.waitFor(() => expect(started).toBe(true));
+    h.exporter.cancel();
+    expect(h.sent.map((m) => m.type)).toEqual(['start-export']); // main has finished: nothing to cancel there
+    expect(h.timers).toHaveLength(1);
+    h.timers[0]();
+    expect(await h.settled()).toEqual({ type: 'cancelled' });
+    expect(h.exporter.busy).toBe(false);
+    expect(h.downloads).toHaveLength(0);
+  });
+
   it('during image compression: the AbortSignal fires at once and the main-thread note is shown', async () => {
     const seen: { hooks: ProcessHooks | null } = { hooks: null };
     const h = harness({
@@ -465,5 +488,22 @@ describe('Exporter: stray messages', () => {
     h.exporter.start('pptx', settings(), 'x');
     h.feed({ type: 'export-error', message: 'No slides to export' });
     expect(await h.settled()).toEqual({ type: 'error', message: 'No slides to export' });
+  });
+
+  it('error texts are one short line: no "Error:" prefix, no stack, bounded length', async () => {
+    const h = harness();
+    h.exporter.start('pptx', settings(), 'x');
+    h.feed({ type: 'export-error', message: `TypeError: Cannot read properties of undefined\n    at walk (code.js:1:2)\n    at run (code.js:3:4)` });
+    expect(await h.settled()).toEqual({ type: 'error', message: 'Cannot read properties of undefined' });
+    const failing = harness({
+      buildPptx: async () => {
+        throw new Error('x'.repeat(1000));
+      },
+    });
+    failing.exporter.start('pptx', settings(), 'x');
+    failing.feed(...extractedMessages(loadFixture('tiny')));
+    const e = await failing.settled();
+    expect(e.type === 'error' && e.message.length).toBeLessThanOrEqual(CONFIG.ui.errorMessageMaxChars);
+    expect(e.type === 'error' && e.message.endsWith('…')).toBe(true);
   });
 });

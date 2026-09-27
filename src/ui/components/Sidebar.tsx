@@ -28,6 +28,8 @@ export interface SidebarProps {
   slides: SlideInfo[];
   selectedId: string | null;
   thumbs: Record<string, string>;
+  /** Slides whose thumbnail never came: a static placeholder instead of the loading shimmer. */
+  failedThumbs?: Record<string, true>;
   addLabel: string;
   addDisabled: boolean;
   addHint?: string;
@@ -219,7 +221,13 @@ export function Sidebar(props: SidebarProps): JSX.Element {
             >
               <span class="slide-num">{i + 1}</span>
               <div class="slide-thumb" style={{ width: `${size.w}px`, height: `${size.h}px` }}>
-                {url ? <img src={url} alt="" draggable={false} /> : <span class={s.missing ? 'thumb-empty' : 'thumb-empty loading'} />}
+                {url ? (
+                  <img src={url} alt="" draggable={false} />
+                ) : s.missing || props.failedThumbs?.[s.id] ? (
+                  <span class="thumb-empty" title={s.missing ? undefined : t('sidebar.thumbFailed')} />
+                ) : (
+                  <span class="thumb-empty loading" />
+                )}
                 {s.missing ? (
                   <span class="thumb-warning" aria-label={t('sidebar.missing')}>
                     <IconWarning size={14} />

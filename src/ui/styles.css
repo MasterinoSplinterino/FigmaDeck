@@ -1,5 +1,5 @@
 /*
- * FigmaDeck UI. Colors come from Figma's theme variables (figma.showUI themeColors: true adds
+ * Plugin UI. Colors come from Figma's theme variables (figma.showUI themeColors: true adds
  * --figma-color-* and html.figma-dark / html.figma-light); the fallbacks reproduce Figma's dark UI
  * so the page also renders standalone (screenshots). No external resources.
  */
@@ -187,6 +187,48 @@ p {
   justify-content: center;
 }
 
+/* "Can't connect" / "Something went wrong" (components/ErrorBoundary.tsx) */
+.status-screen {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 24px 24px 40px;
+  text-align: center;
+  background: var(--c-bg-secondary);
+}
+
+.status-screen > .icon {
+  color: var(--c-text-warning);
+}
+
+.status-title {
+  margin-top: 12px;
+  font-size: 14px;
+  line-height: 20px;
+  font-weight: 600;
+}
+
+.status-text {
+  max-width: 360px;
+  margin: 8px 0 16px;
+  color: var(--c-text-secondary);
+  line-height: 17px;
+}
+
+a.link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--c-text-brand);
+  text-decoration: none;
+}
+
+a.link:hover {
+  text-decoration: underline;
+}
+
 /* ─── Buttons ────────────────────────────────────────────────────────────── */
 
 .btn {
@@ -335,6 +377,7 @@ p {
 /* ─── Empty state ────────────────────────────────────────────────────────── */
 
 .empty {
+  position: relative;
   height: 100%;
   display: flex;
   flex-direction: column;
@@ -348,6 +391,13 @@ p {
 .empty-art {
   display: block;
   margin-bottom: 14px;
+}
+
+.empty-settings {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  padding: 0 8px;
 }
 
 .empty-grid line {
@@ -373,7 +423,7 @@ p {
 }
 
 .empty-text {
-  max-width: 340px;
+  max-width: 360px;
   margin: 10px 0 16px;
   color: var(--c-text-secondary);
   line-height: 17px;
@@ -1677,6 +1727,87 @@ p {
   user-select: text;
 }
 
+/* About */
+.about-product {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 2px 0 6px;
+}
+
+.about-name {
+  font-weight: 600;
+}
+
+.about-version {
+  color: var(--c-text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+.about-privacy {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: 6px;
+  background: var(--c-bg-secondary);
+  color: var(--c-text-secondary);
+  font-size: 11px;
+  line-height: 15px;
+}
+
+.about-privacy .icon {
+  margin-top: 1px;
+  color: var(--c-text-success);
+}
+
+.about-links {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 4px 12px;
+  user-select: text;
+}
+
+.licenses {
+  margin-top: 8px;
+}
+
+.licenses summary {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 0;
+  color: var(--c-text-brand);
+  cursor: pointer;
+  list-style: none;
+}
+
+.licenses summary::-webkit-details-marker {
+  display: none;
+}
+
+.licenses .row-hint {
+  margin: 2px 0 6px;
+}
+
+.licenses-text {
+  max-height: 220px;
+  margin: 0;
+  padding: 8px 10px;
+  overflow: auto;
+  border: 1px solid var(--c-border);
+  border-radius: 6px;
+  background: var(--c-bg-secondary);
+  color: var(--c-text-secondary);
+  font-family: var(--font);
+  font-size: 11px;
+  line-height: 15px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  user-select: text;
+}
+
 /* ─── Report ─────────────────────────────────────────────────────────────── */
 
 .report-dialog {
@@ -1712,6 +1843,12 @@ p {
   flex: none;
   background: var(--c-bg-tertiary);
   color: var(--c-text-secondary);
+}
+
+.report-download-hint {
+  margin: 2px 0 0 26px;
+  font-size: 11px;
+  color: var(--c-text-tertiary);
 }
 
 .stats {

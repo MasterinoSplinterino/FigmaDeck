@@ -1,5 +1,6 @@
 import { beforeAll, describe, expect, it } from 'vitest';
 import type { FontReportItem } from '../../src/build/api';
+import { CONFIG } from '../../src/config';
 import type { ReportEntry } from '../../src/ir/types';
 import { setLang } from '../../src/ui/i18n';
 import { emptyImageStats } from '../../src/ui/images';
@@ -103,7 +104,7 @@ describe('buildReportModel', () => {
 
 describe('text helpers', () => {
   it('entryText localizes known codes and keeps unknown messages', () => {
-    expect(entryText(ENTRIES[6])).toBe('Caption: Uses a font missing in Figma; the text box may not match');
+    expect(entryText(ENTRIES[6])).toBe('Caption: Uses a font that’s missing in Figma; the text may not match');
     expect(entryText(ENTRIES[7])).toBe('Something unusual happened.');
     expect(entryText(ENTRIES[8])).toBe('Slide was scaled to fit the presentation size');
   });
@@ -141,7 +142,8 @@ describe('reportToText', () => {
 
   it('contains the summary, fonts, all rasterized layers with reasons, skipped counts, warnings and notes', () => {
     const text = reportToText(outcome, buildReportModel(outcome.entries, outcome.fonts, outcome.slideIds));
-    expect(text).toContain('FigmaDeck export report');
+    expect(text).toContain(`${CONFIG.meta.productName} export report`);
+    expect(text).not.toContain('FigmaDeck');
     expect(text).toContain('Deck.pptx (PowerPoint — editable)');
     expect(text).toContain('Slides: 3');
     expect(text).toContain('File size: 2 KB');
@@ -150,7 +152,7 @@ describe('reportToText', () => {
     expect(text).toContain('Images: 4 · 1,000 B → 290 B (\u221271%) · 2 palette, 1 JPEG, 1 unchanged, 1 downscaled');
     expect(text).not.toContain('background worker');
     expect(text).toContain('## Fonts');
-    expect(text).toContain('Fonts are not embedded');
+    expect(text).toContain('Fonts aren’t embedded');
     expect(text).toContain('- Inter · Black → Inter Heavy [custom mapping]');
     expect(text).toContain('- Inter · Bold → Inter (B)');
     expect(text).toContain('## Rasterized layers (4)');
@@ -197,7 +199,7 @@ describe('reportToText', () => {
     setLang('ru');
     try {
       const text = reportToText(outcome, buildReportModel(outcome.entries, outcome.fonts, outcome.slideIds));
-      expect(text).toContain('Отчёт об экспорте FigmaDeck');
+      expect(text).toContain(`Отчёт об экспорте ${CONFIG.meta.productName}`);
       expect(text).toContain('Градиент, Размытие');
       expect(text).toContain('2 слоя вне слайда');
     } finally {
