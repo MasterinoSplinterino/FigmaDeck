@@ -64,13 +64,9 @@ export function paintReasons(p: Paint, settings: Pick<ExportSettings, 'nativeGra
     case 'GRADIENT_DIAMOND':
       reasons.push('gradient');
       break;
-    case 'VIDEO':
-    case 'PATTERN':
-      reasons.push('image-fill-mode');
-      break;
     default:
-      // SHADER and future paint types.
-      reasons.push('effects');
+      // VIDEO, PATTERN, SHADER / noise and future paint types.
+      reasons.push('unsupported-paint');
   }
   return reasons;
 }
@@ -99,7 +95,7 @@ export function analyzeFills(
   if (p.type === 'SOLID') return { kind: 'native', fill: { type: 'solid', color: solidColor(p) } };
   if (p.type === 'GRADIENT_LINEAR') return { kind: 'native', fill: linearGradient(p) };
   if (p.type === 'IMAGE') return { kind: 'image', paint: p };
-  return { kind: 'raster', reasons: ['effects'] };
+  return { kind: 'raster', reasons: ['unsupported-paint'] };
 }
 
 export type StrokeAnalysis =

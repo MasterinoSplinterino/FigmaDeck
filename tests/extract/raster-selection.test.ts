@@ -42,7 +42,7 @@ describe('raster helpers', () => {
     const r = rect({ x: 10, y: 10, width: 30, height: 20 });
     onPage(r);
     const pic = await exportPicture(ctx, scene(r), { role: 'raster' });
-    expect(pic).toEqual({ assetId: 'ras1', svgAssetId: null, region: { x: 10, y: 10, w: 30, h: 20 } });
+    expect(pic).toEqual({ assetId: 'ras1', svgAssetId: null, region: { x: 10, y: 10, w: 30, h: 20 }, scale: 2, absoluteBounds: false });
     expect(ctx.assets.get('ras1')).toMatchObject({ width: 60, height: 40, hasAlpha: true, displayWidth: 30, displayHeight: 20 });
     expect(await exportPicture(ctx, scene(rect({ renderBounds: null })), { role: 'raster' })).toBeNull();
   });

@@ -309,6 +309,59 @@ export const CONFIG = {
     zipCompressionLevel: 6,
   },
 
+  /**
+   * PNG compression (src/compress, pngquant / TinyPNG-like): ≤256-colour palette with adaptive
+   * dithering behind a quality gate, plus a lossless re-encoder. Evidence: scripts/compress-bench.ts.
+   */
+  compress: {
+    /** Above this many pixels the palette is searched on a sample (the full image is still remapped). */
+    maxPixels: 12000000,
+    /** Approximate sample size (pixels) used above maxPixels. */
+    samplePixels: 4000000,
+    /** Max distinct histogram colours; beyond it colours are binned (one low bit per channel per step). */
+    maxHistogramColors: 131072,
+    /** k-means refinement after median cut: max iterations and minimum relative error gain per iteration. */
+    kmeansIterations: 8,
+    kmeansMinImprovement: 0.002,
+    /** A palette entry snaps to its cell's most frequent exact colour (≥ this share, ≤ this distance in 8-bit levels). */
+    snapMinShare: 0.3,
+    snapMaxDistance: 3,
+    /** Channel weights (r, g, b) of the premultiplied error metric used by the quantizer and the ditherer. */
+    channelWeights: [1, 1, 1] as readonly [number, number, number],
+    dither: {
+      /** pngquant-style per-pixel dither map (less on edges / noise, full inside flat-mapped areas). */
+      adaptive: true,
+      /** Dither level drop per 8-bit level of local second difference (edges). */
+      edgeScale: 1,
+      /** Accumulated error below this (squared, working space) is dropped instead of diffused. */
+      minError2: 2,
+      /** Larger errors are damped: threshold = max(factor × plain-remap MSE, min). */
+      maxErrorFactor: 2.4,
+      maxErrorMin: 16,
+      /** How far (8-bit levels) a dithered target may leave the valid premultiplied range. */
+      overflow: 16,
+    },
+    /**
+     * Quality gate per `ExportSettings.compression` level (pngquant `--quality min` analogue). PSNR is on
+     * premultiplied RGBA of visible pixels, SSIM on 8×8 blocks of luma over black / white, block error
+     * is the largest |mean error| of an 8×8 block in 8-bit levels (banding guard).
+     */
+    levels: {
+      balanced: { minPsnr: 40, minSsim: 0.985, maxBlockError: 1.5, ditherStrength: 1 },
+      strong: { minPsnr: 35, minSsim: 0.97, maxBlockError: 2.5, ditherStrength: 1 },
+    },
+    /** Images with at most this many distinct colours (flat graphics) also try the smaller palettes. */
+    flatMaxColors: 4096,
+    /** …as do images of at most this many pixels. */
+    smallImagePixels: 65536,
+    smallerPalettes: [128, 64, 32, 16, 8, 4, 2] as readonly number[],
+    /** zlib level of IDAT (0..9). */
+    deflateLevel: 9,
+    /** Filter / zlib strategy combinations tried for palette and truecolour PNGs (smallest kept). */
+    paletteAttempts: [{ filter: 'none', strategy: 'default' }] as ReadonlyArray<{ filter: 'none' | 'adaptive' | 'sub' | 'up' | 'paeth'; strategy: 'default' | 'filtered' }>,
+    truecolorAttempts: [{ filter: 'adaptive', strategy: 'default' }] as ReadonlyArray<{ filter: 'none' | 'adaptive' | 'sub' | 'up' | 'paeth'; strategy: 'default' | 'filtered' }>,
+  },
+
   /** scripts/visual-regression.ts defaults (LibreOffice render vs PNGs exported from Figma). */
   visual: {
     /** pixelmatch per-pixel color threshold (0..1, smaller = more sensitive). */

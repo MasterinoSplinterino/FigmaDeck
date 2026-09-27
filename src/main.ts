@@ -2,6 +2,12 @@
  * Plugin main thread (Figma sandbox): deck list, thumbnails, fonts, export orchestration.
  * Protocol: src/shared/messages.ts. Extraction: src/extract/.
  *
+ * Export formats (`start-export`):
+ * - `pptx`, `ir-json`: extraction with the user's mode (`editable` / `exact` / `image`);
+ * - `pptx-image`, `pdf-image`: extraction in mode `image` (forced here whatever the settings say): one
+ *   PNG per slide at `settings.rasterScale`; the UI re-encodes it (JPEG) and builds the file;
+ * - `pdf`: Figma's own vector PDF per frame (`export-pdf-page`), merged by the UI.
+ *
  * Sandbox constraints: `documentAccess: "dynamic-page"` → only async node access
  * (`getNodeByIdAsync`, `page.loadAsync()`, `setCurrentPageAsync`), no `documentchange`; no DOM,
  * no TextEncoder / atob / structuredClone / fetch.
@@ -166,7 +172,10 @@ async function sortSlides(): Promise<void> {
 
 async function exportImage(id: string, width: number, kind: 'thumbnail' | 'preview'): Promise<void> {
   const node = await resolveSlide(id);
-  if (!node) return;
+  if (!node) {
+    if (kind === 'preview') post({ type: 'preview-failed', id, message: 'This frame no longer exists.' });
+    return;
+  }
   await ensurePageLoaded(pageOf(node));
   const target = kind === 'thumbnail' ? width : Math.min(width, Math.max(1, Math.round(node.width * 2)));
   const bytes = await node.exportAsync({ format: 'PNG', constraint: { type: 'WIDTH', value: Math.max(1, Math.round(target)) } });
@@ -229,6 +238,20 @@ function deckMeta(s: ExportSettings): DeckMeta {
   };
 }
 
+/** A preview that cannot be produced still answers, so the UI stops waiting. */
+async function requestPreview(id: string): Promise<void> {
+  try {
+    await exportImage(id, CONFIG.ui.previewWidth, 'preview');
+  } catch (e) {
+    post({ type: 'preview-failed', id, message: errorMessage(e) });
+  }
+}
+
+/** Formats that are one baked picture per slide / page. */
+function isImageFormat(format: ExportFormat): boolean {
+  return format === 'pptx-image' || format === 'pdf-image';
+}
+
 /** Deck frames that still exist (pages loaded) + report warnings for the missing ones. */
 async function framesForExport(): Promise<{ frames: SlideNode[]; missing: ReportEntry[] }> {
   const frames: SlideNode[] = [];
@@ -258,8 +281,13 @@ async function startExport(format: ExportFormat, rawSettings: ExportSettings): P
     return;
   }
   const s = normalizeSettings(rawSettings);
-  settings = s;
-  figma.clientStorage.setAsync(STORAGE_KEYS.settings, s).catch(() => undefined);
+  if (isImageFormat(format)) {
+    // One picture per slide whatever the UI sent; not persisted (the user's own mode stays).
+    s.mode = 'image';
+  } else {
+    settings = s;
+    figma.clientStorage.setAsync(STORAGE_KEYS.settings, s).catch(() => undefined);
+  }
   const env = createFigmaEnv();
   const run = { cancelled: false, temp: new TempNodes(env) };
   exportRun = run;
@@ -271,13 +299,12 @@ async function startExport(format: ExportFormat, rawSettings: ExportSettings): P
     if (format === 'pdf') {
       for (let i = 0; i < frames.length; i++) {
         if (run.cancelled) throw new ExtractCancelledError();
-        post({ type: 'export-progress', phase: 'pdf', done: i, total: frames.length, label: frames[i].name });
+        post({ type: 'export-progress', phase: 'pdf', done: i, total: frames.length, label: frames[i].name, slide: i + 1 });
         const bytes = await frames[i].exportAsync({ format: 'PDF' });
         post({ type: 'export-pdf-page', index: i, total: frames.length, name: frames[i].name, bytes });
         await yieldToFigma();
       }
-      if (missing.length > 0) toast(`${missing.length} missing frame(s) were skipped.`, true);
-      post({ type: 'export-pdf-done', meta });
+      post({ type: 'export-pdf-done', meta, report: missing });
       return;
     }
     let lastProgress = 0;
@@ -288,7 +315,8 @@ async function startExport(format: ExportFormat, rawSettings: ExportSettings): P
       isCancelled: () => run.cancelled,
       onProgress: (p) => {
         const now = Date.now();
-        if (now - lastProgress < CONFIG.extract.progressIntervalMs && p.nodesVisited > 0) return;
+        const lastJob = p.phase === 'export' && p.jobsDone === p.jobsTotal;
+        if (now - lastProgress < CONFIG.extract.progressIntervalMs && p.nodesVisited > 0 && !lastJob) return;
         lastProgress = now;
         const what = p.phase === 'walk' ? `${p.nodesVisited} layers` : `exporting ${p.jobsDone}/${p.jobsTotal}`;
         post({
@@ -297,8 +325,13 @@ async function startExport(format: ExportFormat, rawSettings: ExportSettings): P
           done: p.slideIndex,
           total: p.slideCount,
           label: `${frames[p.slideIndex]?.name ?? ''} — ${what}`,
+          slide: p.slideIndex + 1,
+          layers: p.nodesVisited,
+          ...(p.phase === 'export' ? { jobsDone: p.jobsDone, jobsTotal: p.jobsTotal } : {}),
         });
       },
+      // `e.assets` = assets new with this slide PLUS assets sent before that this slide displays larger
+      // (same id, bigger displayWidth/Height — allowed by the protocol): the UI replaces them by id.
       onSlide: (e) => post({ type: 'export-slide', index: e.index, total: e.total, slide: e.slide, assets: e.assets }),
     });
     post({ type: 'export-extracted', meta, report: [...missing, ...result.report] });
@@ -352,7 +385,7 @@ async function handle(msg: UiToMain): Promise<void> {
       await requestThumbnails(msg.ids);
       break;
     case 'request-preview':
-      await exportImage(msg.id, CONFIG.ui.previewWidth, 'preview');
+      await requestPreview(msg.id);
       break;
     case 'focus-slide':
       await focusSlide(msg.id);

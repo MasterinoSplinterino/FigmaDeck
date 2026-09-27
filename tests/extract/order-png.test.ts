@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { sortByCanvasOrder } from '../../src/extract/order';
-import { readPngInfo, readSvgSize, sniffImageMime } from '../../src/extract/png';
+import { readPngInfo, readSvgSize, setSvgViewport, sniffImageMime } from '../../src/extract/png';
 import { JPEG_BYTES, WEBP_BYTES, ascii, makePng } from '../helpers/figma-mocks';
 
 const item = (id: string, x: number, y: number, pageIndex = 0, width = 100, height = 100) => ({ id, x, y, width, height, pageIndex });
@@ -65,5 +65,16 @@ describe('PNG header', () => {
     expect(readSvgSize(ascii("<?xml version='1.0'?><svg xmlns='x' width='10px' height='20px'>"))).toEqual({ width: 10, height: 20 });
     expect(readSvgSize(ascii('<svg viewBox="0 0 40 30">'))).toEqual({ width: 40, height: 30 });
     expect(readSvgSize(ascii('<html>'))).toBeNull();
+  });
+
+  it('rewrites the SVG root viewport to the picture box, keeping everything else byte for byte', () => {
+    const latin1 = (b: Uint8Array) => Buffer.from(b).toString('latin1');
+    const svg = ascii('<?xml?><svg width="21" height="11" viewBox="0 0 21 11" fill="none" xmlns="x"><path d="M0 0" stroke-width="2"/>\xe9</svg>');
+    const out = setSvgViewport(svg, 20.5, 10.5)!;
+    expect(latin1(out)).toBe('<?xml?><svg width="20.5" height="10.5" viewBox="0 0 20.5 10.5" fill="none" xmlns="x"><path d="M0 0" stroke-width="2"/>\xe9</svg>');
+    expect(readSvgSize(out)).toEqual({ width: 20.5, height: 10.5 });
+    // Missing attributes are added; a viewBox origin is kept.
+    expect(latin1(setSvgViewport(ascii("<svg viewBox='5 6 7 8'>"), 3, 4)!)).toBe('<svg height="4" width="3" viewBox="5 6 3 4">');
+    expect(setSvgViewport(ascii('<html>'), 1, 1)).toBeNull();
   });
 });

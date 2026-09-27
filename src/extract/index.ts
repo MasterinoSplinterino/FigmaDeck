@@ -15,6 +15,7 @@ import { IR_VERSION } from '../ir/types';
 import type { ExportSettings } from '../shared/settings';
 import { AssetStore } from './assets';
 import { createFigmaEnv, type FigmaEnv } from './figma-env';
+import { createLineHeightMeasurer } from './line-height';
 import { IdRegistry } from './plan';
 import { throwIfCancelled, type CancelCheck } from './pool';
 import { TempNodes } from './raster';
@@ -69,6 +70,8 @@ export async function extractDeck(frames: readonly SceneNode[], options: Extract
   const assets = new AssetStore();
   const ids = new IdRegistry();
   const images: ImageCache = new Map();
+  // One AUTO line-height measurement per (font, size) and export.
+  const measureLineHeight = CONFIG.extract.measureAutoLineHeight ? createLineHeightMeasurer(env, temp) : undefined;
   const slides: Slide[] = [];
   const report: ReportEntry[] = [];
   const total = frames.length;
@@ -93,9 +96,11 @@ export async function extractDeck(frames: readonly SceneNode[], options: Extract
           if (visited % Math.max(1, CONFIG.extract.progressEveryNodes) === 0) progress('walk', 0, 0);
         },
         onJobDone: (done, jobs) => progress('export', done, jobs),
+        measureLineHeight,
       });
       slides.push(result.slide);
       report.push(...result.report);
+      // `takeNew` also re-queues assets sent earlier that a later slide displays larger (same id).
       if (options.onSlide) await options.onSlide({ index, total, slide: result.slide, assets: assets.takeNew() });
     }
     return { slides, assets: assets.toRecord(), report };

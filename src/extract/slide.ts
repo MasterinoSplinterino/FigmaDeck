@@ -3,7 +3,9 @@
  * - editable: walker plan (native text / shapes / images / groups, per-layer rasters);
  * - exact: one background picture of the frame with the native texts hidden (temporary composite),
  *   native text boxes on top;
- * - image: one picture of the frame.
+ * - image: one picture of the frame (PNG at the raster scale; the UI may re-encode it).
+ * Slide pictures cover the frame's bounding box (`useAbsoluteBounds`), placed at its origin with size
+ * bitmap px / scale; they are not cropped (PowerPoint clips at the slide edge).
  */
 import { CONFIG } from '../config';
 import type { Element, ReportEntry, Slide, TextElement } from '../ir/types';
@@ -11,7 +13,8 @@ import type { ExportSettings } from '../shared/settings';
 import type { AssetStore } from './assets';
 import type { FigmaEnv } from './figma-env';
 import { invert } from './geometry';
-import { absoluteTransformOf, sizeOf } from './node-props';
+import type { MeasureLineHeight } from './line-height';
+import { absoluteTransformOf, clipsContentOf, sizeOf } from './node-props';
 import { executePlan, type IdRegistry } from './plan';
 import { throwIfCancelled, type CancelCheck } from './pool';
 import { exportComposite, exportPicture, type ExportedPicture, type RasterContext, type TempNodes } from './raster';
@@ -30,6 +33,8 @@ export interface SlideExtractOptions {
   onVisit?: (visited: number) => void;
   /** Progress: export jobs finished on this slide. */
   onJobDone?: (done: number, total: number) => void;
+  /** AUTO line-height measurement (line-height.ts); absent = AUTO stays in the IR. */
+  measureLineHeight?: MeasureLineHeight;
 }
 
 export interface SlideExtractResult {
@@ -53,6 +58,7 @@ export async function extractSlide(frame: SceneNode, opts: SlideExtractOptions):
     frame,
     slideInverse,
     slideRect: { x: 0, y: 0, w: width, h: height },
+    rootClips: clipsContentOf(frame),
     assets: opts.assets,
     temp: opts.temp,
     report,
@@ -60,6 +66,7 @@ export async function extractSlide(frame: SceneNode, opts: SlideExtractOptions):
     isCancelled: opts.isCancelled,
     onVisit: opts.onVisit,
     visited: 0,
+    measureLineHeight: opts.measureLineHeight,
   };
   const raster: RasterContext = { env: opts.env, settings: opts.settings, assets: opts.assets, temp: opts.temp };
   const background = slideBackground(frame, opts.env.mixed);
@@ -70,7 +77,7 @@ export async function extractSlide(frame: SceneNode, opts: SlideExtractOptions):
     case 'image': {
       const picture = await exportPicture(raster, frame, { role: 'background', useAbsoluteBounds: true });
       const el = picture
-        ? pictureElement(ctx, { id: `~image:${frame.id}`, name: frame.name }, picture, rootPictureOpacity(frame), ['image-mode'], ctx.slideRect)
+        ? pictureElement(ctx, { id: `~image:${frame.id}`, name: frame.name }, picture, rootPictureOpacity(frame), ['image-mode'], null)
         : null;
       if (el) report.rasterized(nodeRef(frame), ['image-mode']);
       elements = el ? [el] : [];
@@ -100,7 +107,7 @@ export async function extractSlide(frame: SceneNode, opts: SlideExtractOptions):
         }
       }
       const bg = picture
-        ? pictureElement(ctx, { id: `~exact:${frame.id}`, name: frame.name }, picture, rootPictureOpacity(frame), ['exact-mode'], ctx.slideRect)
+        ? pictureElement(ctx, { id: `~exact:${frame.id}`, name: frame.name }, picture, rootPictureOpacity(frame), ['exact-mode'], null)
         : null;
       if (bg) report.rasterized(nodeRef(frame), ['exact-mode']);
       elements = bg ? [bg, ...keptTexts] : keptTexts;

@@ -38,7 +38,13 @@ describe('paints', () => {
     expect(analyzeFills([imagePaint('h')], settings).kind).toBe('image');
     expect(analyzeFills([solid(), radial()], settings)).toEqual({ kind: 'raster', reasons: ['multiple-fills', 'gradient'] });
     expect(analyzeFills([solid('#000000', 1, { blendMode: 'MULTIPLY' })], settings)).toEqual({ kind: 'raster', reasons: ['blend-mode'] });
-    expect(analyzeFills([{ type: 'VIDEO', visible: true } as unknown as Paint], settings)).toEqual({ kind: 'raster', reasons: ['image-fill-mode'] });
+    expect(analyzeFills([{ type: 'VIDEO', visible: true } as unknown as Paint], settings)).toEqual({ kind: 'raster', reasons: ['unsupported-paint'] });
+    expect(analyzeFills([{ type: 'PATTERN', visible: true } as unknown as Paint], settings)).toEqual({ kind: 'raster', reasons: ['unsupported-paint'] });
+    expect(analyzeFills([{ type: 'SHADER', visible: true } as unknown as Paint], settings)).toEqual({ kind: 'raster', reasons: ['unsupported-paint'] });
+    expect(analyzeFills([solid(), { type: 'VIDEO', visible: true } as unknown as Paint], settings)).toEqual({
+      kind: 'raster',
+      reasons: ['multiple-fills', 'unsupported-paint'],
+    });
   });
 });
 

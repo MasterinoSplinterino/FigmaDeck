@@ -49,6 +49,20 @@ describe('computeImageCrop', () => {
     });
   });
 
+  it('CROP: the transform verified in Figma — [[0.5,0,0.25],[0,0.5,0.1]] shows u 0.25..0.75, v 0.1..0.6', () => {
+    expect(
+      computeImageCrop('CROP', 100, 100, 1000, 1000, [
+        [0.5, 0, 0.25],
+        [0, 0.5, 0.1],
+      ]),
+    ).toEqual({
+      crop: { left: 0.25, top: 0.1, right: 0.25, bottom: 0.4 },
+      box: { x: 0, y: 0, w: 100, h: 100 },
+      displayWidth: 200,
+      displayHeight: 200,
+    });
+  });
+
   it('CROP without rotation/skew and inside the image only', () => {
     expect(cropFromImageTransform([[0.5, 0.1, 0], [0, 0.5, 0]])).toBeNull();
     expect(cropFromImageTransform([[0.5, 0, 0.6], [0, 0.5, 0]])).toBeNull(); // right edge beyond the image

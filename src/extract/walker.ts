@@ -2,17 +2,34 @@
  * Tree walk of one slide ("editable" mode): Figma nodes → plan (native elements + export jobs).
  *
  * Walk state: effective opacity of the ancestors (PowerPoint groups have no opacity, so it is baked
- * into the leaves) and the clip state (clip.ts). Clipping rules:
- * - fully outside the clip → skipped, one report entry for the top-most skipped node;
- * - cut by a RECTANGULAR clipping frame: pictures are cropped (`srcRect`), plain rectangles are
- *   intersected, everything else is rasterized ('clip') and the picture cropped to the clip — the
- *   same pixels as a composite with the clipping frame, without touching the document;
+ * into the leaves; a raster's own opacity is baked into its bitmap, so a picture gets the ANCESTORS'
+ * product only) and the clip state (clip.ts).
+ *
+ * Clipping (verified: `absoluteRenderBounds` and default exports are already clipped by every
+ * ancestor with `clipsContent`; a visible node clipped away entirely has render bounds `null`):
+ * - render bounds `null` (or fully outside the clip) → skipped, one 'outside-clip' report entry for
+ *   the top-most skipped node;
+ * - rasters exported in place are placed at their (clipped) render bounds and never cropped again;
+ * - cut by a RECTANGULAR clipping frame, NATIVE elements are clipped by hand: image fills cropped
+ *   (`srcRect`), plain rectangles intersected, everything else rasterized ('clip') in place;
  * - cut only by the slide edge: pictures cropped, plain rectangles intersected, the rest kept native
  *   (PowerPoint itself clips at the slide edge);
- * - reaching into a ROUNDED corner of a clipping frame: temporary composite with that frame.
+ * - reaching into a ROUNDED corner of a clipping frame: temporary composite with that frame (cropped
+ *   to the clips above the frame, which the clone at the page root escapes).
  */
 import { CONFIG } from '../config';
-import type { Element, ImageElement, Matrix, RasterReason, Rect, ShapeElement, SolidFill, TextElement, Transform } from '../ir/types';
+import type {
+  Element,
+  ImageElement,
+  Matrix,
+  RasterReason,
+  Rect,
+  ShapeElement,
+  SolidFill,
+  TextElement,
+  TextParagraph,
+  Transform,
+} from '../ir/types';
 import type { ExportSettings } from '../shared/settings';
 import type { AssetStore } from './assets';
 import {
@@ -58,6 +75,7 @@ import {
   childrenOf,
   clipsContentOf,
   cornerRadiiOf,
+  effectsOf,
   fillsOf,
   isContainer,
   isMaskNode,
@@ -66,8 +84,10 @@ import {
   pathFrom,
   renderBoundsOf,
   sizeOf,
+  strokesOf,
   uniformRadiusOf,
 } from './node-props';
+import { resolveAutoLineHeights, type MeasureLineHeight } from './line-height';
 import { analyzeStrokes, isNormalBlend, visiblePaints } from './paints';
 import { planElement, planJob, type Plan } from './plan';
 import { isCancelledError, throwIfCancelled, type CancelCheck } from './pool';
@@ -93,6 +113,8 @@ export interface SlideContext {
   slideInverse: Matrix;
   /** { 0, 0, frame.width, frame.height } */
   slideRect: Rect;
+  /** The root frame clips its content: Figma's render bounds / exports are cut at the slide edge too. */
+  rootClips: boolean;
   assets: AssetStore;
   temp: TempNodes;
   report: SlideReport;
@@ -102,6 +124,8 @@ export interface SlideContext {
   /** Called after every visited node (count so far). */
   onVisit?: (visited: number) => void;
   visited: number;
+  /** Measures `lineHeight: AUTO` (line-height.ts); absent = AUTO stays in the IR. */
+  measureLineHeight?: MeasureLineHeight;
 }
 
 export interface ImageInfo {
@@ -141,18 +165,25 @@ async function tick(ctx: SlideContext): Promise<void> {
 
 // ─── Pictures ────────────────────────────────────────────────────────────────
 
-/** Picture element for an exported region, cropped to `clip` (slide px). `null` when fully clipped. */
+/**
+ * Picture element for an exported bitmap, placed at `picture.region` (origin of the render bounds,
+ * size = bitmap px / scale). `clip` (slide px) is a clip Figma did NOT apply to this bitmap — the
+ * clips above a composite's clone, the slide edge of a non-clipping root — and crops the picture
+ * only where it reaches past it by more than one bitmap pixel (the last pixel column / row may
+ * overhang the render bounds by up to 1/scale px; that is not a cut). `null` when fully clipped.
+ */
 export function pictureElement(
   ctx: Pick<SlideContext, 'slideInverse'>,
   meta: { id: string; name: string },
-  picture: ExportedPicture,
+  picture: Pick<ExportedPicture, 'assetId' | 'svgAssetId' | 'region' | 'scale'>,
   opacity: number,
   reasons: RasterReason[] | null,
   clip: Rect | null,
 ): ImageElement | null {
   let transform = placeAbsoluteRect(ctx.slideInverse, picture.region);
   let crop: ImageElement['crop'] = null;
-  if (clip && transform.rotation === 0 && !containsRect(clip, transform, 1e-6)) {
+  const pixel = picture.scale > 0 ? 1 / picture.scale : 1;
+  if (clip && transform.rotation === 0 && !containsRect(clip, transform, Math.max(1e-6, pixel))) {
     const cropped = cropPictureToRect(transform, null, clip);
     if (!cropped) return null;
     transform = cropped.transform;
@@ -175,21 +206,75 @@ export function pictureElement(
   return el;
 }
 
+/** Extent of a node for clip tests, or why there is none (see `SlideWalker.clipExtent`). */
+type ClipExtent = { kind: 'ok'; visual: Rect; abs: Rect } | { kind: 'empty' } | { kind: 'clipped' };
+
 /**
- * Absolute bounds for clip tests, `null` when the node paints nothing. Shapes use render bounds ∪
- * bounding box, so the test does not depend on whether Figma already trimmed the render bounds by a
- * clipping ancestor; text uses its render (glyph) bounds only, so a slightly oversized text box does
- * not count as clipped. A zero-thickness side (hairlines) is widened to the minimum visible size.
+ * The node paints nothing by itself (no visible fill / stroke / effect, no painting child, empty
+ * text): a `null` render bounds then means "empty", not "clipped away".
  */
-function renderableBounds(node: SceneNode): Rect | null {
-  const render = renderBoundsOf(node);
-  const min = CONFIG.raster.minVisibleSizePx;
-  if (!render || render.w < 0 || render.h < 0 || (render.w < min && render.h < min)) return null;
-  const box = node.type === 'TEXT' ? null : boundingBoxOf(node);
-  const abs = box ? (unionRects([render, box]) ?? render) : render;
-  const w = Math.max(abs.w, min);
-  const h = Math.max(abs.h, min);
-  return { x: abs.x - (w - abs.w) / 2, y: abs.y - (h - abs.h) / 2, w, h };
+export function paintsNothing(node: SceneNode, mixed: symbol): boolean {
+  if (node.type === 'TEXT' && node.characters.length === 0) return true;
+  const fills = fillsOf(node, mixed);
+  if (fills === 'mixed' || visiblePaints(fills).length > 0 || visiblePaints(strokesOf(node)).length > 0) return false;
+  if (effectsOf(node).some((e) => (e as { visible?: boolean }).visible !== false)) return false;
+  if (isContainer(node)) return childrenOf(node).every((c) => !isRendered(c) || paintsNothing(c, mixed));
+  // Leaves without paint properties (stickies, embeds, widgets…) are assumed to paint.
+  return 'fills' in node;
+}
+
+/**
+ * A closed shape that paints past ALL of its box edges (outer shadow, layer blur, stroke not inside):
+ * when its box edge lies exactly on a clip edge, the render bounds stopping there mean that overhang
+ * was cut. Not for text (a glyph box on the frame edge is usually a coincidence, and rasterizing text
+ * by mistake costs more than a sub-pixel overhang), lines (no overhang along a NONE-capped line, e.g.
+ * a full-width divider) or containers (their children are tested on their own).
+ */
+export function paintsOutsideBox(node: SceneNode): boolean {
+  if (node.type === 'TEXT' || node.type === 'LINE') return false;
+  if (isContainer(node)) return false;
+  const effects = effectsOf(node).some((e) => {
+    if ((e as { visible?: boolean }).visible === false) return false;
+    if (e.type === 'DROP_SHADOW') return e.color.a > 0;
+    return e.type === 'LAYER_BLUR' && e.radius > 0;
+  });
+  if (effects) return true;
+  if (visiblePaints(strokesOf(node)).length === 0) return false;
+  const n = node as unknown as { strokeWeight?: unknown; strokeAlign?: unknown };
+  if (typeof n.strokeWeight === 'number' && n.strokeWeight <= 0) return false;
+  return n.strokeAlign !== 'INSIDE';
+}
+
+/**
+ * Extend `v` (slide px) past the edges of `cut` where Figma cut the node. Per side where the render
+ * bounds `r` stop on the cut edge (within `CONFIG.extract.clipEdgeTolerancePx`) and nothing of `v`
+ * lies beyond it yet:
+ * - the bounding box `b` reaches beyond the edge (text: layout box) → extend to it;
+ * - `b` stays clearly inside → the render bounds overhang the box on that side and were cut there →
+ *   1 px past the edge;
+ * - `b` ends on the edge too → cut only if the node paints past its own edges (`overhangsOwnBox`).
+ */
+export function extendAtCutEdges(v: Rect, r: Rect, b: Rect | null, cut: Rect, overhangsOwnBox: boolean): Rect {
+  const tol = CONFIG.extract.clipEdgeTolerancePx;
+  const lo = [v.x, v.y];
+  const hi = [v.x + v.w, v.y + v.h];
+  const rLo = [r.x, r.y];
+  const rHi = [r.x + r.w, r.y + r.h];
+  const bLo = b ? [b.x, b.y] : null;
+  const bHi = b ? [b.x + b.w, b.y + b.h] : null;
+  const cLo = [cut.x, cut.y];
+  const cHi = [cut.x + cut.w, cut.y + cut.h];
+  for (let axis = 0; axis < 2; axis++) {
+    if (Math.abs(rLo[axis] - cLo[axis]) <= tol && lo[axis] > cLo[axis] - tol) {
+      if (bLo && bLo[axis] < cLo[axis] - tol) lo[axis] = bLo[axis];
+      else if ((bLo && bLo[axis] > cLo[axis] + tol) || overhangsOwnBox) lo[axis] = cLo[axis] - 1;
+    }
+    if (Math.abs(rHi[axis] - cHi[axis]) <= tol && hi[axis] < cHi[axis] + tol) {
+      if (bHi && bHi[axis] > cHi[axis] + tol) hi[axis] = bHi[axis];
+      else if ((bHi && bHi[axis] < cHi[axis] - tol) || overhangsOwnBox) hi[axis] = cHi[axis] + 1;
+    }
+  }
+  return { x: lo[0], y: lo[1], w: hi[0] - lo[0], h: hi[1] - lo[1] };
 }
 
 /**
@@ -230,7 +315,7 @@ export class SlideWalker {
     const state0: WalkState = { opacity: 1, clip: initialClip(ctx.slideRect) };
     const background = slideBackground(root, this.mixed);
     const own = this.planOwnPaint(root, state0, true, background !== null);
-    const clip = clipsContentOf(root) ? pushClip(state0.clip, ctx.slideRect, this.roundedClipOf(root, 1), true) : state0.clip;
+    const clip = clipsContentOf(root) ? pushClip(state0.clip, ctx.slideRect, this.roundedClipOf(root, 1, ctx.slideRect), true) : state0.clip;
     const childState: WalkState = { opacity: opacityOf(root), clip };
     const children = await this.planRootChildren(root, childState);
     return { plans: [...own.below, ...children, ...own.above], background };
@@ -238,6 +323,7 @@ export class SlideWalker {
 
   /** Root children; masks become composites of the masked range (root keeps its editable content). */
   private async planRootChildren(root: SceneNode, state: WalkState): Promise<Plan[]> {
+    const { ctx } = this;
     const kids = childrenOf(root);
     const ranges = maskRanges(kids);
     const plans: Plan[] = [];
@@ -261,7 +347,7 @@ export class SlideWalker {
             { id: `~mask:${mask.id}`, name: mask.name, node: mask },
             ['mask'],
             exportedOpacity(1, root),
-            state.clip.rect,
+            ctx.slideRect,
           ),
         );
       }
@@ -283,7 +369,7 @@ export class SlideWalker {
     const root = ctx.frame;
     const out: Array<{ element: TextElement; path: number[] }> = [];
     const state0: WalkState = { opacity: 1, clip: initialClip(ctx.slideRect) };
-    const clip = clipsContentOf(root) ? pushClip(state0.clip, ctx.slideRect, this.roundedClipOf(root, 1), true) : state0.clip;
+    const clip = clipsContentOf(root) ? pushClip(state0.clip, ctx.slideRect, this.roundedClipOf(root, 1, ctx.slideRect), true) : state0.clip;
     const kids = childrenOf(root);
     // Children in a mask range stay in the background.
     const masked = new Set<number>();
@@ -302,9 +388,9 @@ export class SlideWalker {
     const { ctx } = this;
     await tick(ctx);
     if (!isRendered(node)) return;
-    const abs = renderableBounds(node);
-    if (!abs) return;
-    const ct = testClip(state.clip, transformRectBounds(ctx.slideInverse, abs), abs);
+    const ext = this.clipExtent(node, state);
+    if (ext.kind !== 'ok') return; // stays out of the background too (clipped away / empty)
+    const ct = testClip(state.clip, ext.visual, ext.abs);
     if (ct.outside) return;
     if (isContainer(node)) {
       const reasons = containerRasterReasons(node, this.mixed, ctx.slideInverse);
@@ -318,7 +404,7 @@ export class SlideWalker {
         const frameRect = isAxisAlignedClip(node, ctx.slideInverse)
           ? transformedBoxBounds(relativeMatrix(ctx.slideInverse, node), width, height)
           : null;
-        clip = pushClip(state.clip, frameRect, this.roundedClipOf(node, state.opacity));
+        clip = pushClip(state.clip, frameRect, this.roundedClipOf(node, state.opacity, state.clip.rect));
       }
       const kids = childrenOf(node);
       for (let i = 0; i < kids.length; i++) {
@@ -336,6 +422,7 @@ export class SlideWalker {
       return;
     }
     this.reportTextWarnings(node, d);
+    await this.resolveLineHeights(d.paragraphs);
     out.push({ element: textElement(node, d, state.opacity * opacityOf(node)), path });
   }
 
@@ -351,6 +438,34 @@ export class SlideWalker {
     }
   }
 
+  /**
+   * Extent of `node` for clip tests. Figma's render bounds are already cut by clipping ancestors, so
+   * alone they cannot tell whether a node is clipped: shapes use render bounds ∪ bounding box (the
+   * box is never clipped); text uses its glyph box (an oversized layout box alone is no cut),
+   * extended to the layout box where the glyphs stop at a clip edge; a render edge on a clip edge of a
+   * node that paints outside its box (shadow, outer stroke) is pushed past that edge.
+   * `clipped` = render bounds `null` although the node paints: clipped away entirely.
+   */
+  private clipExtent(node: SceneNode, state: WalkState): ClipExtent {
+    const { ctx } = this;
+    const render = renderBoundsOf(node);
+    if (!render) return paintsNothing(node, this.mixed) ? { kind: 'empty' } : { kind: 'clipped' };
+    const min = CONFIG.raster.minVisibleSizePx;
+    if (render.w < 0 || render.h < 0 || (render.w < min && render.h < min)) return { kind: 'empty' };
+    const box = boundingBoxOf(node);
+    const r = transformRectBounds(ctx.slideInverse, render);
+    const b = box ? transformRectBounds(ctx.slideInverse, box) : null;
+    let v = node.type === 'TEXT' || !b ? r : (unionRects([r, b]) ?? r);
+    // Clips Figma applied to the render bounds: axis-aligned clipping ancestors, the slide if the root clips.
+    const cut = ctx.rootClips ? state.clip.rect : state.clip.inner;
+    if (cut) v = extendAtCutEdges(v, r, b, cut, paintsOutsideBox(node));
+    // A zero-thickness side (hairlines) is widened to the minimum visible size.
+    const w = Math.max(v.w, min);
+    const h = Math.max(v.h, min);
+    const visual = { x: v.x - (w - v.w) / 2, y: v.y - (h - v.h) / 2, w, h };
+    return { kind: 'ok', visual, abs: transformRectBounds(absoluteTransformOf(ctx.frame), visual) };
+  }
+
   async planChildren(parent: SceneNode, state: WalkState): Promise<Plan[]> {
     const plans: Plan[] = [];
     for (const child of childrenOf(parent)) plans.push(...(await this.planNode(child, state)));
@@ -361,18 +476,18 @@ export class SlideWalker {
     const { ctx } = this;
     await tick(ctx);
     if (!isRendered(node) || node.type === 'SLICE') return [];
-    const abs = renderableBounds(node);
-    if (!abs) return [];
-    const visual = transformRectBounds(ctx.slideInverse, abs);
-    const ct = testClip(state.clip, visual, abs);
-    if (ct.outside) {
+    const ext = this.clipExtent(node, state);
+    if (ext.kind === 'empty') return [];
+    const ct = ext.kind === 'ok' ? testClip(state.clip, ext.visual, ext.abs) : null;
+    if (!ct || ct.outside) {
+      // Children are not visited: one entry for the top-most skipped node.
       ctx.report.skipped(nodeRef(node), 'outside-clip', `"${node.name}" is outside the slide or its clipping frame and was skipped.`);
       return [];
     }
     if (isContainer(node)) return this.planContainer(node, state, ct);
     switch (node.type) {
       case 'TEXT':
-        return this.planText(node, state, ct);
+        return await this.planText(node, state, ct);
       case 'RECTANGLE':
         return this.planShape(node, state, ct, false);
       case 'ELLIPSE':
@@ -410,7 +525,7 @@ export class SlideWalker {
       const frameRect = isAxisAlignedClip(node, ctx.slideInverse)
         ? transformedBoxBounds(relativeMatrix(ctx.slideInverse, node), width, height)
         : null;
-      clip = pushClip(state.clip, frameRect, this.roundedClipOf(node, state.opacity));
+      clip = pushClip(state.clip, frameRect, this.roundedClipOf(node, state.opacity, state.clip.rect));
     }
     const children = await this.planChildren(node, { opacity, clip });
     const items = [...own.below, ...children, ...own.above];
@@ -418,7 +533,7 @@ export class SlideWalker {
     return [{ kind: 'group', id: node.id, name: node.name, children: items }];
   }
 
-  private roundedClipOf(node: SceneNode, opacityAbove: number): RoundedClip | null {
+  private roundedClipOf(node: SceneNode, opacityAbove: number, clipAbove: Rect): RoundedClip | null {
     const radii = cornerRadiiOf(node, this.mixed);
     if (!radii) return null;
     let inverse: Matrix;
@@ -429,7 +544,7 @@ export class SlideWalker {
     }
     const { width, height } = sizeOf(node);
     const rc = makeRoundedClip(node, inverse, width, height, radii);
-    return rc ? { ...rc, opacityAbove } : null;
+    return rc ? { ...rc, opacityAbove, clipAbove } : null;
   }
 
   /**
@@ -542,10 +657,11 @@ export class SlideWalker {
           meta,
           pushUnique([...reasons], 'clip'),
           exportedOpacity(rc.opacityAbove ?? 1, rc.node),
-          state.clip.rect,
+          rc.clipAbove ?? state.clip.rect,
         );
       }
     }
+    // The clone escapes the clips of the node's ancestors (state.clip): the picture is cropped to them.
     return this.compositePlan(
       { ancestor: node, keep: [], target: { path: [], removeChildren: true, keep } },
       meta,
@@ -627,7 +743,7 @@ export class SlideWalker {
     return [planElement(el)];
   }
 
-  private planText(node: TextNode, state: WalkState, ct: ClipTest): Plan[] {
+  private async planText(node: TextNode, state: WalkState, ct: ClipTest): Promise<Plan[]> {
     const { ctx } = this;
     const d = classifyText(node, this.mixed, relativeMatrix(ctx.slideInverse, node));
     if (d.kind === 'none') return [];
@@ -635,7 +751,14 @@ export class SlideWalker {
     if ((ct.innerPartial || ct.rounded) && ctx.settings.clippedText === 'rasterize') pushUnique(reasons, 'clip');
     if (reasons.length > 0) return [this.rasterPlan(node, reasons, state, ct)];
     this.reportTextWarnings(node, d);
+    await this.resolveLineHeights(d.paragraphs);
     return [planElement(textElement(node, d, state.opacity * opacityOf(node)))];
+  }
+
+  /** AUTO line heights → measured px (when a measurer is configured and the font loads). */
+  private async resolveLineHeights(paragraphs: TextParagraph[]): Promise<void> {
+    const measure = this.ctx.measureLineHeight;
+    if (measure) await resolveAutoLineHeights(paragraphs, measure);
   }
 
   /** Native text that may not match Figma: missing fonts, vertical trim, truncation. */
@@ -816,8 +939,9 @@ export class SlideWalker {
   // ── Raster ──
 
   /**
-   * Rasterize `node` as one picture: a plain export cropped to the clip, or — when it reaches into
-   * a rounded corner of a clipping frame — a composite with that frame.
+   * Rasterize `node` as one picture: a plain export in place — already clipped by Figma, placed at
+   * its render bounds, not cropped again — or, when it reaches into a rounded corner of a clipping
+   * frame, a composite with that frame.
    */
   rasterPlan(node: SceneNode, reasons: RasterReason[], state: WalkState, ct: ClipTest): Plan {
     const meta: Meta = { id: node.id, name: node.name, node };
@@ -830,11 +954,11 @@ export class SlideWalker {
           { ...meta, id: `~clip:${node.id}` },
           pushUnique([...reasons], 'clip'),
           exportedOpacity(rc.opacityAbove ?? 1, rc.node),
-          state.clip.rect,
+          rc.clipAbove ?? state.clip.rect,
         );
       }
     }
-    // A rectangular clip only crops the picture: not a rasterization reason by itself.
+    // A rectangular clip is applied by Figma itself: not a rasterization reason by itself.
     const allReasons = [...reasons];
     const svg = wantsSvg(allReasons);
     const { ctx } = this;
@@ -844,19 +968,26 @@ export class SlideWalker {
         exportPicture(rasterContext(ctx), node, { role: svg ? 'vector-fallback' : 'raster', svg }),
       );
       if (!picture) return [];
-      const el = pictureElement(ctx, meta, picture, exportedOpacity(state.opacity, node), allReasons, state.clip.rect);
+      // Only what Figma did not clip: the slide edge of a non-clipping root, or — for the rare
+      // bounding-box fallback, whose bitmap Figma's render-bounds clip does not describe — the full clip.
+      const clip = picture.absoluteBounds ? state.clip.rect : ctx.rootClips ? null : ctx.slideRect;
+      const el = pictureElement(ctx, meta, picture, exportedOpacity(state.opacity, node), allReasons, clip);
       if (el) slot.fill(ctx.report.rasterizedEntry(nodeRef(node), allReasons));
       return el ? [el] : [];
     });
   }
 
-  private compositePlan(spec: CompositeSpec, meta: Meta, reasons: RasterReason[], opacity: number, clip: Rect | null): Plan {
+  /**
+   * Composite picture. `clipAbove` = the clips of the cloned ancestor's own ancestors (slide px): the
+   * clone at the page root is clipped by itself only, so the picture is cropped to them.
+   */
+  private compositePlan(spec: CompositeSpec, meta: Meta, reasons: RasterReason[], opacity: number, clipAbove: Rect | null): Plan {
     const { ctx } = this;
     const slot = ctx.report.reserve();
     return planJob(`composite ${meta.name}`, async () => {
       const result = await this.safeExport(meta.node, slot, () => exportComposite(rasterContext(ctx), spec, 'raster'));
       if (!result) return [];
-      const el = pictureElement(ctx, meta, result, opacity, reasons, clip);
+      const el = pictureElement(ctx, meta, result, opacity, reasons, clipAbove);
       if (el) slot.fill(ctx.report.rasterizedEntry(nodeRef(meta.node), reasons));
       return el ? [el] : [];
     });

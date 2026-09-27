@@ -51,10 +51,10 @@ describe('RECTANGLE rules', () => {
     expect(d.shadow?.type).toBe('inner');
   });
 
-  it('one IMAGE fill → image; rasterize setting → raster', () => {
+  it('one IMAGE fill → image; rasterize setting → raster with reason "setting"', () => {
     expect(shape(rect({ fills: [imagePaint('abc')] })).kind).toBe('image');
     const d = classifyShape(scene(rect({ fills: [imagePaint('abc')] })), MIXED, { ...settings, imageFills: 'rasterize' }, IDENTITY);
-    expect(d).toMatchObject({ kind: 'raster', reasons: ['image-fill-mode'] });
+    expect(d).toMatchObject({ kind: 'raster', reasons: ['setting'] });
   });
 
   it('collects every applicable reason', () => {

@@ -289,7 +289,7 @@ describe('editable mode: clipping', () => {
     ]);
   });
 
-  it('partially clipped: pictures cropped, plain rects intersected, others rasterized and cropped', async () => {
+  it('partially clipped: image fills cropped, plain rects intersected, others rasterized in place (already clipped)', async () => {
     const env = new FakeEnv();
     env.addImage('photo', JPEG_BYTES, 200, 100);
     const panel = frame({
@@ -316,8 +316,9 @@ describe('editable mode: clipping', () => {
     const ell = byId<ImageElement>(slide.elements, 'ell');
     expect(ell.type).toBe('image');
     expect(ell.rasterized?.reasons).toEqual(['clip']);
-    expect(ell.transform).toMatchObject({ x: 250, w: 50 });
-    expect(ell.crop).toMatchObject({ right: 0.5 });
+    // Figma exported the clipped 50 × 50 region: placed there, never cropped a second time.
+    expect(ell.transform).toMatchObject({ x: 250, y: 200, w: 50, h: 50 });
+    expect(ell.crop).toBeNull();
     expect(byId<ImageElement>(slide.elements, 'txt').rasterized?.reasons).toEqual(['clip']);
     expect(report.filter((r) => r.code === 'rasterized').map((r) => r.nodeId)).toEqual(['ell', 'txt']);
   });
@@ -487,15 +488,17 @@ describe('editable mode: raster exports', () => {
   it('places rasters at the render bounds (shadows included) and clamps huge exports', async () => {
     const env = new FakeEnv();
     const { slide } = await run(
-      frame({ width: 800, height: 600, children: [vector({ id: 'v', x: 100, y: 100, width: 50, height: 50, renderPad: 10 }), vector({ id: 'huge', x: 0, y: 300, width: 6000, height: 10 })] }),
+      // Root without clipsContent: Figma does not cut the huge vector at the slide edge, we do.
+      frame({ width: 800, height: 600, clipsContent: false, children: [vector({ id: 'v', x: 100, y: 100, width: 50, height: 50, renderPad: 10 }), vector({ id: 'huge', x: 0, y: 300, width: 6000, height: 10 })] }),
       { svgVectors: false, rasterScale: 2 },
       env,
     );
     expect(slide.elements[0].transform).toMatchObject({ x: 90, y: 90, w: 70, h: 70 });
     const hugeExport = env.exports.find((e) => e.node.id === 'huge')!;
     expect((hugeExport.settings as ExportSettingsImage).constraint?.value).toBeCloseTo(8192 / 6000);
-    // Cropped to the slide.
+    // Cropped to the slide (the only clip Figma did not apply).
     expect(slide.elements[1].transform).toMatchObject({ x: 0, w: 800 });
+    expect((slide.elements[1] as ImageElement).crop?.right).toBeCloseTo(5200 / 6000, 3);
   });
 
   it('a failing export is reported and skipped; the rest of the slide survives', async () => {

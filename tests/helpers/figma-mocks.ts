@@ -3,11 +3,18 @@
  * bounding / render bounds computed from the tree), a fake `FigmaEnv` (exports return real minimal
  * PNGs whose IHDR matches the exported region × scale), and a mock `figma` global.
  *
- * Mock semantics (simplified but self-consistent):
+ * Mock semantics (simplified but self-consistent, following docs/figma-api-notes.md):
  * - `relativeTransform` is relative to the DIRECT parent (Figma uses the container parent for group
  *   children; the extractor only reads absolute values, so this does not matter).
- * - Render bounds = own box padded by `renderPad` (shadows / outside strokes); containers add their
- *   children's render bounds unless they clip; `renderBounds` overrides everything.
+ * - Natural render bounds = own box padded by `renderPad` (shadows / outside strokes); containers add
+ *   their children's render bounds unless they clip; `renderBounds` overrides the natural bounds.
+ * - `absoluteRenderBounds` = natural bounds CLIPPED by every ancestor with `clipsContent` (its box);
+ *   `null` when clipped away entirely (as in Figma).
+ * - Exports render the (clipped) render bounds — or the bounding box with `useAbsoluteBounds` — into
+ *   a `ceil(w·s) × ceil(h·s)` PNG; a node without render bounds exports as a 1×1 PNG. SVG exports are
+ *   `ceil(w) × ceil(h)` (width, height and viewBox).
+ * - `FakeEnv.clone` puts the clone at the root of `env.currentPage` (Figma: the current page, not the
+ *   original parent / page); `detachInstance` returns a new node with a new id.
  * - `rotation` in factory props follows Figma: counter-clockwise degrees about the top-left corner.
  */
 import { deflateSync } from 'node:zlib';
@@ -196,7 +203,7 @@ export class MockNode {
     return mul(this.parent.absoluteTransform, this.relativeTransform);
   }
 
-  private ownBox(): Rect {
+  ownBox(): Rect {
     return boxBounds(this.absoluteTransform, this.width, this.height);
   }
 
@@ -213,20 +220,36 @@ export class MockNode {
     return b ? { x: b.x, y: b.y, w: b.width, h: b.height } : null;
   }
 
-  renderRect(): Rect | null {
+  /** Render bounds before any ancestor clipping. */
+  naturalRenderRect(): Rect | null {
     if (this.renderBoundsOverride !== undefined) return this.renderBoundsOverride;
     if (!this.visible) return null;
     const pad = this.renderPad;
     const padded = (r: Rect): Rect => ({ x: r.x - pad, y: r.y - pad, w: r.w + 2 * pad, h: r.h + 2 * pad });
     if (this.type === 'GROUP' || this.type === 'BOOLEAN_OPERATION') {
-      const u = union((this.children ?? []).map((c) => c.renderRect()).filter((r): r is Rect => r !== null));
+      const u = union((this.children ?? []).map((c) => c.naturalRenderRect()).filter((r): r is Rect => r !== null));
       return u ? padded(u) : null;
     }
     const own = padded(this.ownBox());
     if (this.children && this.children.length > 0 && SELF_PAINTING_CONTAINERS.has(this.type) && this.clipsContent !== true) {
-      return union([own, ...this.children.map((c) => c.renderRect()).filter((r): r is Rect => r !== null)]);
+      return union([own, ...this.children.map((c) => c.naturalRenderRect()).filter((r): r is Rect => r !== null)]);
     }
     return own;
+  }
+
+  /** `absoluteRenderBounds`: natural bounds clipped by every ancestor with `clipsContent` (null = nothing left). */
+  renderRect(): Rect | null {
+    let r = this.naturalRenderRect();
+    for (let a = this.parent; r && a && a.type !== 'PAGE' && a.type !== 'DOCUMENT'; a = a.parent) {
+      if (a.clipsContent !== true) continue;
+      const clip = a.ownBox();
+      const x0 = Math.max(r.x, clip.x);
+      const y0 = Math.max(r.y, clip.y);
+      const x1 = Math.min(r.x + r.w, clip.x + clip.w);
+      const y1 = Math.min(r.y + r.h, clip.y + clip.h);
+      r = x1 > x0 && y1 > y0 ? { x: x0, y: y0, w: x1 - x0, h: y1 - y0 } : null;
+    }
+    return r;
   }
 
   get absoluteRenderBounds(): { x: number; y: number; width: number; height: number } | null {
@@ -593,6 +616,13 @@ export interface ExportCall {
 /** The FakeEnv that node methods (`exportAsync`, `clone`, `detachInstance`) report to. */
 let activeEnv: FakeEnv | null = null;
 
+const fontKeyOf = (f: FontName) => `${f.family}::${f.style}`;
+
+/** Figma's bitmap size for a region side: ceil(side × scale), float noise tolerated. */
+export function ceilPx(side: number, scale = 1): number {
+  return Math.max(1, Math.ceil(side * scale - 1e-6));
+}
+
 export class FakeEnv implements FigmaEnv {
   constructor() {
     activeEnv = this;
@@ -602,7 +632,21 @@ export class FakeEnv implements FigmaEnv {
   readonly exports: ExportCall[] = [];
   readonly clones: MockNode[] = [];
   readonly detached: MockNode[] = [];
+  /** TEXT nodes made by `createText` (AUTO line-height measurement). */
+  readonly createdTexts: MockNode[] = [];
   readonly images = new Map<string, { bytes: Uint8Array; width: number; height: number }>();
+  /** Page where clones land (Figma: `figma.currentPage`). A scratch page unless a test sets one. */
+  currentPage: MockNode = new MockNode('PAGE', { id: 'current-page', name: 'Current page' });
+  /** Fonts `loadFontAsync` rejects ("family::style"). */
+  readonly missingFonts = new Set<string>();
+  /** Every `loadFontAsync` call. */
+  readonly fontLoads: FontName[] = [];
+  readonly loadedFonts = new Set<string>();
+  /**
+   * Natural line height / font size per family; AUTO = round(size × ratio) as in Figma
+   * (Inter: (ascender 2728 + descender 680) / 2816 upm ≈ 1.2102 → 60 → 73, 13 → 16, 12 → 15).
+   */
+  readonly lineHeightRatio: Record<string, number> = { Inter: 1.2102 };
   yields = 0;
   /** Throw from exportAsync for these nodes (by name) or when the predicate matches. */
   failExport: (node: MockNode, settings: ExportRequest) => boolean = () => false;
@@ -621,19 +665,21 @@ export class FakeEnv implements FigmaEnv {
     if (this.failExport(n, settings)) throw new Error(`export failed: ${n.name}`);
     const useAbs = 'useAbsoluteBounds' in settings && settings.useAbsoluteBounds === true;
     const region = useAbs ? n.bbox() : n.renderRect();
-    if (!region) throw new Error('nothing to export');
     if (settings.format === 'PDF') return ascii('%PDF-1.4 fake');
+    // Figma: a node clipped away entirely (render bounds null) exports as a 1×1 PNG.
+    if (!region) return settings.format === 'SVG' ? ascii('<svg width="1" height="1" viewBox="0 0 1 1"></svg>') : makePng(1, 1);
     if (settings.format === 'SVG') {
-      return ascii(`<svg width="${region.w}" height="${region.h}" viewBox="0 0 ${region.w} ${region.h}" xmlns="http://www.w3.org/2000/svg"><rect/></svg>`);
+      const w = ceilPx(region.w);
+      const h = ceilPx(region.h);
+      return ascii(`<svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" fill="none" xmlns="http://www.w3.org/2000/svg"><rect/></svg>`);
     }
     const c = (settings as ExportSettingsImage).constraint;
-    let scale = 1;
-    if (c?.type === 'SCALE') scale = c.value;
-    else if (c?.type === 'WIDTH') scale = c.value / region.w;
-    else if (c?.type === 'HEIGHT') scale = c.value / region.h;
     const forced = this.forceSize(n, settings);
     if (forced) return makePng(forced.w, forced.h);
-    return makePng(Math.max(1, Math.round(region.w * scale)), Math.max(1, Math.round(region.h * scale)));
+    if (c?.type === 'WIDTH') return makePng(Math.round(c.value), ceilPx(region.h, c.value / region.w));
+    if (c?.type === 'HEIGHT') return makePng(ceilPx(region.w, c.value / region.h), Math.round(c.value));
+    const scale = c?.type === 'SCALE' ? c.value : 1;
+    return makePng(ceilPx(region.w, scale), ceilPx(region.h, scale));
   }
 
   getImageByHash(hash: string): ImageHandle | null {
@@ -645,18 +691,22 @@ export class FakeEnv implements FigmaEnv {
     };
   }
 
+  /** Figma: the clone of a nested node lands at the root of the CURRENT page. */
   clone(node: SceneNode): SceneNode {
     const c = (node as unknown as MockNode).cloneTree();
     this.clones.push(c);
+    this.currentPage.appendChild(c);
     return c as unknown as SceneNode;
   }
 
-  appendToPage(p: PageNode, node: SceneNode): void {
-    (p as unknown as MockNode).appendChild(node as unknown as MockNode);
-  }
+  /** Children removed from a parent that still had auto layout on (the parent would reflow in Figma). */
+  readonly autoLayoutRemovals: MockNode[] = [];
 
   remove(node: SceneNode): void {
-    (node as unknown as MockNode).remove();
+    const n = node as unknown as MockNode;
+    const layout = n.parent?.layoutMode;
+    if (typeof layout === 'string' && layout !== 'NONE') this.autoLayoutRemovals.push(n);
+    n.remove();
   }
 
   detachInstance(node: InstanceNode): FrameNode {
@@ -681,6 +731,58 @@ export class FakeEnv implements FigmaEnv {
     return detached as unknown as FrameNode;
   }
 
+  async loadFontAsync(font: FontName): Promise<void> {
+    this.fontLoads.push({ ...font });
+    if (this.missingFonts.has(fontKeyOf(font))) throw new Error(`Font ${font.family} ${font.style} is not available`);
+    this.loadedFonts.add(fontKeyOf(font));
+  }
+
+  /**
+   * `figma.createText()`: an empty TEXT on the current page (default font Inter Regular). Like Figma,
+   * setting `fontName` needs that font loaded and setting `characters` needs the CURRENT font loaded.
+   * `height` follows the line height: AUTO = round(size × natural ratio) per line.
+   */
+  createText(): TextNode {
+    const env = this;
+    const node = new MockNode('TEXT', { name: 'Text', fontSize: 12, lineHeight: { unit: 'AUTO' }, textAutoResize: 'NONE', fills: [solid()] });
+    let font: FontName = { family: 'Inter', style: 'Regular' };
+    let chars = '';
+    Object.defineProperty(node, 'fontName', {
+      configurable: true,
+      enumerable: true,
+      get: () => font,
+      set: (f: FontName) => {
+        if (!env.loadedFonts.has(fontKeyOf(f))) throw new Error(`unloaded font ${f.family} ${f.style}`);
+        font = { ...f };
+      },
+    });
+    Object.defineProperty(node, 'characters', {
+      configurable: true,
+      enumerable: true,
+      get: () => chars,
+      set: (v: string) => {
+        if (!env.loadedFonts.has(fontKeyOf(font))) throw new Error(`unloaded font ${font.family} ${font.style}`);
+        chars = v;
+      },
+    });
+    Object.defineProperty(node, 'height', {
+      configurable: true,
+      enumerable: true,
+      get: () => {
+        if (chars.length === 0) return 0;
+        const size = node.fontSize as number;
+        const lh = node.lineHeight as LineHeight;
+        const line =
+          lh.unit === 'PIXELS' ? lh.value : lh.unit === 'PERCENT' ? (size * lh.value) / 100 : Math.round(size * (env.lineHeightRatio[font.family] ?? 1.2));
+        return line * chars.split('\n').length;
+      },
+      set: () => undefined,
+    });
+    this.currentPage.appendChild(node);
+    this.createdTexts.push(node);
+    return node as unknown as TextNode;
+  }
+
   async yieldToEventLoop(): Promise<void> {
     this.yields++;
   }
@@ -689,9 +791,21 @@ export class FakeEnv implements FigmaEnv {
     this.images.set(hash, { bytes, width, height });
   }
 
-  /** Temporary nodes still attached somewhere (should be 0 after every extraction). */
+  /**
+   * Temporary nodes (clones, detached instances, measurement texts) still in the document — should be
+   * empty after every extraction. Removed = `removed` or parentless (a removed COMPONENT stays
+   * resolvable with `parent === null` in Figma).
+   */
   liveClones(): MockNode[] {
-    return this.clones.filter((c) => !c.removed && c.parent !== null);
+    const attached = (n: MockNode): boolean => {
+      let x: MockNode | null = n;
+      for (; x; x = x.parent) {
+        if (x.removed) return false;
+        if (x.type === 'PAGE') return true;
+      }
+      return false;
+    };
+    return [...this.clones, ...this.detached, ...this.createdTexts].filter(attached);
   }
 }
 
@@ -769,6 +883,8 @@ export function installFigmaGlobal(
       return findById(document, id);
     },
     getImageByHash: (hash: string) => env.getImageByHash(hash),
+    loadFontAsync: (font: FontName) => env.loadFontAsync(font),
+    createText: () => env.createText(),
     showUI: () => undefined,
     ui: {
       onmessage: undefined,

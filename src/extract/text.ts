@@ -247,9 +247,11 @@ export function textPaintReasons(segments: readonly SegmentLike[], d: TextDefaul
   };
   for (const seg of segments) {
     const visible = visiblePaints(seg.fills ?? d.fills);
-    if (visible.some((p) => p.type !== 'SOLID')) add('gradient-text');
+    const nonSolid = visible.filter((p) => p.type !== 'SOLID');
+    if (nonSolid.some((p) => p.type === 'IMAGE' || p.type.startsWith('GRADIENT_'))) add('gradient-text');
+    if (nonSolid.some((p) => p.type !== 'IMAGE' && !p.type.startsWith('GRADIENT_'))) add('unsupported-paint'); // video, pattern…
     // Stacked solid fills blend; a single IR color cannot reproduce that.
-    else if (visible.length > 1) add('multiple-fills');
+    if (nonSolid.length === 0 && visible.length > 1) add('multiple-fills');
     if (visible.some((p) => !isNormalBlend(p.blendMode))) add('blend-mode');
   }
   return reasons;

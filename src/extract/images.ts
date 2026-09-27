@@ -1,9 +1,9 @@
 /**
  * IMAGE fills → picture placement + OOXML crop (pure math), and clip cropping of pictures.
  *
- * Figma semantics (verified: the CROP `imageTransform` maps the LAYER's unit square into the IMAGE's
- * unit square — [[0.5, 0, 0.25], [0, 0.5, 0.25]] shows the centered half of the image — the same
- * direction as `gradientTransform`):
+ * Figma semantics (verified in Figma, docs/figma-api-notes.md: the CROP `imageTransform` maps the
+ * LAYER's unit box into the IMAGE's unit box — [[0.5, 0, 0.25], [0, 0.5, 0.1]] shows u ∈ [0.25, 0.75],
+ * v ∈ [0.1, 0.6], i.e. srcRect l 0.25 r 0.25 t 0.1 b 0.4 — the same direction as `gradientTransform`):
  * - FILL: cover — scaled by max(w/iw, h/ih), centered, overflow cut.
  * - FIT: contain — scaled by min(w/iw, h/ih), centered, the rest of the layer transparent.
  * - CROP: visible image region u ∈ [tx, tx + a], v ∈ [ty, ty + d] (no rotation / skew allowed).

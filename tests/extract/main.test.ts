@@ -208,3 +208,89 @@ describe('main: export', () => {
     expect(g.posted.filter((m) => m.type === 'export-started')).toHaveLength(1);
   });
 });
+
+describe('main: formats and protocol fields', () => {
+  it('pdf: export-pdf-done carries the report (missing frames); progress carries the slide number', async () => {
+    const { d } = fileWith([frame({ id: 'f1', name: 'One' })], ['f1', 'gone']);
+    const { g } = await boot(d);
+    g.send({ type: 'start-export', format: 'pdf', settings: DEFAULT_SETTINGS });
+    const done = await g.waitFor('export-pdf-done');
+    expect(done.report).toMatchObject([{ level: 'warning', code: 'missing-frame', slideId: 'gone' }]);
+    expect(g.posted.filter((m) => m.type === 'export-progress').map((m) => [m.phase, m.slide])).toEqual([['pdf', 1]]);
+    expect(g.posted.some((m) => m.type === 'toast')).toBe(false);
+  });
+
+  it('preview-failed when the frame is gone or its export fails', async () => {
+    const { d } = fileWith([frame({ id: 'f1' })], ['f1']);
+    const { g, env } = await boot(d);
+    g.send({ type: 'request-preview', id: 'gone' });
+    expect(await g.waitFor('preview-failed')).toMatchObject({ type: 'preview-failed', id: 'gone' });
+    g.posted.length = 0;
+    env.failExport = (n) => n.id === 'f1';
+    g.send({ type: 'request-preview', id: 'f1' });
+    expect(await g.waitFor('preview-failed')).toMatchObject({ id: 'f1', message: expect.stringContaining('export failed') });
+    expect(g.posted.some((m) => m.type === 'toast' || m.type === 'preview')).toBe(false);
+  });
+
+  it('export-progress carries slide, layers and export job counts', async () => {
+    const kids = Array.from({ length: 5 }, (_, i) => vector({ x: i * 50, width: 10, height: 10 }));
+    const { d } = fileWith([frame({ id: 'f1', width: 800, height: 600, children: kids })], ['f1']);
+    const { g } = await boot(d);
+    g.send({ type: 'start-export', format: 'pptx', settings: DEFAULT_SETTINGS });
+    await g.waitFor('export-extracted');
+    const progress = g.posted.filter((m) => m.type === 'export-progress');
+    expect(progress.length).toBeGreaterThan(0);
+    expect(progress.every((m) => m.phase === 'extract' && m.slide === 1 && typeof m.layers === 'number')).toBe(true);
+    expect(progress.some((m) => m.jobsTotal === 5 && m.jobsDone === 5)).toBe(true);
+  });
+
+  it('pptx-image / pdf-image force mode "image" (one PNG per slide at the raster scale) without persisting it', async () => {
+    for (const format of ['pptx-image', 'pdf-image'] as const) {
+      resetIds();
+      const { d } = fileWith([frame({ id: 'f1', width: 800, height: 600, children: [text({ id: 't' }), rect({ id: 'r' })] })], ['f1']);
+      const { g } = await boot(d);
+      g.send({ type: 'start-export', format, settings: { ...DEFAULT_SETTINGS, mode: 'editable', rasterScale: 1 } });
+      await g.waitFor('export-extracted');
+      const msg = g.posted.find((m) => m.type === 'export-slide')!;
+      expect((msg.slide as Slide).elements.map((e) => e.id)).toEqual(['~image:f1']);
+      expect(msg.assets).toMatchObject([{ mime: 'image/png', role: 'background', width: 800, height: 600 }]);
+      expect(g.storage.get('figmadeck.settings')).toBeUndefined();
+    }
+  });
+
+  it('pptx / ir-json keep the mode they were given', async () => {
+    for (const [format, mode, first] of [
+      ['ir-json', 'exact', '~exact:f1'],
+      ['pptx', 'exact', '~exact:f1'],
+      ['pptx', 'editable', 't'],
+    ] as const) {
+      resetIds();
+      const { d } = fileWith([frame({ id: 'f1', width: 800, height: 600, children: [text({ id: 't' })] })], ['f1']);
+      const { g } = await boot(d);
+      g.send({ type: 'start-export', format, settings: { ...DEFAULT_SETTINGS, mode } });
+      await g.waitFor('export-extracted');
+      expect((g.posted.find((m) => m.type === 'export-slide')!.slide as Slide).elements[0].id).toBe(first);
+      expect(g.storage.get('figmadeck.settings')).toMatchObject({ mode });
+    }
+  });
+
+  it('a deck frame on another page: temporary clones go to the current page and are removed', async () => {
+    const f = frame({ id: 'f', x: 3000, y: 1000, width: 800, height: 600, fills: [radial()], children: [rect({ id: 'r' })] });
+    const p1 = page({ id: 'p1' });
+    const p2 = page({ id: 'p2', children: [f] });
+    const d = doc([p1, p2]);
+    d.setPluginData('figmadeck.slides', JSON.stringify(['f']));
+    const { g, env } = await boot(d);
+    const parents: string[] = [];
+    env.onExport = (n) => parents.push(n.parent?.id ?? 'none');
+    g.send({ type: 'start-export', format: 'pptx', settings: DEFAULT_SETTINGS });
+    await g.waitFor('export-extracted');
+    expect(parents).toEqual(['p1']);
+    expect(p1.children).toEqual([]);
+    expect(p2.children!.map((n) => n.id)).toEqual(['f']);
+    const slide = g.posted.find((m) => m.type === 'export-slide')!.slide as Slide;
+    expect(slide.elements.map((e) => e.id)).toEqual(['~bg:f', 'r']);
+    expect(slide.elements[0].transform).toMatchObject({ x: 0, y: 0, w: 800, h: 600 });
+    expect(env.liveClones()).toEqual([]);
+  });
+});

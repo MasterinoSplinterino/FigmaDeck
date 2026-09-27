@@ -18,8 +18,12 @@ const TOP_LEVEL_PARENTS = new Set<string>(['PAGE', 'SECTION', 'COMPONENT_SET']);
 
 export type SlideNode = FrameNode | ComponentNode | InstanceNode;
 
+/**
+ * A removed COMPONENT stays resolvable by `getNodeByIdAsync` with `parent === null` (verified), so a
+ * deleted frame is recognized by `removed` OR a missing parent, not by the lookup failing.
+ */
 export function isSlideNode(node: BaseNode | null | undefined): node is SlideNode {
-  return !!node && SLIDE_TYPES.has(node.type) && !(node as SceneNode).removed;
+  return !!node && SLIDE_TYPES.has(node.type) && !(node as SceneNode).removed && node.parent !== null;
 }
 
 /** The top-level slide frame containing `node` (itself when it is one), or null. */

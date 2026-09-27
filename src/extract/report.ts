@@ -25,6 +25,8 @@ const REASON_TEXT: Record<RasterReason, string> = {
   clip: 'clipped by a frame',
   'group-opacity': 'group opacity over overlapping layers',
   'unsupported-node': 'layer type without a PowerPoint equivalent',
+  'unsupported-paint': 'paint type without a PowerPoint equivalent',
+  setting: 'export setting',
   'text-feature': 'text feature without a PowerPoint equivalent',
 };
 

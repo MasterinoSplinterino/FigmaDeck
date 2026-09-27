@@ -135,7 +135,8 @@ export function classifyShape(
   const paintsSomething = fills.kind !== 'none' || strokes.kind !== 'none';
   if (radius === null && paintsSomething) pushUnique(reasons, 'mixed-radii');
   if (opts.ellipse && !hasDefaultArc(node)) pushUnique(reasons, 'vector');
-  if (fills.kind === 'image' && settings.imageFills === 'rasterize') pushUnique(reasons, 'image-fill-mode');
+  // The user chose rasterized image fills: the reason is the setting, not the fill.
+  if (fills.kind === 'image' && settings.imageFills === 'rasterize') pushUnique(reasons, 'setting');
 
   const r = radius === null ? 0 : Math.min(radius, Math.min(width, height) / 2);
   const geometry: ShapeDecision['geometry'] = opts.ellipse ? 'ellipse' : r > 0 ? 'roundRect' : 'rect';
