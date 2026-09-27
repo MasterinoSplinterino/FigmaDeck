@@ -1,19 +1,24 @@
 // Renders the plugin UI standalone in headless Chromium and saves screenshots of its main states:
-//   docs/screenshots/{empty,deck,export-menu,settings,settings-fonts,progress,report}.png
+//   docs/screenshots/{empty,deck,drag,export-menu,settings,settings-fonts,progress,report,report-details,
+//                     report-pdf,settings-slide-size,preview-failed}[-light][-ru].png
 //
 // The UI is bundled exactly like scripts/build.mjs does (same esbuild options, Node-only modules
 // stubbed, JS + CSS inlined into src/ui/index.html). `parent.postMessage` is stubbed (at top level
 // `parent === window`) and main-thread messages are injected as window 'message' events. The report
 // scene runs the real export pipeline (images → buildPptx in the browser) on IR fixtures and checks
-// the downloaded .pptx.
+// the downloaded .pptx; the vector PDF scene merges synthetic per-frame PDFs (the same photo in every
+// frame, made with pdf-lib here) and checks that the duplicate image was stored once.
 //
-// Usage: node scripts/ui-screenshots.mjs [--theme dark|light] [--lang en|ru] [--out docs/screenshots]
+// Usage: npm run ui:screenshots -- [--theme dark|light] [--lang en|ru] [--out docs/screenshots] [--only deck,settings]
+//   --only  save just these scenes (all scenes still run, so the interaction checks always happen)
 import * as esbuild from 'esbuild';
 import { existsSync, readdirSync } from 'node:fs';
 import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+import { PDFDocument, PDFName, PDFRawStream, StandardFonts } from 'pdf-lib';
+import { PNG } from 'pngjs';
 import { chromium } from 'playwright-core';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
@@ -26,6 +31,7 @@ const theme = arg('theme', 'dark');
 const lang = arg('lang', 'en');
 const outDir = resolve(root, arg('out', 'docs/screenshots'));
 const suffix = `${theme === 'light' ? '-light' : ''}${lang === 'ru' ? '-ru' : ''}`;
+const only = arg('only', '') ? new Set(arg('only', '').split(',').map((x) => x.trim()).filter(Boolean)) : null;
 const WINDOW = { width: 1000, height: 640 };
 
 // ─── Bundle (mirrors uiOptions in scripts/build.mjs) ─────────────────────────
@@ -87,6 +93,13 @@ const SLIDES = [
   { id: '1:13', name: lang === 'ru' ? 'Метрики роста' : 'Growth metrics', width: 1920, height: 1080, pageId: '0:1', pageName: 'Deck', art: 'chart' },
   { id: '1:14', name: lang === 'ru' ? 'Команда' : 'Team', width: 1920, height: 1080, pageId: '0:1', pageName: 'Deck', art: 'team' },
   { id: '1:15', name: lang === 'ru' ? 'Старое интро' : 'Old intro', width: 1920, height: 1080, pageId: '0:1', pageName: 'Deck', art: 'title', missing: true },
+];
+
+/** A deck of 4992×1536 LED-screen frames (the slide size scene). */
+const LED_SLIDES = [
+  { id: '2:1', name: lang === 'ru' ? 'LED — открытие' : 'LED — opening', width: 4992, height: 1536, pageId: '0:2', pageName: 'LED', art: 'led', title: 'STARTUP SUMMIT 2026' },
+  { id: '2:2', name: lang === 'ru' ? 'LED — спикеры' : 'LED — speakers', width: 4992, height: 1536, pageId: '0:2', pageName: 'LED', art: 'led', title: lang === 'ru' ? 'СПИКЕРЫ' : 'SPEAKERS' },
+  { id: '2:3', name: lang === 'ru' ? 'LED — партнёры' : 'LED — partners', width: 4992, height: 1536, pageId: '0:2', pageName: 'LED', art: 'led', title: lang === 'ru' ? 'ПАРТНЁРЫ' : 'PARTNERS' },
 ];
 
 const SETTINGS = {
@@ -195,7 +208,24 @@ async function renderSlidePng(page, slide, width) {
         g.roundRect(x * s, y * s, w * s, hh * s, r * s);
         g.fill();
       };
-      if (slide.art === 'poster') {
+      if (slide.art === 'led') {
+        const bg = g.createLinearGradient(0, 0, width, 0);
+        bg.addColorStop(0, '#07091a');
+        bg.addColorStop(0.5, '#1b1464');
+        bg.addColorStop(1, '#07091a');
+        g.fillStyle = bg;
+        g.fillRect(0, 0, width, h);
+        for (let i = 0; i < 5; i++) {
+          const cx = (600 + i * 950) * s;
+          const rad = g.createRadialGradient(cx, 760 * s, 0, cx, 760 * s, 620 * s);
+          rad.addColorStop(0, i % 2 ? 'rgba(56,189,248,0.35)' : 'rgba(168,85,247,0.35)');
+          rad.addColorStop(1, 'rgba(0,0,0,0)');
+          g.fillStyle = rad;
+          g.fillRect(0, 0, width, h);
+        }
+        text(slide.title, 300, 900, 800, 420, '#fff');
+        text('14–16.10 · Moscow', 320, 1180, 400, 120, 'rgba(255,255,255,0.7)');
+      } else if (slide.art === 'poster') {
         const bg = g.createLinearGradient(0, 0, width, h);
         bg.addColorStop(0, '#1b0b6b');
         bg.addColorStop(0.55, '#3a1fd1');
@@ -278,10 +308,49 @@ async function injectBytes(page, msg, key, bytes) {
 }
 
 async function shot(page, name) {
+  if (only && !only.has(name)) return;
   const file = join(outDir, `${name}${suffix}.png`);
   await page.waitForTimeout(250); // let animations settle
   await page.screenshot({ path: file });
   console.log(`saved ${file}`);
+}
+
+/** A noisy opaque PNG (incompressible: it dominates the size of each frame PDF). */
+function noisePng(width, height, seed) {
+  const p = new PNG({ width, height });
+  let x = seed;
+  for (let i = 0; i < p.data.length; i += 4) {
+    for (let c = 0; c < 3; c++) {
+      x ^= x << 13;
+      x ^= x >>> 17;
+      x ^= x << 5;
+      p.data[i + c] = 40 + ((x >>> 0) % 120);
+    }
+    p.data[i + 3] = 255;
+  }
+  return PNG.sync.write(p, { colorType: 2 });
+}
+
+/** Per-frame PDFs like Figma's: the same background photo embedded in each, plus a title. */
+async function framePdfs(slides) {
+  const photo = noisePng(320, 180, 20260927);
+  const out = [];
+  for (const sl of slides) {
+    const doc = await PDFDocument.create();
+    const page = doc.addPage([sl.width, sl.height]);
+    const img = await doc.embedPng(photo);
+    page.drawImage(img, { x: 0, y: 0, width: sl.width, height: sl.height });
+    page.drawText(sl.name.replace(/[^\x20-\x7e]/g, '?'), { x: 80, y: sl.height - 160, size: 72, font: await doc.embedFont(StandardFonts.Helvetica) });
+    out.push(await doc.save());
+  }
+  return out;
+}
+
+async function imageCount(bytes) {
+  const doc = await PDFDocument.load(bytes);
+  return doc.context
+    .enumerateIndirectObjects()
+    .filter(([, o]) => o instanceof PDFRawStream && o.dict.get(PDFName.of('Subtype')) === PDFName.of('Image')).length;
 }
 
 // ─── Main ────────────────────────────────────────────────────────────────────
@@ -360,10 +429,7 @@ try {
   await inject(page, { type: 'fonts', fonts: FONTS });
   await page.waitForSelector('.font-row');
   await shot(page, 'settings');
-  await page.evaluate(() => {
-    const body = document.querySelector('.drawer-body');
-    body.scrollTop = body.scrollHeight;
-  });
+  await page.evaluate(() => document.querySelector('.font-mapping').closest('.section').scrollIntoView({ block: 'start' }));
   await shot(page, 'settings-fonts');
   await page.keyboard.press('Escape');
   await page.waitForSelector('.drawer', { state: 'detached' });
@@ -373,7 +439,8 @@ try {
   await page.waitForFunction(() => window.__sent.some((m) => m && m.type === 'start-export'));
   const fx = await loadFixtures();
   await inject(page, { type: 'export-started', format: 'pptx', total: fx.slides.length });
-  await inject(page, { type: 'export-progress', phase: 'extract', done: 2, total: fx.slides.length, label: `${fx.slides[2].name} — exporting 3/7` });
+  // Numeric progress fields: the overlay localizes "<slide name> — rasterizing 5 of 12" itself.
+  await inject(page, { type: 'export-progress', phase: 'extract', done: 2, total: fx.slides.length, label: 'Agenda — exporting 5/12', slide: 3, layers: 1240, jobsDone: 5, jobsTotal: 12 });
   await page.waitForSelector('.progress-dialog');
   await shot(page, 'progress');
 
@@ -436,6 +503,72 @@ try {
   const removed = await sentOf('remove-slides');
   if (JSON.stringify(removed[0]?.ids) !== '["1:13"]') throw new Error(`Unexpected removal: ${JSON.stringify(removed)}`);
   console.log('interaction checks passed (drag reorder, ↓ selection, Delete)');
+
+  // 7. Vector PDF: Figma's per-frame PDFs → merged, duplicate photo stored once → report
+  await page.click('.split-toggle');
+  await page.waitForSelector('.menu');
+  const items = await page.$$eval('.menu-item .menu-label', (els) => els.map((e) => e.textContent));
+  if (items.length !== 5) throw new Error(`Export menu has ${items.length} items: ${items.join(' | ')}`);
+  await page.locator('.menu-item').nth(2).click(); // "PDF — vector"
+  await page.waitForFunction(() => window.__sent.some((m) => m && m.type === 'start-export' && m.format === 'pdf'));
+  const pdfSlides = SLIDES.filter((x) => !x.missing && x.id !== '1:13');
+  const parts = await framePdfs(pdfSlides);
+  const pdfDownload = page.waitForEvent('download', { timeout: 60000 });
+  await inject(page, { type: 'export-started', format: 'pdf', total: parts.length });
+  for (let i = 0; i < parts.length; i++) {
+    await injectBytes(page, { type: 'export-pdf-page', index: i, total: parts.length, name: pdfSlides[i].name }, 'bytes', Array.from(parts[i]));
+  }
+  const missingName = SLIDES.find((x) => x.missing).name;
+  await inject(page, {
+    type: 'export-pdf-done',
+    meta: { title: 'Startup Summit - 2026' },
+    report: [{ level: 'warning', code: 'missing-frame', slideId: '1:15', slideName: missingName, message: `Frame "${missingName}" no longer exists and was skipped.` }],
+  });
+  const pdfFile = await pdfDownload;
+  const pdfPath = join(tmp, pdfFile.suggestedFilename());
+  await pdfFile.saveAs(pdfPath);
+  const merged = await readFile(pdfPath);
+  const partsTotal = parts.reduce((n, p) => n + p.length, 0);
+  const images = await imageCount(merged);
+  if (images !== 1) throw new Error(`Merged PDF has ${images} image XObjects (expected 1)`);
+  console.log(`vector PDF: ${parts.length} frame PDFs, ${partsTotal} bytes → ${merged.length} bytes, ${images} image`);
+  await page.waitForSelector('.report-dialog');
+  await shot(page, 'report-pdf');
+  await page.keyboard.press('Escape');
+  await page.waitForSelector('.report-dialog', { state: 'detached' });
+
+  // 8. LED deck: slide size settings with the agency template preset (letterbox warning)
+  const ledSlides = LED_SLIDES.map(({ art, title, ...x }) => x);
+  await inject(page, { type: 'init', slides: ledSlides, settings: SETTINGS, deckTitle: 'Startup Summit LED', fileName: 'Startup Summit LED', selection: { frameCount: 0, alreadyInDeck: 0 } });
+  await page.waitForFunction((n) => document.querySelectorAll('.slide-row').length === n, LED_SLIDES.length);
+  for (const x of LED_SLIDES) await injectBytes(page, { type: 'thumbnail', id: x.id }, 'bytes', await renderSlidePng(page, x, 320));
+  await page.click('.topbar-actions .btn:first-child');
+  await page.waitForSelector('.drawer');
+  await inject(page, { type: 'fonts', fonts: FONTS });
+  await page.locator('.section', { has: page.locator('.preset-grid, .size-summary') }).locator('.segment').nth(3).click(); // "Custom"
+  await page.waitForSelector('.preset-grid');
+  await page.locator('.preset').nth(3).click(); // agency template
+  await page.waitForSelector('.preset.active');
+  const warning = await page.textContent('.size-summary + .callout');
+  if (!warning || !/3[.,]24:1/.test(warning)) throw new Error(`No letterbox warning for the agency template: ${warning}`);
+  await page.evaluate(() => document.querySelector('.preset-grid').closest('.section').scrollIntoView({ block: 'start' }));
+  await shot(page, 'settings-slide-size');
+  const saved = await sentOf('save-settings');
+  await page.waitForTimeout(500); // debounced save-settings
+  const lastSave = (await sentOf('save-settings')).pop();
+  if (!lastSave || lastSave.settings.slideSizeMode !== 'custom' || Math.abs(lastSave.settings.slideWidthIn - 87.82 / 2.54) > 1e-9) {
+    throw new Error(`Slide size not saved: ${JSON.stringify(lastSave?.settings)} (${saved.length} saves before)`);
+  }
+  await page.keyboard.press('Escape');
+  await page.waitForSelector('.drawer', { state: 'detached' });
+
+  // 9. Preview that main could not render: the spinner stops, a badge stays over the thumbnail
+  await page.locator('.slide-row').nth(1).click();
+  await page.waitForFunction((id) => window.__sent.some((m) => m && m.type === 'request-preview' && m.id === id), LED_SLIDES[1].id);
+  await inject(page, { type: 'preview-failed', id: LED_SLIDES[1].id, message: 'exportAsync failed' });
+  await page.waitForSelector('.stage-badge');
+  if (await page.$('.stage-loading')) throw new Error('Spinner still visible after preview-failed');
+  await shot(page, 'preview-failed');
 
   const sent = await page.evaluate(() => window.__sent.map((m) => m && m.type));
   console.log(`UI → main: ${[...new Set(sent)].join(', ')}`);

@@ -7,6 +7,7 @@ describe('bridge message guards', () => {
   it('accepts known main → UI messages only', () => {
     expect(isMainToUi({ type: 'slides', slides: [] })).toBe(true);
     expect(isMainToUi({ type: 'export-slide' })).toBe(true);
+    expect(isMainToUi({ type: 'preview-failed', id: '1:2' })).toBe(true);
     expect(isMainToUi({ type: 'ui-ready' })).toBe(false); // UI → main
     expect(isMainToUi({ type: 42 })).toBe(false);
     expect(isMainToUi(null)).toBe(false);

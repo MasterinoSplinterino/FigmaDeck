@@ -328,6 +328,27 @@ export const CONFIG = {
     snapMaxDistance: 3,
     /** Channel weights (r, g, b) of the premultiplied error metric used by the quantizer and the ditherer. */
     channelWeights: [1, 1, 1] as readonly [number, number, number],
+    /**
+     * Histogram importance per 8×8 block (libimagequant's noise map): weight = min + (1 − min) /
+     * (1 + (activity / scale)²), activity = mean |second difference| (8-bit levels). Busy texture hides
+     * errors, so smooth gradients get more of the palette.
+     */
+    importance: { minWeight: 0.33, activityScale: 3 },
+    /** Metrics: block activity (8-bit levels) that halves a block's error (texture masking). */
+    maskActivity: 0.5,
+    /**
+     * Feedback rounds while the gate fails or banding is above the level's `targetBanding`: blocks
+     * whose masked mean error exceeds `minError` get their histogram weight × (1 + (error / scale)²) and
+     * the palette is searched again; a round is kept if it makes the gate pass, or if banding drops
+     * without losing more than maxPsnrLoss (dB) / maxSsimLoss (ssimHalf). Not run when PSNR fails
+     * (feedback cannot raise it) nor above `retryMaxPixels`.
+     */
+    feedback: { rounds: 2, minError: 0.5, scale: 0.5, maxPsnrLoss: 1, maxSsimLoss: 0.003 },
+    /**
+     * Above this many pixels only one palette attempt is made (no feedback rounds, no smaller palettes):
+     * each attempt costs ~0.4–0.6 s per megapixel in JS.
+     */
+    retryMaxPixels: 4000000,
     dither: {
       /** pngquant-style per-pixel dither map (less on edges / noise, full inside flat-mapped areas). */
       adaptive: true,
@@ -342,24 +363,49 @@ export const CONFIG = {
       overflow: 16,
     },
     /**
-     * Quality gate per `ExportSettings.compression` level (pngquant `--quality min` analogue). PSNR is on
-     * premultiplied RGBA of visible pixels, SSIM on 8×8 blocks of luma over black / white, block error
-     * is the largest |mean error| of an 8×8 block in 8-bit levels (banding guard).
+     * Quality gate per `ExportSettings.compression` level (pngquant `--quality min` analogue), see
+     * src/compress/metrics.ts: PSNR on premultiplied RGBA of visible pixels; SSIM after a 2×2 downscale
+     * (luma over black / white); banding = 99.9th percentile of the texture-masked jump of 8×8 block
+     * mean errors between neighbouring blocks (8-bit levels). Calibrated on real Deck exports: undithered
+     * 256-colour output (visible bands) scores 1.2–4.6, dithered 256-colour output 0.35–1.0. Below
+     * ~38 dB the dither grain itself shows at 1:1 (streaks over light backgrounds).
+     * `targetBanding`: feedback rounds run while banding is above it (pngquant `--quality max` analogue).
+     * `smallerPalettes`: extra palette sizes tried for every image (stops at the first gate failure).
      */
     levels: {
-      balanced: { minPsnr: 40, minSsim: 0.985, maxBlockError: 1.5, ditherStrength: 1 },
-      strong: { minPsnr: 35, minSsim: 0.97, maxBlockError: 2.5, ditherStrength: 1 },
+      balanced: { minPsnr: 40, minSsim: 0.98, maxBanding: 1.1, targetBanding: 0.8, ditherStrength: 1, smallerPalettes: [] as readonly number[] },
+      strong: { minPsnr: 38, minSsim: 0.97, maxBanding: 1.5, targetBanding: 1.5, ditherStrength: 1, smallerPalettes: [128, 64] as readonly number[] },
     },
     /** Images with at most this many distinct colours (flat graphics) also try the smaller palettes. */
     flatMaxColors: 4096,
     /** …as do images of at most this many pixels. */
     smallImagePixels: 65536,
     smallerPalettes: [128, 64, 32, 16, 8, 4, 2] as readonly number[],
-    /** zlib level of IDAT (0..9). */
+    /**
+     * zlib level / memLevel of palette IDAT. memLevel 7 (smaller Huffman blocks) beats 9 by ~1–2 % on
+     * dithered indices; level 9 is ~4× slower than 7 for ~1.5 %, so images above `fastDeflatePixels`
+     * use `fastDeflateLevel`.
+     */
     deflateLevel: 9,
+    deflateMemLevel: 7,
+    fastDeflateLevel: 7,
+    fastDeflatePixels: 2000000,
+    /** zlib level of truecolour IDAT: pako's level 9 is up to 10× slower on filtered RGBA for < 1 % gain. */
+    truecolorDeflateLevel: 6,
+    /**
+     * Several filter attempts / palette sizes are ranked at this fast zlib level (filters on at most
+     * `rankSampleBytes` of scanlines, in bands spread over the image); only the winner is deflated at
+     * the full level.
+     */
+    rankDeflateLevel: 2,
+    rankSampleBytes: 4000000,
     /** Filter / zlib strategy combinations tried for palette and truecolour PNGs (smallest kept). */
     paletteAttempts: [{ filter: 'none', strategy: 'default' }] as ReadonlyArray<{ filter: 'none' | 'adaptive' | 'sub' | 'up' | 'paeth'; strategy: 'default' | 'filtered' }>,
-    truecolorAttempts: [{ filter: 'adaptive', strategy: 'default' }] as ReadonlyArray<{ filter: 'none' | 'adaptive' | 'sub' | 'up' | 'paeth'; strategy: 'default' | 'filtered' }>,
+    truecolorAttempts: [
+      { filter: 'none', strategy: 'default' },
+      { filter: 'sub', strategy: 'default' },
+      { filter: 'adaptive', strategy: 'default' },
+    ] as ReadonlyArray<{ filter: 'none' | 'adaptive' | 'sub' | 'up' | 'paeth'; strategy: 'default' | 'filtered' }>,
   },
 
   /** scripts/visual-regression.ts defaults (LibreOffice render vs PNGs exported from Figma). */

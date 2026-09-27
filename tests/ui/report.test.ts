@@ -2,7 +2,7 @@ import { beforeAll, describe, expect, it } from 'vitest';
 import type { FontReportItem } from '../../src/build/api';
 import type { ReportEntry } from '../../src/ir/types';
 import { setLang } from '../../src/ui/i18n';
-import { RASTER_REASONS, buildReportModel, entryText, fontFaceText, reasonHistogram, reportToText, type ExportOutcome } from '../../src/ui/report';
+import { RASTER_REASONS, buildReportModel, dedupeText, entryText, fontFaceText, reasonHistogram, reportToText, type ExportOutcome } from '../../src/ui/report';
 
 const e = (o: Partial<ReportEntry> & Pick<ReportEntry, 'level' | 'code' | 'slideId'>): ReportEntry => ({
   slideName: `Slide ${o.slideId}`,
@@ -36,6 +36,8 @@ describe('RASTER_REASONS', () => {
     expect(new Set(RASTER_REASONS).size).toBe(RASTER_REASONS.length);
     expect(RASTER_REASONS).toContain('exact-mode');
     expect(RASTER_REASONS).toContain('text-feature');
+    expect(RASTER_REASONS).toContain('unsupported-paint');
+    expect(RASTER_REASONS).toContain('setting');
   });
 });
 
@@ -112,12 +114,13 @@ describe('reportToText', () => {
     fonts: FONTS,
     entries: ENTRIES,
     images: { examined: 3, downscaled: 1, jpeg: 1, bytesBefore: 1000, bytesAfter: 400 },
+    pdfDedupe: null,
   };
 
   it('contains the summary, fonts, all rasterized layers with reasons, skipped counts, warnings and notes', () => {
     const text = reportToText(outcome, buildReportModel(outcome.entries, outcome.fonts, outcome.slideIds));
     expect(text).toContain('FigmaDeck export report');
-    expect(text).toContain('Deck.pptx');
+    expect(text).toContain('Deck.pptx (PowerPoint — editable)');
     expect(text).toContain('Slides: 3');
     expect(text).toContain('File size: 2 KB');
     expect(text).toContain('Time: 3.4 s');
@@ -139,12 +142,32 @@ describe('reportToText', () => {
     expect(text.endsWith('\n')).toBe(true);
   });
 
-  it('PDF outcome without stats or fonts', () => {
-    const pdf: ExportOutcome = { ...outcome, format: 'pdf', stats: null, fonts: [], entries: [], images: null };
-    const text = reportToText(pdf, buildReportModel([], [], []));
+  it('vector PDF: no stats, fonts or raster section; merged duplicates and main\'s warnings', () => {
+    const warning = e({ level: 'warning', code: 'missing-frame', slideId: 'x', slideName: 'Old intro' });
+    const pdf: ExportOutcome = { ...outcome, format: 'pdf', stats: null, fonts: [], entries: [warning], images: null, pdfDedupe: { objects: 58, bytes: 8.4 * 1024 * 1024 } };
+    const text = reportToText(pdf, buildReportModel(pdf.entries, [], []));
+    expect(text).toContain('(PDF — vector)');
     expect(text).not.toContain('## Fonts');
     expect(text).not.toContain('Text boxes');
+    expect(text).not.toContain('Rasterized layers');
+    expect(text).toContain('Repeated images and fonts stored once: 58 objects, 8.4 MB saved');
+    expect(text).toContain('- Old intro: The frame no longer exists and was skipped');
+  });
+
+  it('image PDF keeps the raster section', () => {
+    const text = reportToText({ ...outcome, format: 'pdf-image', stats: null, fonts: [] }, buildReportModel([], [], []));
     expect(text).toContain('Nothing was rasterized.');
+  });
+
+  it('dedupeText is null when nothing was merged', () => {
+    expect(dedupeText(null)).toBeNull();
+    expect(dedupeText({ objects: 0, bytes: 0 })).toBeNull();
+    setLang('ru');
+    try {
+      expect(dedupeText({ objects: 3, bytes: 1536 })).toBe('Повторы картинок и шрифтов сохранены один раз: объектов — 3, экономия 1,5 КБ');
+    } finally {
+      setLang('en');
+    }
   });
 
   it('localizes to Russian', () => {

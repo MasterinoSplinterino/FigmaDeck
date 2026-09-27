@@ -8,14 +8,16 @@
   "scripts": {
     "build": "node scripts/build.mjs",
     "dev": "node scripts/build.mjs --watch",
-    "typecheck": "tsc -p tsconfig.main.json --noEmit && tsc -p tsconfig.build.json --noEmit && tsc -p tsconfig.ui.json --noEmit && tsc -p tsconfig.test.json --noEmit && tsc -p tsconfig.scripts.json --noEmit",
+    "typecheck": "tsc -p tsconfig.main.json --noEmit && tsc -p tsconfig.build.json --noEmit && tsc -p tsconfig.ui.json --noEmit && tsc -p tsconfig.test.json --noEmit && tsc -p tsconfig.scripts.json --noEmit && tsc -p scripts/figma-probe/tsconfig.json --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
     "fixture:pptx": "tsx scripts/fixture-to-pptx.ts",
     "visual": "tsx scripts/visual-regression.ts",
     "fixtures": "tsx scripts/make-fixtures.ts",
     "ui:screenshots": "node scripts/ui-screenshots.mjs",
-    "fix-oversized": "node scripts/fix-oversized-pptx.mjs"
+    "fix-oversized": "node scripts/fix-oversized-pptx.mjs",
+    "figma-probe": "node scripts/figma-probe/build.mjs",
+    "compress:bench": "tsx scripts/compress-bench.ts"
   },
   "dependencies": {
     "jszip": "^3.10.1",

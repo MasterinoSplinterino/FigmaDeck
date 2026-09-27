@@ -3,16 +3,16 @@
 ```bash
 npm test                          # all vitest suites (tests/**/*.test.ts)
 npx vitest run tests/build        # one folder / file
-npm run typecheck                 # the four TypeScript projects (main, build, ui, test)
+npm run typecheck                 # the five TypeScript projects (main, build, ui, test, scripts)
 ```
 
 Node 22. Optional tools — the suites that need them are **skipped** (not failed) when they are missing:
 
 | Tool | Used by | Install (Debian / Ubuntu) |
 |---|---|---|
-| LibreOffice Impress (`soffice`) | `tests/build/libreoffice.test.ts`, `tests/fonts/libreoffice-embed.test.ts`, `tests/fonts/visual-regression.test.ts`, `scripts/visual-regression.ts` | `apt install libreoffice-impress` |
+| LibreOffice Impress (`soffice`) | `tests/build/libreoffice.test.ts`, `tests/fonts/libreoffice-embed.test.ts`, `tests/fonts/visual-regression.test.ts`, `npm run visual` | `apt install libreoffice-impress` |
 | poppler (`pdfinfo`, `pdftoppm`, `pdffonts`) | same | `apt install poppler-utils` |
-| Chromium for playwright-core | `tests/build/browser.test.ts` (the builder must run in a browser) | `npx playwright-core install chromium`, or set `PLAYWRIGHT_BROWSERS_PATH` (`/opt/pw-browsers` is probed too) |
+| Chromium for playwright-core | `tests/build/browser.test.ts` (the builder must run in a browser), `npm run ui:screenshots` | `npx playwright-core install chromium`, or set `PLAYWRIGHT_BROWSERS_PATH` (`/opt/pw-browsers` is probed too) |
 | Liberation Sans TTFs | the real-font cases in `tests/fonts/` | `apt install fonts-liberation` (or `fonts-liberation2`) |
 
 ## Test layers
@@ -24,8 +24,10 @@ Node 22. Optional tools — the suites that need them are **skipped** (not faile
 | Build | `tests/build/` | IR → `buildPptx` → unzip → XML assertions (`tests/helpers/ooxml.ts`): insets, `lnSpc`, `spc`, `lang`, typefaces, `<p:pic>` vs `<p:sp>` counts, groups, gradients, slide size limits (`slide-size.test.ts`), post-processing; `validatePackage` checks what makes PowerPoint show its repair dialog (malformed XML, dangling relationships, parts without content type, duplicate ids, `<a:pPr>` position, slide size outside 1″…56″, "PptxGenJS" leftovers) |
 | Browser | `tests/build/browser.test.ts` | the builder bundled like the plugin UI, run in headless Chromium, byte-identical to the Node build |
 | LibreOffice smoke | `tests/build/libreoffice.test.ts` | every fixture opens in LibreOffice and converts to a PDF with one page per slide and the expected page size |
-| Fonts (stage 4) | `tests/fonts/` | font parsing, fsType decoding, `.fntdata` (EOT) layout, package structure after embedding, LibreOffice end-to-end probe; also the tests of `scripts/visual-regression.ts`. `tests/fonts/embed-cli.ts` (not a suite) makes files for the manual stage-4 check |
-| Visual regression | `scripts/visual-regression.ts` (manual / CI job) | LibreOffice rendering vs PNGs exported from Figma — rough |
+| Fonts (stage 4) | `tests/fonts/` | font parsing, fsType decoding, `.fntdata` (EOT) layout, package structure after embedding, LibreOffice end-to-end probe; also the tests of the visual regression script. `tests/fonts/embed-cli.ts` (not a suite) makes files for the manual stage-4 check |
+| UI logic | `tests/ui/` | the export pipeline with injected dependencies (`exporter.test.ts`: all four targets + IR JSON, cancel, progress localized from main's numeric fields, re-sent assets replace older ones), PDF assembly (`pdf.test.ts`: merge, duplicate-resource dedupe on synthetic PDFs that embed the same image per frame, image PDF page size = frame px as pt capped at 14 400 pt, JPEG passed through), slide size model (`slide-size.test.ts`: cm / in, presets incl. the agency template 87.82 × 27.09 cm, letterbox check), settings → builder options, report model / text, i18n (en / ru keys, plurals, every `RasterReason` labelled), image optimization plans, reorder, state reducer |
+| UI screenshots | `npm run ui:screenshots` (manual) | the real UI bundle in headless Chromium with injected main-thread messages: every screen, a PPTX built in the browser, a vector PDF merged from per-frame PDFs (asserts the repeated image is stored once), the slide size settings with the agency preset, drag-and-drop / keyboard checks. Output: `docs/screenshots/` |
+| Visual regression | `npm run visual` (manual / CI job) | LibreOffice rendering vs PNGs exported from Figma — rough |
 | Manual | `docs/MANUAL-CHECKS.md` | Figma, PowerPoint (Windows / Mac), Keynote, Google Slides |
 
 LibreOffice is not PowerPoint: the LibreOffice-based checks catch broken packages and gross layout errors, not
@@ -39,10 +41,11 @@ every listed fixture.
 
 ### Synthetic fixtures (deterministic)
 
-`scripts/make-fixtures.ts` writes them from code (`tests/fixtures/ir-builders.ts`; bitmaps generated with pngjs):
+`npm run fixtures` (`scripts/make-fixtures.ts`) writes them from code (`tests/fixtures/ir-builders.ts`; bitmaps
+generated with pngjs):
 
 1. add a builder function to `scripts/make-fixtures.ts` and register its output;
-2. `npx tsx scripts/make-fixtures.ts`;
+2. `npm run fixtures`;
 3. add the name to `FIXTURE_NAMES` in `tests/fixtures/load.ts`;
 4. add targeted assertions (e.g. in `tests/build/fixtures.test.ts`).
 
@@ -51,7 +54,8 @@ Keep synthetic fixtures small (no real photos, few KB) and free of third-party c
 ### Real fixtures from Figma
 
 1. In the plugin: add the frames, then **Export → IR JSON (debug)**. The file is `<deck title>.figmadeck.json`.
-2. Check it builds: `npx tsx scripts/fixture-to-pptx.ts "<file>.figmadeck.json" out.pptx` (prints the report and fonts).
+2. Check it builds: `npm run fixture:pptx -- "<file>.figmadeck.json" out.pptx` (prints the report and fonts;
+   `--slide-size=<w>x<h>` in inches and `--font-naming=ribbi|full` mirror the plugin settings).
 3. Copy it to `tests/fixtures/<name>.ir.json` and add `<name>` to `FIXTURE_NAMES`.
 
 The IR contains the layer names, all text and the original image bytes of the frames. Only commit files whose
@@ -62,7 +66,7 @@ the layout is what matters.
 ## Visual regression
 
 ```bash
-npx tsx scripts/visual-regression.ts --fixture tests/fixtures/diploma.ir.json \
+npm run visual -- --fixture tests/fixtures/diploma.ir.json \
     --expected tests/visual/expected/diploma [--threshold 0.1] [--max-diff 0.02] [--out tests/visual/out]
 ```
 
@@ -95,3 +99,18 @@ start with `--max-diff 0.02` for shape-only slides and `0.05`–`0.1` for text-h
 4. Put the files in one folder per fixture, e.g. `tests/visual/expected/<fixture>/`. Names are matched by slide
    number first (`1.png`, `2.png`, … in deck order), then by frame name (case-insensitive; `/ \ : * ? " < > |`
    → `_`; an `@2x`-style suffix is ignored). Duplicate frame names must use the number form.
+
+## UI screenshots
+
+```bash
+npm run ui:screenshots                                   # dark theme, English: every scene
+npm run ui:screenshots -- --theme light --only empty,deck,settings,report
+npm run ui:screenshots -- --lang ru --only deck,export-menu,settings,settings-slide-size,settings-fonts,progress,report,report-pdf
+```
+
+The script bundles the UI like `npm run build`, opens it in headless Chromium (same Chromium lookup as the browser
+suite) and injects the main-thread messages. All scenes always run (so the checks run too); `--only` limits which
+PNGs are written to `docs/screenshots/<scene>[-light][-ru].png`. It fails on page errors, when the downloaded PPTX
+is not a ZIP, when the merged vector PDF keeps more than one copy of the repeated image, when the agency preset shows
+no letterbox warning or is not saved, when `preview-failed` leaves the spinner running, and when drag-and-drop /
+keyboard interactions send the wrong messages.

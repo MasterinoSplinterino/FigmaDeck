@@ -1,6 +1,8 @@
 /**
  * Big preview of the selected slide: "01. Name" + "1/N" header, the frame fitted into a dark stage
- * (aspect kept), spinner while the full-size render loads, double-click → show on canvas.
+ * (aspect kept), spinner while the full-size render loads, double-click → show on canvas. When main
+ * reports `preview-failed`, the spinner stops and a small error state is shown (over the thumbnail
+ * when there is one).
  */
 import type { JSX } from 'preact';
 import type { SlideInfo } from '../../shared/messages';
@@ -20,6 +22,8 @@ export function Preview(props: {
   /** Full-size preview URL, or the thumbnail as a placeholder. */
   url: string | undefined;
   loading: boolean;
+  /** Main could not render the preview: the error text (may be empty), or null. */
+  failed: string | null;
   onFocus: (id: string) => void;
 }): JSX.Element {
   const s = props.slide;
@@ -44,6 +48,18 @@ export function Preview(props: {
           </div>
         ) : props.url ? (
           <img class="stage-img" src={props.url} alt={s?.name ?? ''} draggable={false} />
+        ) : props.failed !== null && s ? (
+          <div class="stage-missing" title={props.failed || undefined}>
+            <IconWarning size={22} />
+            <div class="stage-missing-title">{t('preview.failed')}</div>
+            <div class="stage-missing-text">{t('preview.failedHint')}</div>
+          </div>
+        ) : null}
+        {props.failed !== null && props.url && !s?.missing && !props.loading ? (
+          <div class="stage-badge" title={props.failed || t('preview.failedHint')}>
+            <IconWarning size={13} />
+            <span>{t('preview.failed')}</span>
+          </div>
         ) : null}
         {props.loading && !s?.missing ? (
           <div class={props.url ? 'stage-loading overlay' : 'stage-loading'}>

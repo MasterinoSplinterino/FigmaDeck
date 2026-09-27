@@ -1,19 +1,74 @@
 /**
- * Font mapping table: Figma "family · style" → PowerPoint face (+ Bold / Italic attributes).
- * Inputs are prefilled with the automatic mapping (`resolveFont`); editing creates an override,
- * the row's reset button (or matching the automatic value) removes it.
+ * Settings → Fonts: the global face naming rule (RIBBI vs full style names) and the font mapping table,
+ * Figma "family · style" → PowerPoint face (+ Bold / Italic attributes). Inputs are prefilled with the
+ * automatic mapping under the current rule (`resolveFont(family, style, undefined, naming)`); editing
+ * creates an override, the row's reset button (or matching the automatic value) removes it.
  */
 import type { JSX } from 'preact';
 import { useEffect, useState } from 'preact/hooks';
 import type { FontInfo } from '../../shared/messages';
 import type { ExportSettings, FontOverride } from '../../shared/settings';
 import { fontKey } from '../../shared/settings';
-import { t, tp } from '../i18n';
+import { t, tp, type MessageKey } from '../i18n';
 import { applyFontOverride, autoFont, effectiveFont } from '../options';
-import { Segmented, Spinner } from './controls';
+import { Spinner } from './controls';
 import { IconChevronRight, IconReset } from './icons';
 
 type FontSettings = Pick<ExportSettings, 'fontOverrides' | 'fontNaming'>;
+type Naming = ExportSettings['fontNaming'];
+
+const NAMINGS: ReadonlyArray<{ value: Naming; label: MessageKey; hint: MessageKey }> = [
+  { value: 'ribbi', label: 'settings.fonts.naming.ribbi', hint: 'settings.fonts.naming.ribbiHint' },
+  { value: 'full', label: 'settings.fonts.naming.full', hint: 'settings.fonts.naming.fullHint' },
+];
+
+/** "Inter + B" — the face plus the attributes PowerPoint gets. */
+function faceWithAttrs(f: { face: string; bold: boolean; italic: boolean }): string {
+  return `${f.face}${f.bold ? ' + B' : ''}${f.italic ? ' + I' : ''}`;
+}
+
+/**
+ * A font of the deck whose face differs between the two rules (a Bold / Italic style), so the example
+ * shows what the switch changes; "Inter · Bold" when the deck has none.
+ */
+function exampleFont(fonts: readonly FontInfo[] | null): { family: string; style: string } {
+  const hit = fonts?.find((f) => {
+    const a = autoFont(f.family, f.style, 'ribbi');
+    const b = autoFont(f.family, f.style, 'full');
+    return a.face !== b.face || a.bold !== b.bold || a.italic !== b.italic;
+  });
+  return hit ?? { family: 'Inter', style: 'Bold' };
+}
+
+function NamingPicker(props: { value: Naming; fonts: readonly FontInfo[] | null; onChange: (naming: Naming) => void }): JSX.Element {
+  const ex = exampleFont(props.fonts);
+  return (
+    <div class="naming">
+      <div class="row-label">{t('settings.fonts.naming')}</div>
+      <div class="mode-list compact" role="radiogroup" aria-label={t('settings.fonts.naming')}>
+        {NAMINGS.map((n) => (
+          <button
+            type="button"
+            key={n.value}
+            role="radio"
+            aria-checked={props.value === n.value}
+            class={props.value === n.value ? 'mode-card active' : 'mode-card'}
+            onClick={() => props.onChange(n.value)}
+          >
+            <span class="mode-radio" aria-hidden="true" />
+            <span class="mode-text">
+              <span class="mode-label">{t(n.label)}</span>
+              <span class="mode-hint">{t(n.hint)}</span>
+            </span>
+          </button>
+        ))}
+      </div>
+      <div class="row-hint naming-example">
+        {t('settings.fonts.naming.example', { figma: `${ex.family} · ${ex.style}`, face: faceWithAttrs(autoFont(ex.family, ex.style, props.value)) })}
+      </div>
+    </div>
+  );
+}
 
 /** Text input that keeps a local draft while focused, so clearing it does not snap back to the default. */
 function FaceInput(props: { value: string; placeholder: string; onCommit: (face: string) => void; label: string }): JSX.Element {
@@ -117,22 +172,8 @@ export function FontMapping(props: {
   const fonts = props.fonts ? [...props.fonts].sort((a, b) => a.family.localeCompare(b.family) || a.style.localeCompare(b.style)) : null;
   return (
     <div class="font-mapping">
-      <div class="row">
-        <div class="row-text">
-          <div class="row-label">{t('settings.fonts.naming')}</div>
-        </div>
-        <div class="row-control">
-          <Segmented
-            value={props.settings.fontNaming}
-            ariaLabel={t('settings.fonts.naming')}
-            options={[
-              { value: 'ribbi', label: t('settings.fonts.naming.ribbi') },
-              { value: 'full', label: t('settings.fonts.naming.full') },
-            ]}
-            onChange={(fontNaming) => props.onChange({ fontNaming })}
-          />
-        </div>
-      </div>
+      <NamingPicker value={props.settings.fontNaming} fonts={props.fonts} onChange={(fontNaming) => props.onChange({ fontNaming })} />
+      <div class="row-label font-mapping-title">{t('settings.fonts.mapping')}</div>
 
       {fonts === null ? (
         <div class="font-loading">

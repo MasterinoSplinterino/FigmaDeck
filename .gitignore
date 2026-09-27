@@ -6,3 +6,4 @@ out/
 tests/visual/actual/
 tests/visual/diff/
 tests/visual/out/
+scripts/figma-probe/dist/

@@ -6,7 +6,7 @@ import type { ComponentChildren, JSX } from 'preact';
 import { useMemo } from 'preact/hooks';
 import { CONFIG } from '../../config';
 import { formatBytes, formatDuration, reasonLabel, t, tp } from '../i18n';
-import { buildReportModel, entryText, reasonHistogram, type ExportOutcome, type SlideGroup } from '../report';
+import { FORMAT_LABEL, buildReportModel, dedupeText, entryText, reasonHistogram, showsRasterSection, type ExportOutcome, type SlideGroup } from '../report';
 import { Modal } from './controls';
 import { IconCheckCircle, IconCopy, IconDownload, IconInfo, IconWarning } from './icons';
 
@@ -40,6 +40,7 @@ export function ReportDialog(props: { outcome: ExportOutcome; onClose: () => voi
   const model = useMemo(() => buildReportModel(o.entries, o.fonts, o.slideIds), [o]);
   const histogram = useMemo(() => reasonHistogram(model), [model]);
   const optimized = o.images ? o.images.downscaled + o.images.jpeg : 0;
+  const dedupe = dedupeText(o.pdfDedupe);
   const limit = CONFIG.ui.reportMaxItemsPerSlide;
 
   return (
@@ -50,6 +51,7 @@ export function ReportDialog(props: { outcome: ExportOutcome; onClose: () => voi
           <span class="report-file-name" title={o.fileName}>
             {o.fileName}
           </span>
+          <span class="tag">{t(FORMAT_LABEL[o.format])}</span>
         </div>
 
         <div class="stats">
@@ -70,6 +72,7 @@ export function ReportDialog(props: { outcome: ExportOutcome; onClose: () => voi
             {t('report.imagesOptimized')}: {optimized} · {formatBytes(o.images.bytesBefore)} → {formatBytes(o.images.bytesAfter)}
           </div>
         ) : null}
+        {dedupe ? <div class="report-note">{dedupe}</div> : null}
 
         {o.format === 'pptx' ? (
           <Block title={t('report.fonts')} count={model.fonts.length}>
@@ -110,7 +113,7 @@ export function ReportDialog(props: { outcome: ExportOutcome; onClose: () => voi
           </Block>
         ) : null}
 
-        {o.format !== 'pdf' ? (
+        {showsRasterSection(o.format) ? (
           <Block title={t('report.raster')} count={model.rasterCount} open={model.rasterCount > 0}>
             {model.raster.length === 0 ? (
               <div class="muted">{t('report.rasterNone')}</div>

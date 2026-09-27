@@ -6,6 +6,7 @@ import {
   applyFontOverride,
   autoFont,
   buildOptionsFromSettings,
+  editableMode,
   effectiveFont,
   fileKindOf,
   isIrFormat,
@@ -44,6 +45,13 @@ describe('buildOptionsFromSettings', () => {
   it('passes a custom slide size in inches', () => {
     const o = buildOptionsFromSettings(settings({ slideSizeMode: 'custom', slideWidthIn: 34.575, slideHeightIn: 10.665 }), 'x');
     expect(o.slideSize).toEqual({ widthIn: 34.575, heightIn: 10.665 });
+    // A stored custom size is ignored while the mode is "frame".
+    expect(buildOptionsFromSettings(settings({ slideSizeMode: 'frame', slideWidthIn: 34.575, slideHeightIn: 10.665 }), 'x')).not.toHaveProperty('slideSize');
+  });
+
+  it('passes the font naming rule', () => {
+    expect(buildOptionsFromSettings(settings(), 'x').fontNaming).toBe('ribbi');
+    expect(buildOptionsFromSettings(settings({ fontNaming: 'full' }), 'x').fontNaming).toBe('full');
   });
 
   it('copies font overrides (fresh objects) and drops blank faces', () => {
@@ -74,6 +82,15 @@ describe('settingsForFormat', () => {
       expect(s.mode).toBe('image');
       expect(s.jpeg).toBe(true);
     }
+  });
+
+  it('the editable target and the IR dump use Editable / Exact look ("Image only" → Editable)', () => {
+    expect(settingsForFormat('pptx', settings({ mode: 'image' })).mode).toBe('editable');
+    expect(settingsForFormat('ir-json', settings({ mode: 'image' })).mode).toBe('editable');
+    expect(settingsForFormat('pptx', settings({ mode: 'exact' })).mode).toBe('exact');
+    expect(settingsForFormat('pdf', settings({ mode: 'exact' })).mode).toBe('exact');
+    expect(editableMode('image')).toBe('editable');
+    expect(editableMode('exact')).toBe('exact');
   });
 
   it('other formats keep the settings but return a copy', () => {
@@ -108,6 +125,14 @@ describe('font overrides', () => {
   it('autoFont follows the naming rule, effectiveFont prefers overrides', () => {
     expect(auto).toEqual({ face: 'SB Sans Display Semibold', bold: false, italic: false, overridden: false });
     expect(autoFont('Inter', 'Bold', 'full').face).toBe('Inter Bold');
+    for (const naming of ['ribbi', 'full'] as const) {
+      for (const [family, style] of [['Inter', 'Bold'], ['SB Sans Text', 'Bold Italic'], ['Inter', 'Regular'], ['Inter', 'Semi Bold']]) {
+        expect(autoFont(family, style, naming)).toEqual(resolveFont(family, style, undefined, naming));
+      }
+    }
+    expect(autoFont('Inter', 'Bold', 'ribbi')).toMatchObject({ face: 'Inter', bold: true });
+    expect(autoFont('Inter', 'Bold', 'full')).toMatchObject({ face: 'Inter Bold', bold: false });
+    expect(effectiveFont('Inter', 'Bold', { fontNaming: 'full', fontOverrides: {} }).face).toBe('Inter Bold');
     const s = { fontNaming: 'ribbi' as const, fontOverrides: { [fontKey('Inter', 'Bold')]: { face: 'Inter Heavy', bold: false, italic: false } } };
     expect(effectiveFont('Inter', 'Bold', s)).toEqual({ face: 'Inter Heavy', bold: false, italic: false, overridden: true });
     expect(effectiveFont('Inter', 'Regular', s)).toEqual(resolveFont('Inter', 'Regular'));

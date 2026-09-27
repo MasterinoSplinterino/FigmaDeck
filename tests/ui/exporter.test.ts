@@ -162,6 +162,33 @@ describe('Exporter: PPTX', () => {
     expect(Object.keys(seen).sort()).toEqual(Object.keys(deck.assets).sort());
   });
 
+  it('editable PowerPoint never runs in image mode (an old persisted "Image only" counts as Editable)', () => {
+    const h = harness();
+    h.exporter.start('pptx', settings({ mode: 'image' }), 'x');
+    const msg = h.sent[0];
+    expect(msg.type === 'start-export' && msg.settings.mode).toBe('editable');
+    const h2 = harness();
+    h2.exporter.start('pptx', settings({ mode: 'exact' }), 'x');
+    expect(h2.sent[0].type === 'start-export' && h2.sent[0].settings.mode).toBe('exact');
+  });
+
+  it('localizes main progress from its numeric fields (slide names from the UI)', () => {
+    const h = harness();
+    h.exporter.start('pptx', settings(), 'x', ['Title', 'Agenda']);
+    const last = () => {
+      const e = h.events[h.events.length - 1];
+      if (e.type !== 'progress') throw new Error('no progress');
+      return e.progress;
+    };
+    h.feed({ type: 'export-progress', phase: 'extract', done: 1, total: 2, label: 'Agenda — 120 layers', slide: 2, layers: 120, jobsDone: 0, jobsTotal: 0 });
+    expect(last()).toMatchObject({ phase: 'extract', slide: 2, slideName: 'Agenda', layers: 120, detail: 'Agenda — 120 layers' });
+    h.feed({ type: 'export-progress', phase: 'extract', done: 0, total: 2, label: 'Title — exporting 3/9', layers: 40, jobsDone: 3, jobsTotal: 9 });
+    expect(last()).toMatchObject({ slideName: 'Title', jobsDone: 3, jobsTotal: 9 });
+    // Without numeric fields main's text is kept as is.
+    h.feed({ type: 'export-progress', phase: 'extract', done: 0, total: 2, label: 'Title — 5 layers' });
+    expect(last()).toEqual({ format: 'pptx', phase: 'extract', done: 0, total: 2, detail: 'Title — 5 layers', cancelling: false });
+  });
+
   it('image PowerPoint forces image mode + JPEG in start-export', () => {
     const h = harness();
     h.exporter.start('pptx-image', settings({ mode: 'editable', jpeg: false }), 'x');
@@ -229,6 +256,8 @@ describe('Exporter: IR JSON', () => {
 });
 
 describe('Exporter: PDF', () => {
+  const MISSING_FRAME: ReportEntry[] = [{ level: 'warning', code: 'missing-frame', slideId: '9:9', slideName: 'Old intro', message: 'Frame "Old intro" no longer exists and was skipped.' }];
+
   async function page(w: number, h: number): Promise<Uint8Array> {
     const doc = await PDFDocument.create();
     doc.addPage([w, h]);
@@ -243,10 +272,13 @@ describe('Exporter: PDF', () => {
       { type: 'export-progress', phase: 'pdf', done: 0, total: 2, label: 'A' },
       { type: 'export-pdf-page', index: 1, total: 2, name: 'B', bytes: await page(200, 100) },
       { type: 'export-pdf-page', index: 0, total: 2, name: 'A', bytes: await page(100, 100) },
-      { type: 'export-pdf-done', meta: { title: 'Deck' } },
+      { type: 'export-pdf-done', meta: { title: 'Deck' }, report: MISSING_FRAME },
     );
     const done = await h.settled();
     expect(done.type).toBe('done');
+    if (done.type !== 'done') return;
+    expect(done.outcome.entries).toEqual(MISSING_FRAME); // main's report reaches the report dialog
+    expect(done.outcome.pdfDedupe).toEqual({ objects: expect.any(Number), bytes: expect.any(Number) });
     expect(h.downloads[0].fileName).toBe('Deck.pdf');
     expect(h.downloads[0].mime).toBe('application/pdf');
     const merged = await PDFDocument.load(h.downloads[0].data);
@@ -259,20 +291,39 @@ describe('Exporter: PDF', () => {
   it('no pages → error', async () => {
     const h = harness();
     h.exporter.start('pdf', settings(), 'Deck');
-    h.feed({ type: 'export-started', format: 'pdf', total: 1 }, { type: 'export-pdf-done', meta: { title: 'Deck' } });
+    h.feed({ type: 'export-started', format: 'pdf', total: 1 }, { type: 'export-pdf-done', meta: { title: 'Deck' }, report: [] });
     expect(await h.settled()).toEqual({ type: 'error', message: 'No pages were exported.' });
+  });
+
+  it('export-pdf-done from an older main (no report) still works', async () => {
+    const h = harness();
+    h.exporter.start('pdf', settings(), 'Deck');
+    h.feed(
+      { type: 'export-started', format: 'pdf', total: 1 },
+      { type: 'export-pdf-page', index: 0, total: 1, name: 'A', bytes: await page(100, 100) },
+      { type: 'export-pdf-done', meta: { title: 'Deck' } } as unknown as MainToUi,
+    );
+    const done = await h.settled();
+    expect(done.type === 'done' && done.outcome.entries).toEqual([]);
   });
 
   it('image PDF renders the extracted deck', async () => {
     const deck = loadFixture('diploma');
-    const h = harness();
-    h.exporter.start('pdf-image', settings(), 'Diploma');
+    const processAssets = vi.fn(async () => ({ ...STATS }));
+    const h = harness({ processAssets });
+    h.exporter.start('pdf-image', settings({ jpeg: false, jpegQuality: 0.7, rasterScale: 1 }), 'Diploma');
+    const sent = h.sent[0];
+    expect(sent.type === 'start-export' && [sent.settings.mode, sent.settings.jpeg]).toEqual(['image', true]);
     h.feed(...extractedMessages(deck, [], 'pdf-image'));
     const done = await h.settled();
     expect(done.type).toBe('done');
     expect(h.downloads[0].fileName).toBe('Diploma.pdf');
     const doc = await PDFDocument.load(h.downloads[0].data);
     expect(doc.getPageCount()).toBe(deck.slides.length);
+    // Baked JPEG pages at the JPEG quality of the settings.
+    expect(processAssets).toHaveBeenCalledWith(expect.any(Object), { rasterScale: 1, jpeg: true, jpegQuality: 0.7 }, expect.any(Object));
+    // 1 px = 1 pt.
+    expect(doc.getPages().map((p) => [p.getWidth(), p.getHeight()])).toEqual(deck.slides.map((sl) => [sl.width, sl.height]));
   });
 });
 

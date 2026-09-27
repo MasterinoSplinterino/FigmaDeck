@@ -1,7 +1,7 @@
 import { beforeAll, describe, expect, it } from 'vitest';
 import { CONFIG } from '../../src/config';
 import { setLang } from '../../src/ui/i18n';
-import { overallFraction, phaseGroups, phaseLabel, progressTitle, type ProgressState } from '../../src/ui/progress';
+import { overallFraction, phaseGroups, phaseLabel, progressDetail, progressTitle, type ProgressState } from '../../src/ui/progress';
 
 beforeAll(() => setLang('en'));
 
@@ -58,6 +58,26 @@ describe('labels', () => {
     expect(phaseLabel(p({ phase: 'package' }))).toBe('Building PPTX');
     expect(phaseLabel(p({ phase: 'merge' }))).toBe('Merging PDF');
     expect(phaseLabel(p({ phase: 'starting' }))).toBe('Preparing…');
+  });
+
+  it('uses main\'s 1-based slide number while extracting', () => {
+    expect(phaseLabel(p({ phase: 'extract', done: 0, total: 6, slide: 3 }))).toBe('Extracting slide 3 of 6');
+  });
+
+  it('localizes the detail line from the numeric fields, falls back to main\'s text', () => {
+    expect(progressDetail(p({ detail: 'Agenda — 120 layers' }))).toBe('Agenda — 120 layers');
+    expect(progressDetail(p({ detail: 'x', slideName: 'Agenda', layers: 1240 }))).toBe('Agenda — 1,240 layers');
+    expect(progressDetail(p({ slideName: 'Agenda', layers: 1 }))).toBe('Agenda — 1 layer');
+    expect(progressDetail(p({ slideName: 'Agenda', layers: 40, jobsDone: 3, jobsTotal: 12 }))).toBe('Agenda — rasterizing 3 of 12');
+    expect(progressDetail(p({ layers: 40, jobsDone: 0, jobsTotal: 0 }))).toBe('40 layers');
+    expect(progressDetail(p({}))).toBeUndefined();
+    setLang('ru');
+    try {
+      expect(progressDetail(p({ slideName: 'Программа', layers: 3 }))).toBe('Программа — 3 слоя');
+      expect(progressDetail(p({ slideName: 'Программа', layers: 5, jobsDone: 2, jobsTotal: 7 }))).toBe('Программа — растеризация 2 из 7');
+    } finally {
+      setLang('en');
+    }
   });
 
   it('titles per format', () => {

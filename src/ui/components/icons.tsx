@@ -141,6 +141,15 @@ export const IconFileCode = (p: IconProps) => (
   </Svg>
 );
 
+/** A file with a picture: the "images (JPEG)" export targets. */
+export const IconFileImage = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M4 2.5h5.5L12.5 5.5v8H4z" />
+    <circle cx="6.9" cy="7.4" r="0.9" />
+    <path d="M4.25 12.75L7.75 9.5l1.5 1.4 1.25-1.15 2 1.85" />
+  </Svg>
+);
+
 export const IconImage = (p: IconProps) => (
   <Svg {...p}>
     <rect x="2.5" y="3" width="11" height="10" rx="1.5" />

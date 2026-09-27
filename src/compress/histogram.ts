@@ -6,6 +6,7 @@
  * bin keeps the sums of its pixels, so its coordinates are the exact centroid of its pixels, not the
  * bin corner: binning only limits how finely the palette search can separate colours.
  */
+import type { BlockWeights } from './importance';
 import { DIM, type ColorSpace } from './space';
 
 export interface Histogram {
@@ -29,8 +30,8 @@ export interface HistogramOptions {
   maxEntries: number;
   /** Sample every `step`-th pixel in both directions (1 = all pixels). */
   step?: number;
-  /** Optional per-pixel importance, 0..255 (full-size map, row-major). */
-  importance?: Uint8Array | null;
+  /** Optional weight per 8×8 block (see importance.ts); default 1. */
+  importance?: BlockWeights | null;
 }
 
 const EMPTY = 0;
@@ -71,39 +72,8 @@ export function buildHistogram(rgba: Uint8Array, width: number, height: number, 
     }
   };
 
-  /** Drops one more bit per channel and merges the entries that now share a key. */
+  /** Drops one more bit per channel and merges the entries that now share a key (sums are additive). */
   const rebin = (): void => {
-    shift++;
-    slots.fill(EMPTY);
-    const n = size;
-    size = 0;
-    for (let i = 0; i < n; i++) {
-      const key = (keys[i] >>> 1) & 0x7f7f7f7f;
-      const j = insert(key);
-      if (j === i) continue;
-      weight[j] += weight[i];
-      const si = i * 4;
-      const sj = j * 4;
-      if (j < i) {
-        sums[sj] += sums[si];
-        sums[sj + 1] += sums[si + 1];
-        sums[sj + 2] += sums[si + 2];
-        sums[sj + 3] += sums[si + 3];
-      } else {
-        // j === size - 1 > i is impossible: insert() appends at `size` ≤ i.
-        sums[sj] = sums[si];
-        sums[sj + 1] = sums[si + 1];
-        sums[sj + 2] = sums[si + 2];
-        sums[sj + 3] = sums[si + 3];
-      }
-    }
-    // Entries were compacted in increasing order, so every j ≤ i: when j === i - k the slot j was
-    // either already merged (j < i, summed above) or freshly created (j === size - 1 ≤ i) — in the
-    // latter case weight[j] was stale; fix by recomputing below.
-  };
-
-  // A robust re-bin that avoids the aliasing concerns above: copy then rebuild.
-  const rebinSafe = (): void => {
     const n = size;
     const oldKeys = keys.slice(0, n);
     const oldW = weight.slice(0, n);
@@ -124,15 +94,14 @@ export function buildHistogram(rgba: Uint8Array, width: number, height: number, 
       sums[sj + 3] += oldS[si + 3];
     }
   };
-  void rebin;
 
   const offsetStep = step > 1 ? 7 % step || 1 : 0;
   for (let y = 0, row = 0; y < height; y += step, row++) {
     // Jitter the column phase per sampled row so periodic patterns are not aliased.
     const x0 = step > 1 ? (row * offsetStep) % step : 0;
     let p = (y * width + x0) * 4;
-    let pix = y * width + x0;
-    for (let x = x0; x < width; x += step, p += 4 * step, pix += step) {
+    const brow = importance ? (y >> 3) * importance.blocksWide : 0;
+    for (let x = x0; x < width; x += step, p += 4 * step) {
       const a = rgba[p + 3];
       if (a === 0) {
         hasTransparent = true;
@@ -143,7 +112,7 @@ export function buildHistogram(rgba: Uint8Array, width: number, height: number, 
       const b = rgba[p + 2];
       const key = ((r >>> shift) | ((g >>> shift) << 8) | ((b >>> shift) << 16) | ((a >>> shift) << 24)) >>> 0;
       const j = insert(key);
-      const w = importance ? (importance[pix] + 1) / 256 : 1;
+      const w = importance ? importance.map[brow + (x >> 3)] : 1;
       weight[j] += w;
       const s = j * 4;
       const wa = w * a;
@@ -151,7 +120,7 @@ export function buildHistogram(rgba: Uint8Array, width: number, height: number, 
       sums[s + 1] += wa * g;
       sums[s + 2] += wa * b;
       sums[s + 3] += wa;
-      if (size > maxEntries) rebinSafe();
+      if (size > maxEntries) rebin();
     }
   }
 

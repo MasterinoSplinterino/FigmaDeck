@@ -1,12 +1,16 @@
 /**
  * Top bar of the deck view: editable deck title (text that turns into an input on click),
- * Settings, Clear All and the Export split button with its format menu.
+ * Settings, Clear All and the Export split button. The main button exports "PowerPoint — editable";
+ * the menu lists the four export targets (PowerPoint editable / images, PDF vector / images) and,
+ * separated at the bottom, the IR JSON debug dump.
  */
 import { Fragment, type JSX } from 'preact';
 import { useEffect, useRef, useState } from 'preact/hooks';
-import type { ExportFormat } from '../../shared/settings';
+import type { ExportFormat, ExportMode } from '../../shared/settings';
 import { t, type MessageKey } from '../i18n';
-import { IconChevronDown, IconFileCode, IconFilePdf, IconFileSlides, IconImage, IconSettings } from './icons';
+import { editableMode } from '../options';
+import { FORMAT_LABEL } from '../report';
+import { IconChevronDown, IconFileCode, IconFileImage, IconFilePdf, IconFileSlides, IconSettings } from './icons';
 
 function DeckTitle(props: { value: string; placeholder: string; onCommit: (title: string) => void }): JSX.Element {
   const [editing, setEditing] = useState(false);
@@ -63,21 +67,28 @@ function DeckTitle(props: { value: string; placeholder: string; onCommit: (title
 
 interface MenuItem {
   format: ExportFormat;
-  label: MessageKey;
   hint: MessageKey;
+  /** File type badge. */
+  ext: string;
   icon: (p: { size?: number }) => JSX.Element;
   separatorBefore?: boolean;
+  debug?: boolean;
 }
 
 const MENU: readonly MenuItem[] = [
-  { format: 'pptx', label: 'export.pptx', hint: 'export.pptxHint', icon: IconFileSlides },
-  { format: 'pptx-image', label: 'export.pptxImage', hint: 'export.pptxImageHint', icon: IconImage },
-  { format: 'pdf', label: 'export.pdf', hint: 'export.pdfHint', icon: IconFilePdf, separatorBefore: true },
-  { format: 'pdf-image', label: 'export.pdfImage', hint: 'export.pdfImageHint', icon: IconImage },
-  { format: 'ir-json', label: 'export.irJson', hint: 'export.irJsonHint', icon: IconFileCode, separatorBefore: true },
+  { format: 'pptx', hint: 'export.pptxHint', ext: 'PPTX', icon: IconFileSlides },
+  { format: 'pptx-image', hint: 'export.pptxImageHint', ext: 'PPTX', icon: IconFileImage },
+  { format: 'pdf', hint: 'export.pdfHint', ext: 'PDF', icon: IconFilePdf, separatorBefore: true },
+  { format: 'pdf-image', hint: 'export.pdfImageHint', ext: 'PDF', icon: IconFileImage },
+  { format: 'ir-json', hint: 'export.irJsonHint', ext: 'JSON', icon: IconFileCode, separatorBefore: true, debug: true },
 ];
 
-function ExportButton(props: { disabled: boolean; onExport: (format: ExportFormat) => void }): JSX.Element {
+function hintOf(item: MenuItem, mode: ExportMode): MessageKey {
+  // The editable target follows the Editable / Exact look choice of the settings.
+  return item.format === 'pptx' && editableMode(mode) === 'exact' ? 'export.pptxHintExact' : item.hint;
+}
+
+function ExportButton(props: { disabled: boolean; mode: ExportMode; onExport: (format: ExportFormat) => void }): JSX.Element {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
@@ -107,7 +118,13 @@ function ExportButton(props: { disabled: boolean; onExport: (format: ExportForma
 
   return (
     <div class="split" ref={ref}>
-      <button type="button" class="btn primary split-main" disabled={props.disabled} onClick={() => choose('pptx')} title={t('export.pptx')}>
+      <button
+        type="button"
+        class="btn primary split-main"
+        disabled={props.disabled}
+        onClick={() => choose('pptx')}
+        title={t('top.exportTitle', { format: t(FORMAT_LABEL.pptx) })}
+      >
         {t('top.export')}
       </button>
       <button
@@ -127,14 +144,15 @@ function ExportButton(props: { disabled: boolean; onExport: (format: ExportForma
           {MENU.map((item) => (
             <Fragment key={item.format}>
               {item.separatorBefore ? <div class="menu-sep" role="separator" /> : null}
-              <button type="button" role="menuitem" class="menu-item" onClick={() => choose(item.format)}>
+              <button type="button" role="menuitem" class={item.debug ? 'menu-item debug' : 'menu-item'} onClick={() => choose(item.format)}>
                 <span class="menu-icon">
                   <item.icon size={16} />
                 </span>
                 <span class="menu-text">
-                  <span class="menu-label">{t(item.label)}</span>
-                  <span class="menu-hint">{t(item.hint)}</span>
+                  <span class="menu-label">{t(FORMAT_LABEL[item.format])}</span>
+                  <span class="menu-hint">{t(hintOf(item, props.mode))}</span>
                 </span>
+                <span class="menu-ext">{item.ext}</span>
               </button>
             </Fragment>
           ))}
@@ -148,6 +166,8 @@ export interface TopBarProps {
   title: string;
   placeholder: string;
   canExport: boolean;
+  /** Settings mode (the editable target's hint follows it). */
+  mode: ExportMode;
   onTitle: (title: string) => void;
   onSettings: () => void;
   onClear: () => void;
@@ -166,7 +186,7 @@ export function TopBar(props: TopBarProps): JSX.Element {
         <button type="button" class="btn" onClick={props.onClear}>
           {t('top.clearAll')}
         </button>
-        <ExportButton disabled={!props.canExport} onExport={props.onExport} />
+        <ExportButton disabled={!props.canExport} mode={props.mode} onExport={props.onExport} />
       </div>
     </header>
   );

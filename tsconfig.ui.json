@@ -6,5 +6,5 @@
     "jsxImportSource": "preact",
     "types": []
   },
-  "include": ["src/ui/**/*.ts", "src/ui/**/*.tsx", "src/build/**/*.ts", "src/post/**/*.ts", "src/ir/**/*.ts", "src/shared/**/*.ts", "src/fonts/**/*.ts", "src/config.ts"]
+  "include": ["src/ui/**/*.ts", "src/ui/**/*.tsx", "src/build/**/*.ts", "src/compress/**/*.ts", "src/post/**/*.ts", "src/ir/**/*.ts", "src/shared/**/*.ts", "src/fonts/**/*.ts", "src/config.ts"]
 }

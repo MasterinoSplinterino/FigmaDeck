@@ -54,7 +54,7 @@ describe('dictionaries', () => {
 
   it('every RasterReason has a label in both languages', () => {
     const all: RasterReason[] = RASTER_REASONS;
-    expect(all.length).toBeGreaterThanOrEqual(21);
+    expect(all.length).toBeGreaterThanOrEqual(23);
     for (const lang of LANGS) {
       for (const r of all) {
         expect(`reason.${r}` in DICTIONARIES[lang], `${lang}:${r}`).toBe(true);

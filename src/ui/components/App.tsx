@@ -37,6 +37,13 @@ function isTypingTarget(target: EventTarget | null): boolean {
   return tag === 'input' || tag === 'textarea' || tag === 'select' || el.isContentEditable;
 }
 
+function withoutKey<T>(map: Record<string, T>, key: string): Record<string, T> {
+  if (!(key in map)) return map;
+  const next = { ...map };
+  delete next[key];
+  return next;
+}
+
 function ConfirmClear(props: { count: number; onConfirm: () => void; onCancel: () => void }): JSX.Element {
   return (
     <Modal title={t('clear.title')} class="confirm-dialog" onClose={props.onCancel}>
@@ -67,6 +74,8 @@ export function App(): JSX.Element {
   const [thumbs, setThumbs] = useState<Record<string, string>>({});
   const [previews, setPreviews] = useState<Record<string, string>>({});
   const [loadingPreview, setLoadingPreview] = useState<string | null>(null);
+  /** Slides whose preview main could not render (id → error text, may be empty). */
+  const [failedPreviews, setFailedPreviews] = useState<Record<string, string>>({});
   const requestedThumbs = useRef(new Set<string>());
 
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -131,6 +140,13 @@ export function App(): JSX.Element {
           if (!inDeck(msg.id)) return;
           previewCache.set(msg.id, msg.bytes);
           setPreviews(previewCache.snapshot());
+          setFailedPreviews((prev) => withoutKey(prev, msg.id));
+          setLoadingPreview((current) => (current === msg.id ? null : current));
+          return;
+        case 'preview-failed':
+          // Stop the spinner right away (instead of waiting for CONFIG.ui.previewTimeoutMs).
+          if (!inDeck(msg.id)) return;
+          setFailedPreviews((prev) => ({ ...prev, [msg.id]: msg.message ?? '' }));
           setLoadingPreview((current) => (current === msg.id ? null : current));
           return;
         case 'toast':
@@ -189,6 +205,7 @@ export function App(): JSX.Element {
       return;
     }
     setLoadingPreview(id);
+    setFailedPreviews((prev) => withoutKey(prev, id)); // retried on every selection
     const request = setTimeout(() => send({ type: 'request-preview', id }), CONFIG.ui.previewRequestDelayMs);
     const giveUp = setTimeout(() => setLoadingPreview((current) => (current === id ? null : current)), CONFIG.ui.previewTimeoutMs);
     return () => {
@@ -262,7 +279,8 @@ export function App(): JSX.Element {
         return;
       }
       setOutcome(null);
-      if (!exporter.start(format, st.settings, effectiveTitle(st))) toast(t('error.busy'), true);
+      const names = st.slides.filter((s) => !s.missing).map((s) => s.name);
+      if (!exporter.start(format, st.settings, effectiveTitle(st), names)) toast(t('error.busy'), true);
     },
     [exporter],
   );
@@ -312,6 +330,7 @@ export function App(): JSX.Element {
   }, [outcome]);
 
   // ─── View ──────────────────────────────────────────────────────────────────
+  const exportFrames = useMemo(() => state.slides.filter((s) => !s.missing).map((s) => ({ width: s.width, height: s.height })), [state.slides]);
   const newFrames = newFramesInSelection(state.selection);
   const allInDeck = state.selection.frameCount > 0 && newFrames === 0;
   const addHint = allInDeck ? t('empty.hintAllInDeck') : t('empty.hintNoFrames');
@@ -347,6 +366,7 @@ export function App(): JSX.Element {
             title={state.deckTitle}
             placeholder={state.fileName || t('top.titlePlaceholder')}
             canExport={exportableCount(state.slides) > 0 && !progress}
+            mode={state.settings.mode}
             onTitle={setTitle}
             onSettings={openSettings}
             onClear={() => setConfirmClear(true)}
@@ -358,6 +378,7 @@ export function App(): JSX.Element {
             total={state.slides.length}
             url={selected ? (previews[selected.id] ?? thumbs[selected.id]) : undefined}
             loading={!!selected && loadingPreview === selected.id}
+            failed={selected ? (failedPreviews[selected.id] ?? null) : null}
             onFocus={focusSlide}
           />
         </main>
@@ -368,7 +389,9 @@ export function App(): JSX.Element {
   return (
     <div class="app">
       {body}
-      {settingsOpen ? <SettingsPanel settings={state.settings} fonts={state.fonts} onChange={updateSettings} onReset={resetSettings} onClose={closeSettings} /> : null}
+      {settingsOpen ? (
+        <SettingsPanel settings={state.settings} fonts={state.fonts} frames={exportFrames} onChange={updateSettings} onReset={resetSettings} onClose={closeSettings} />
+      ) : null}
       {confirmClear ? <ConfirmClear count={state.slides.length} onConfirm={clearAll} onCancel={() => setConfirmClear(false)} /> : null}
       {progress ? <ProgressOverlay progress={progress} onCancel={() => exporter.cancel()} /> : null}
       {outcome ? <ReportDialog outcome={outcome} onClose={() => setOutcome(null)} onDownloadAgain={downloadAgain} onCopy={copyReport} /> : null}

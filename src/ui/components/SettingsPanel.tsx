@@ -1,24 +1,30 @@
 /**
- * Settings drawer: export mode, images, text, shapes & layers, slide size, metadata, font mapping.
- * Every change is applied immediately (App persists it with a debounced `save-settings`).
+ * Settings drawer: mode of the editable PowerPoint target, images, text, shapes & layers, slide size,
+ * metadata, fonts (naming rule + mapping). Every change is applied immediately (App persists it with a
+ * debounced `save-settings`).
  */
 import type { JSX } from 'preact';
 import { useEffect, useRef } from 'preact/hooks';
 import { CONFIG } from '../../config';
 import type { FontInfo } from '../../shared/messages';
-import type { ExportMode, ExportSettings } from '../../shared/settings';
+import type { ExportSettings } from '../../shared/settings';
 import { formatNumber, t, tp, type MessageKey } from '../i18n';
+import { editableMode } from '../options';
+import type { FrameSize } from '../slide-size';
 import { Row, Section, Segmented, Slider, Switch } from './controls';
 import { FontMapping } from './FontMapping';
 import { IconClose, IconReset } from './icons';
+import { SlideSizeSettings } from './SlideSizeSettings';
 
-const MODES: ReadonlyArray<{ value: ExportMode; label: MessageKey; hint: MessageKey }> = [
+type EditableMode = 'editable' | 'exact';
+
+/** Modes of the "PowerPoint — editable" target (the image targets always bake whole slides). */
+const MODES: ReadonlyArray<{ value: EditableMode; label: MessageKey; hint: MessageKey }> = [
   { value: 'editable', label: 'settings.mode.editable', hint: 'settings.mode.editableHint' },
   { value: 'exact', label: 'settings.mode.exact', hint: 'settings.mode.exactHint' },
-  { value: 'image', label: 'settings.mode.image', hint: 'settings.mode.imageHint' },
 ];
 
-function ModePicker(props: { value: ExportMode; onChange: (mode: ExportMode) => void }): JSX.Element {
+function ModePicker(props: { value: EditableMode; onChange: (mode: EditableMode) => void }): JSX.Element {
   return (
     <div class="mode-list" role="radiogroup" aria-label={t('settings.section.mode')}>
       {MODES.map((m) => (
@@ -50,32 +56,11 @@ function TextField(props: { value: string; label: string; onChange: (v: string) 
   );
 }
 
-function InchField(props: { value: number; label: string; onChange: (v: number) => void }): JSX.Element {
-  return (
-    <label class="field inch">
-      <span class="field-label">{props.label}</span>
-      <span class="input-wrap">
-        <input
-          class="input"
-          type="number"
-          min={CONFIG.slide.minInches}
-          max={CONFIG.slide.maxInches}
-          step={CONFIG.ui.slideSizeStepIn}
-          value={props.value}
-          onChange={(e) => {
-            const v = Number((e.currentTarget as HTMLInputElement).value);
-            if (Number.isFinite(v)) props.onChange(Math.max(CONFIG.slide.minInches, Math.min(CONFIG.slide.maxInches, v)));
-          }}
-        />
-        <span class="input-suffix">{t('settings.unitIn')}</span>
-      </span>
-    </label>
-  );
-}
-
 export interface SettingsPanelProps {
   settings: ExportSettings;
   fonts: FontInfo[] | null;
+  /** Frames that will be exported, in order (slide size summary). */
+  frames: readonly FrameSize[];
   onChange: (patch: Partial<ExportSettings>) => void;
   onReset: () => void;
   onClose: () => void;
@@ -86,8 +71,8 @@ export function SettingsPanel(props: SettingsPanelProps): JSX.Element {
   const set = props.onChange;
   const ref = useRef<HTMLDivElement>(null);
   // Settings that only matter in some modes stay visible but dimmed (no layout jumps when switching).
-  const notEditable = s.mode !== 'editable';
-  const imageMode = s.mode === 'image';
+  const mode = editableMode(s.mode);
+  const notEditable = mode !== 'editable';
 
   const onCloseRef = useRef(props.onClose);
   onCloseRef.current = props.onClose;
@@ -123,7 +108,8 @@ export function SettingsPanel(props: SettingsPanelProps): JSX.Element {
 
         <div class="drawer-body">
           <Section title={t('settings.section.mode')}>
-            <ModePicker value={s.mode} onChange={(mode) => set({ mode })} />
+            <ModePicker value={mode} onChange={(next) => set({ mode: next })} />
+            <div class="row-hint">{t('settings.modeNote')}</div>
           </Section>
 
           <Section title={t('settings.section.images')}>
@@ -142,14 +128,13 @@ export function SettingsPanel(props: SettingsPanelProps): JSX.Element {
             <Row label={t('settings.jpeg')} hint={t('settings.jpegHint')}>
               <Switch checked={s.jpeg} label={t('settings.jpeg')} onChange={(jpeg) => set({ jpeg })} />
             </Row>
-            <Row label={t('settings.jpegQuality')}>
+            <Row label={t('settings.jpegQuality')} hint={t('settings.jpegQualityHint')}>
               <Slider
                 value={s.jpegQuality}
                 min={CONFIG.ui.jpegQualityMin}
                 max={CONFIG.ui.jpegQualityMax}
                 step={CONFIG.ui.jpegQualityStep}
                 label={t('settings.jpegQuality')}
-                disabled={!s.jpeg}
                 format={(v) => `${Math.round(v * 100)}%`}
                 onChange={(jpegQuality) => set({ jpegQuality })}
               />
@@ -172,7 +157,7 @@ export function SettingsPanel(props: SettingsPanelProps): JSX.Element {
           </Section>
 
           <Section title={t('settings.section.text')}>
-            <Row label={t('settings.textCase')} hint={t('settings.textCaseHint')} stacked inactive={imageMode}>
+            <Row label={t('settings.textCase')} hint={t('settings.textCaseHint')} stacked>
               <Segmented
                 wide
                 value={s.textCase}
@@ -184,7 +169,7 @@ export function SettingsPanel(props: SettingsPanelProps): JSX.Element {
                 onChange={(textCase) => set({ textCase })}
               />
             </Row>
-            <Row label={t('settings.widthSlack')} hint={t('settings.widthSlackHint')} inactive={imageMode}>
+            <Row label={t('settings.widthSlack')} hint={t('settings.widthSlackHint')}>
               <Slider
                 value={s.widthSlackPercent}
                 min={0}
@@ -195,7 +180,7 @@ export function SettingsPanel(props: SettingsPanelProps): JSX.Element {
                 onChange={(widthSlackPercent) => set({ widthSlackPercent })}
               />
             </Row>
-            <Row label={t('settings.clippedText')} stacked inactive={imageMode}>
+            <Row label={t('settings.clippedText')} stacked>
               <Segmented
                 wide
                 value={s.clippedText}
@@ -218,28 +203,7 @@ export function SettingsPanel(props: SettingsPanelProps): JSX.Element {
             </Row>
           </Section>
 
-          <Section title={t('settings.section.slide')}>
-            <div class="stack">
-              <Segmented
-                wide
-                value={s.slideSizeMode}
-                ariaLabel={t('settings.section.slide')}
-                options={[
-                  { value: 'frame', label: t('settings.slideSize.frame') },
-                  { value: 'custom', label: t('settings.slideSize.custom') },
-                ]}
-                onChange={(slideSizeMode) => set({ slideSizeMode })}
-              />
-              <div class="row-hint">{s.slideSizeMode === 'custom' ? t('settings.slideSizeCustomHint') : t('settings.slideSizeHint')}</div>
-            </div>
-            {s.slideSizeMode === 'custom' ? (
-              <div class="field-pair">
-                <InchField value={s.slideWidthIn} label={t('settings.width')} onChange={(slideWidthIn) => set({ slideWidthIn })} />
-                <span class="field-times">×</span>
-                <InchField value={s.slideHeightIn} label={t('settings.height')} onChange={(slideHeightIn) => set({ slideHeightIn })} />
-              </div>
-            ) : null}
-          </Section>
+          <SlideSizeSettings settings={s} frames={props.frames} onChange={set} />
 
           <Section title={t('settings.section.meta')}>
             <div class="field-pair">

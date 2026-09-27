@@ -7,23 +7,27 @@
  */
 import type { MainToUi, UiToMain } from '../shared/messages';
 
-const MAIN_TO_UI_TYPES: ReadonlySet<string> = new Set<MainToUi['type']>([
-  'init',
-  'slides',
-  'selection',
-  'thumbnail',
-  'preview',
-  'fonts',
-  'export-started',
-  'export-progress',
-  'export-slide',
-  'export-extracted',
-  'export-pdf-page',
-  'export-pdf-done',
-  'export-cancelled',
-  'export-error',
-  'toast',
-]);
+/** Every main → UI message type, checked at compile time (a new type in shared/messages.ts must be added here). */
+const TYPES_SET = {
+  init: true,
+  slides: true,
+  selection: true,
+  thumbnail: true,
+  preview: true,
+  'preview-failed': true,
+  fonts: true,
+  'export-started': true,
+  'export-progress': true,
+  'export-slide': true,
+  'export-extracted': true,
+  'export-pdf-page': true,
+  'export-pdf-done': true,
+  'export-cancelled': true,
+  'export-error': true,
+  toast: true,
+} satisfies Record<MainToUi['type'], true>;
+
+const MAIN_TO_UI_TYPES: ReadonlySet<string> = new Set(Object.keys(TYPES_SET));
 
 /** Structural guard: a plugin message of a known main → UI type. */
 export function isMainToUi(value: unknown): value is MainToUi {

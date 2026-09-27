@@ -4,5 +4,5 @@
     "lib": ["ES2020"],
     "types": []
   },
-  "include": ["src/build/**/*.ts", "src/post/**/*.ts", "src/ir/**/*.ts", "src/shared/**/*.ts", "src/fonts/**/*.ts", "src/config.ts"]
+  "include": ["src/build/**/*.ts", "src/compress/**/*.ts", "src/post/**/*.ts", "src/ir/**/*.ts", "src/shared/**/*.ts", "src/fonts/**/*.ts", "src/config.ts"]
 }

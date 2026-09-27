@@ -4,5 +4,6 @@
     "lib": ["ES2022", "DOM"],
     "types": ["node"]
   },
-  "include": ["scripts/**/*.ts", "tests/fixtures/*.d.ts"]
+  "include": ["scripts/**/*.ts", "tests/fixtures/*.d.ts"],
+  "exclude": ["scripts/figma-probe/**"]
 }
