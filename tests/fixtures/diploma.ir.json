@@ -1,0 +1,808 @@
+{
+  "irVersion": 1,
+  "meta": {
+    "title": "Диплом — Технологическая премия",
+    "author": "FigmaDeck tests",
+    "sourceFile": "fixtures.fig",
+    "createdAt": "2026-01-01T00:00:00Z"
+  },
+  "slides": [
+    {
+      "id": "10:1",
+      "name": "Диплом",
+      "width": 595,
+      "height": 842,
+      "background": {
+        "type": "solid",
+        "color": {
+          "r": 1,
+          "g": 1,
+          "b": 1,
+          "a": 1
+        }
+      },
+      "elements": [
+        {
+          "type": "image",
+          "id": "i:1",
+          "name": "Background",
+          "transform": {
+            "x": 0,
+            "y": 0,
+            "w": 595,
+            "h": 842,
+            "rotation": 0,
+            "flipH": false,
+            "flipV": false
+          },
+          "opacity": 1,
+          "assetId": "bg-diploma",
+          "svgAssetId": null,
+          "crop": null,
+          "geometry": "rect",
+          "cornerRadius": 0,
+          "rasterized": {
+            "reasons": [
+              "exact-mode"
+            ]
+          }
+        },
+        {
+          "type": "image",
+          "id": "i:2",
+          "name": "Logo",
+          "transform": {
+            "x": 48,
+            "y": 48,
+            "w": 48,
+            "h": 48,
+            "rotation": 0,
+            "flipH": false,
+            "flipV": false
+          },
+          "opacity": 1,
+          "assetId": "logo-png",
+          "svgAssetId": "logo-svg",
+          "crop": null,
+          "geometry": "rect",
+          "cornerRadius": 0,
+          "rasterized": {
+            "reasons": [
+              "vector"
+            ]
+          }
+        },
+        {
+          "type": "text",
+          "id": "t:3",
+          "name": "Технологическая премия",
+          "transform": {
+            "x": 108,
+            "y": 60,
+            "w": 190,
+            "h": 20,
+            "rotation": 0,
+            "flipH": false,
+            "flipV": false
+          },
+          "opacity": 1,
+          "verticalAlign": "top",
+          "autoResize": "WIDTH_AND_HEIGHT",
+          "paragraphs": [
+            {
+              "align": "left",
+              "spaceAfter": 0,
+              "firstLineIndent": 0,
+              "list": null,
+              "endStyle": {
+                "fontFamily": "SB Sans Text",
+                "fontStyle": "Medium",
+                "fontWeight": 500,
+                "fontSize": 14,
+                "lineHeight": {
+                  "unit": "PIXELS",
+                  "value": 20
+                },
+                "letterSpacing": {
+                  "unit": "PERCENT",
+                  "value": 0
+                },
+                "color": {
+                  "r": 0.12156862745098039,
+                  "g": 0.12156862745098039,
+                  "b": 0.12156862745098039,
+                  "a": 1
+                },
+                "decoration": "none",
+                "textCase": "ORIGINAL",
+                "hyperlink": null
+              },
+              "runs": [
+                {
+                  "fontFamily": "SB Sans Text",
+                  "fontStyle": "Medium",
+                  "fontWeight": 500,
+                  "fontSize": 14,
+                  "lineHeight": {
+                    "unit": "PIXELS",
+                    "value": 20
+                  },
+                  "letterSpacing": {
+                    "unit": "PERCENT",
+                    "value": 0
+                  },
+                  "color": {
+                    "r": 0.12156862745098039,
+                    "g": 0.12156862745098039,
+                    "b": 0.12156862745098039,
+                    "a": 1
+                  },
+                  "decoration": "none",
+                  "textCase": "ORIGINAL",
+                  "hyperlink": null,
+                  "text": "Технологическая премия"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "id": "t:4",
+          "name": "Tech Awards · Москва",
+          "transform": {
+            "x": 108,
+            "y": 80,
+            "w": 150,
+            "h": 14,
+            "rotation": 0,
+            "flipH": false,
+            "flipV": false
+          },
+          "opacity": 1,
+          "verticalAlign": "top",
+          "autoResize": "WIDTH_AND_HEIGHT",
+          "paragraphs": [
+            {
+              "align": "left",
+              "spaceAfter": 0,
+              "firstLineIndent": 0,
+              "list": null,
+              "endStyle": {
+                "fontFamily": "SB Sans Text",
+                "fontStyle": "Regular",
+                "fontWeight": 400,
+                "fontSize": 10,
+                "lineHeight": {
+                  "unit": "AUTO"
+                },
+                "letterSpacing": {
+                  "unit": "PERCENT",
+                  "value": 0
+                },
+                "color": {
+                  "r": 0.4196078431372549,
+                  "g": 0.4196078431372549,
+                  "b": 0.4196078431372549,
+                  "a": 1
+                },
+                "decoration": "none",
+                "textCase": "ORIGINAL",
+                "hyperlink": null
+              },
+              "runs": [
+                {
+                  "fontFamily": "SB Sans Text",
+                  "fontStyle": "Regular",
+                  "fontWeight": 400,
+                  "fontSize": 10,
+                  "lineHeight": {
+                    "unit": "AUTO"
+                  },
+                  "letterSpacing": {
+                    "unit": "PERCENT",
+                    "value": 0
+                  },
+                  "color": {
+                    "r": 0.4196078431372549,
+                    "g": 0.4196078431372549,
+                    "b": 0.4196078431372549,
+                    "a": 1
+                  },
+                  "decoration": "none",
+                  "textCase": "ORIGINAL",
+                  "hyperlink": null,
+                  "text": "Tech Awards · "
+                },
+                {
+                  "fontFamily": "SB Sans Text",
+                  "fontStyle": "Regular",
+                  "fontWeight": 400,
+                  "fontSize": 10,
+                  "lineHeight": {
+                    "unit": "AUTO"
+                  },
+                  "letterSpacing": {
+                    "unit": "PERCENT",
+                    "value": 0
+                  },
+                  "color": {
+                    "r": 0.4196078431372549,
+                    "g": 0.4196078431372549,
+                    "b": 0.4196078431372549,
+                    "a": 1
+                  },
+                  "decoration": "none",
+                  "textCase": "ORIGINAL",
+                  "hyperlink": null,
+                  "text": "Москва"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "id": "t:5",
+          "name": "Победитель",
+          "transform": {
+            "x": 48,
+            "y": 290,
+            "w": 110,
+            "h": 16,
+            "rotation": 0,
+            "flipH": false,
+            "flipV": false
+          },
+          "opacity": 1,
+          "verticalAlign": "top",
+          "autoResize": "WIDTH_AND_HEIGHT",
+          "paragraphs": [
+            {
+              "align": "left",
+              "spaceAfter": 0,
+              "firstLineIndent": 0,
+              "list": null,
+              "endStyle": {
+                "fontFamily": "SB Sans Text",
+                "fontStyle": "Semibold",
+                "fontWeight": 600,
+                "fontSize": 12,
+                "lineHeight": {
+                  "unit": "PIXELS",
+                  "value": 16
+                },
+                "letterSpacing": {
+                  "unit": "PERCENT",
+                  "value": 10
+                },
+                "color": {
+                  "r": 0.12941176470588237,
+                  "g": 0.6274509803921569,
+                  "b": 0.2196078431372549,
+                  "a": 1
+                },
+                "decoration": "none",
+                "textCase": "UPPER",
+                "hyperlink": null
+              },
+              "runs": [
+                {
+                  "fontFamily": "SB Sans Text",
+                  "fontStyle": "Semibold",
+                  "fontWeight": 600,
+                  "fontSize": 12,
+                  "lineHeight": {
+                    "unit": "PIXELS",
+                    "value": 16
+                  },
+                  "letterSpacing": {
+                    "unit": "PERCENT",
+                    "value": 10
+                  },
+                  "color": {
+                    "r": 0.12941176470588237,
+                    "g": 0.6274509803921569,
+                    "b": 0.2196078431372549,
+                    "a": 1
+                  },
+                  "decoration": "none",
+                  "textCase": "UPPER",
+                  "hyperlink": null,
+                  "text": "Победитель"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "id": "t:6",
+          "name": "Взрывной рост",
+          "transform": {
+            "x": 48,
+            "y": 312,
+            "w": 440,
+            "h": 64,
+            "rotation": 0,
+            "flipH": false,
+            "flipV": false
+          },
+          "opacity": 1,
+          "verticalAlign": "top",
+          "autoResize": "WIDTH_AND_HEIGHT",
+          "paragraphs": [
+            {
+              "align": "left",
+              "spaceAfter": 0,
+              "firstLineIndent": 0,
+              "list": null,
+              "endStyle": {
+                "fontFamily": "SB Sans Display",
+                "fontStyle": "Semibold",
+                "fontWeight": 600,
+                "fontSize": 64,
+                "lineHeight": {
+                  "unit": "PERCENT",
+                  "value": 100
+                },
+                "letterSpacing": {
+                  "unit": "PERCENT",
+                  "value": -3
+                },
+                "color": {
+                  "r": 0.06666666666666667,
+                  "g": 0.06666666666666667,
+                  "b": 0.06666666666666667,
+                  "a": 1
+                },
+                "decoration": "none",
+                "textCase": "ORIGINAL",
+                "hyperlink": null
+              },
+              "runs": [
+                {
+                  "fontFamily": "SB Sans Display",
+                  "fontStyle": "Semibold",
+                  "fontWeight": 600,
+                  "fontSize": 64,
+                  "lineHeight": {
+                    "unit": "PERCENT",
+                    "value": 100
+                  },
+                  "letterSpacing": {
+                    "unit": "PERCENT",
+                    "value": -3
+                  },
+                  "color": {
+                    "r": 0.06666666666666667,
+                    "g": 0.06666666666666667,
+                    "b": 0.06666666666666667,
+                    "a": 1
+                  },
+                  "decoration": "none",
+                  "textCase": "ORIGINAL",
+                  "hyperlink": null,
+                  "text": "Взрывной рост"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "id": "t:7",
+          "name": "Описание",
+          "transform": {
+            "x": 48,
+            "y": 392,
+            "w": 300,
+            "h": 36,
+            "rotation": 0,
+            "flipH": false,
+            "flipV": false
+          },
+          "opacity": 1,
+          "verticalAlign": "top",
+          "autoResize": "HEIGHT",
+          "paragraphs": [
+            {
+              "align": "left",
+              "spaceAfter": 0,
+              "firstLineIndent": 0,
+              "list": null,
+              "endStyle": {
+                "fontFamily": "SB Sans Text",
+                "fontStyle": "Regular",
+                "fontWeight": 400,
+                "fontSize": 9,
+                "lineHeight": {
+                  "unit": "PIXELS",
+                  "value": 12
+                },
+                "letterSpacing": {
+                  "unit": "PERCENT",
+                  "value": -3
+                },
+                "color": {
+                  "r": 0.2901960784313726,
+                  "g": 0.2901960784313726,
+                  "b": 0.2901960784313726,
+                  "a": 1
+                },
+                "decoration": "none",
+                "textCase": "ORIGINAL",
+                "hyperlink": null
+              },
+              "runs": [
+                {
+                  "fontFamily": "SB Sans Text",
+                  "fontStyle": "Regular",
+                  "fontWeight": 400,
+                  "fontSize": 9,
+                  "lineHeight": {
+                    "unit": "PIXELS",
+                    "value": 12
+                  },
+                  "letterSpacing": {
+                    "unit": "PERCENT",
+                    "value": -3
+                  },
+                  "color": {
+                    "r": 0.2901960784313726,
+                    "g": 0.2901960784313726,
+                    "b": 0.2901960784313726,
+                    "a": 1
+                  },
+                  "decoration": "none",
+                  "textCase": "ORIGINAL",
+                  "hyperlink": null,
+                  "text": "Премия вручается компаниям, которые за год показали кратный рост выручки и вывели на рынок продукт, изменивший отрасль."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "shape",
+          "id": "s:8",
+          "name": "Separator",
+          "transform": {
+            "x": 48,
+            "y": 600,
+            "w": 499,
+            "h": 0,
+            "rotation": 0,
+            "flipH": false,
+            "flipV": false
+          },
+          "opacity": 1,
+          "geometry": "line",
+          "cornerRadius": 0,
+          "fill": null,
+          "stroke": {
+            "color": {
+              "r": 0.6588235294117647,
+              "g": 0.5215686274509804,
+              "b": 0.22745098039215686,
+              "a": 1
+            },
+            "weight": 1,
+            "align": "center",
+            "dash": null,
+            "cap": "none",
+            "join": "miter",
+            "startArrow": "none",
+            "endArrow": "none"
+          }
+        },
+        {
+          "type": "text",
+          "id": "t:9",
+          "name": "Иван Петров",
+          "transform": {
+            "x": 48,
+            "y": 620,
+            "w": 200,
+            "h": 30,
+            "rotation": 0,
+            "flipH": false,
+            "flipV": false
+          },
+          "opacity": 1,
+          "verticalAlign": "top",
+          "autoResize": "WIDTH_AND_HEIGHT",
+          "paragraphs": [
+            {
+              "align": "left",
+              "spaceAfter": 0,
+              "firstLineIndent": 0,
+              "list": null,
+              "endStyle": {
+                "fontFamily": "SB Sans Display",
+                "fontStyle": "Bold",
+                "fontWeight": 700,
+                "fontSize": 24,
+                "lineHeight": {
+                  "unit": "PIXELS",
+                  "value": 30
+                },
+                "letterSpacing": {
+                  "unit": "PERCENT",
+                  "value": 0
+                },
+                "color": {
+                  "r": 0.12156862745098039,
+                  "g": 0.12156862745098039,
+                  "b": 0.12156862745098039,
+                  "a": 1
+                },
+                "decoration": "none",
+                "textCase": "ORIGINAL",
+                "hyperlink": null
+              },
+              "runs": [
+                {
+                  "fontFamily": "SB Sans Display",
+                  "fontStyle": "Bold",
+                  "fontWeight": 700,
+                  "fontSize": 24,
+                  "lineHeight": {
+                    "unit": "PIXELS",
+                    "value": 30
+                  },
+                  "letterSpacing": {
+                    "unit": "PERCENT",
+                    "value": 0
+                  },
+                  "color": {
+                    "r": 0.12156862745098039,
+                    "g": 0.12156862745098039,
+                    "b": 0.12156862745098039,
+                    "a": 1
+                  },
+                  "decoration": "none",
+                  "textCase": "ORIGINAL",
+                  "hyperlink": null,
+                  "text": "Иван Петров"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "id": "t:10",
+          "name": "Должность",
+          "transform": {
+            "x": 48,
+            "y": 652,
+            "w": 260,
+            "h": 34,
+            "rotation": 0,
+            "flipH": false,
+            "flipV": false
+          },
+          "opacity": 1,
+          "verticalAlign": "top",
+          "autoResize": "WIDTH_AND_HEIGHT",
+          "paragraphs": [
+            {
+              "align": "left",
+              "spaceAfter": 0,
+              "firstLineIndent": 0,
+              "list": null,
+              "endStyle": {
+                "fontFamily": "SB Sans Text",
+                "fontStyle": "Regular",
+                "fontWeight": 400,
+                "fontSize": 12,
+                "lineHeight": {
+                  "unit": "PIXELS",
+                  "value": 17
+                },
+                "letterSpacing": {
+                  "unit": "PERCENT",
+                  "value": 0
+                },
+                "color": {
+                  "r": 0.3333333333333333,
+                  "g": 0.3333333333333333,
+                  "b": 0.3333333333333333,
+                  "a": 1
+                },
+                "decoration": "none",
+                "textCase": "ORIGINAL",
+                "hyperlink": null
+              },
+              "runs": [
+                {
+                  "fontFamily": "SB Sans Text",
+                  "fontStyle": "Regular",
+                  "fontWeight": 400,
+                  "fontSize": 12,
+                  "lineHeight": {
+                    "unit": "PIXELS",
+                    "value": 17
+                  },
+                  "letterSpacing": {
+                    "unit": "PERCENT",
+                    "value": 0
+                  },
+                  "color": {
+                    "r": 0.3333333333333333,
+                    "g": 0.3333333333333333,
+                    "b": 0.3333333333333333,
+                    "a": 1
+                  },
+                  "decoration": "none",
+                  "textCase": "ORIGINAL",
+                  "hyperlink": null,
+                  "text": "Генеральный директор"
+                }
+              ]
+            },
+            {
+              "align": "left",
+              "spaceAfter": 0,
+              "firstLineIndent": 0,
+              "list": null,
+              "endStyle": {
+                "fontFamily": "SB Sans Text",
+                "fontStyle": "Italic",
+                "fontWeight": 400,
+                "fontSize": 12,
+                "lineHeight": {
+                  "unit": "PIXELS",
+                  "value": 17
+                },
+                "letterSpacing": {
+                  "unit": "PERCENT",
+                  "value": 0
+                },
+                "color": {
+                  "r": 0.3333333333333333,
+                  "g": 0.3333333333333333,
+                  "b": 0.3333333333333333,
+                  "a": 1
+                },
+                "decoration": "none",
+                "textCase": "ORIGINAL",
+                "hyperlink": null
+              },
+              "runs": [
+                {
+                  "fontFamily": "SB Sans Text",
+                  "fontStyle": "Italic",
+                  "fontWeight": 400,
+                  "fontSize": 12,
+                  "lineHeight": {
+                    "unit": "PIXELS",
+                    "value": 17
+                  },
+                  "letterSpacing": {
+                    "unit": "PERCENT",
+                    "value": 0
+                  },
+                  "color": {
+                    "r": 0.3333333333333333,
+                    "g": 0.3333333333333333,
+                    "b": 0.3333333333333333,
+                    "a": 1
+                  },
+                  "decoration": "none",
+                  "textCase": "ORIGINAL",
+                  "hyperlink": null,
+                  "text": "ООО «Ромашка & Партнёры»"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "id": "t:11",
+          "name": "2026",
+          "transform": {
+            "x": 407,
+            "y": 736,
+            "w": 140,
+            "h": 48,
+            "rotation": 0,
+            "flipH": false,
+            "flipV": false
+          },
+          "opacity": 1,
+          "verticalAlign": "top",
+          "autoResize": "WIDTH_AND_HEIGHT",
+          "paragraphs": [
+            {
+              "align": "right",
+              "spaceAfter": 0,
+              "firstLineIndent": 0,
+              "list": null,
+              "endStyle": {
+                "fontFamily": "SB Sans Display",
+                "fontStyle": "Light",
+                "fontWeight": 300,
+                "fontSize": 40,
+                "lineHeight": {
+                  "unit": "PIXELS",
+                  "value": 48
+                },
+                "letterSpacing": {
+                  "unit": "PERCENT",
+                  "value": 0
+                },
+                "color": {
+                  "r": 0.6588235294117647,
+                  "g": 0.5215686274509804,
+                  "b": 0.22745098039215686,
+                  "a": 1
+                },
+                "decoration": "none",
+                "textCase": "ORIGINAL",
+                "hyperlink": null
+              },
+              "runs": [
+                {
+                  "fontFamily": "SB Sans Display",
+                  "fontStyle": "Light",
+                  "fontWeight": 300,
+                  "fontSize": 40,
+                  "lineHeight": {
+                    "unit": "PIXELS",
+                    "value": 48
+                  },
+                  "letterSpacing": {
+                    "unit": "PERCENT",
+                    "value": 0
+                  },
+                  "color": {
+                    "r": 0.6588235294117647,
+                    "g": 0.5215686274509804,
+                    "b": 0.22745098039215686,
+                    "a": 1
+                  },
+                  "decoration": "none",
+                  "textCase": "ORIGINAL",
+                  "hyperlink": null,
+                  "text": "2026"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "assets": {
+    "bg-diploma": {
+      "id": "bg-diploma",
+      "mime": "image/png",
+      "role": "background",
+      "data": "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",
+      "width": 595,
+      "height": 842,
+      "hasAlpha": false
+    },
+    "logo-png": {
+      "id": "logo-png",
+      "mime": "image/png",
+      "role": "vector-fallback",
+      "data": "iVBORw0KGgoAAAANSUhEUgAAAIAAAACACAYAAADDPmHLAAAL4ElEQVR4Ae3BUY8chWEA4O9mDzBYtrM9LjZma3kGy7YAg6wr8owgIUqipEoUdZumLdgPuz+gL3npS/vYvvQlL/0BOy8YUqpuFRVViCCIQmcRsiwwIEPMjGttsNHpwhoDBtuxmgipurPvzne3d3tz5/k+lUqlUrldjdnkwk58B7ZjG+7B3bgT4wh85Tqu4Qou43NcwidFu3fVJjZmEwk78W7ch52YxATq2IFt2IotuAvjCHzlOq7hS3yBz3AJF/ExZjCNj3C+aPc+tEmM2cDCTtxAiL3Yg/uxG7swiQnsMJyLmME0LuBD/BbncBZF0e71bVBjNpiwE+/DQezHPjyAvdiDLUbjC5zDWXyAM3gfp4t274wNZMwGEHbiXXgED+MhHMQBTCiHGbyH03gHb+Otot27oOTGlFjYiR/EFA7jURzCpHKbxim8iZM4UbR77yqpMSUUduIpHMFjmMIhG9MpnMAbeL1o904omTElEnbiw3gcCWJENoccPWR4rWj3TiqJMSUQduJ9eBLfxBOIbE45fo1f4dWi3TtjnY1ZR2En3obv4Nv4Fg65PZzCK3gZvyzavUvWSc06CTvxFJ7G03gKO90+duIIvo57683G5UG3f946GDNiYSfeih/gz/E9NNze+ngR/40XinbvMyNUM0JhJ96PoziKH2O7ynYcxgS215uNmUG3P2NEakYk7MTfwDEcxZ+p3ChEiG31ZuPyoNs/ZwRqRiDsxE0cw1Hcr7KQCTyErfVmw6DbP22NjVlDYSfeip/gr/AjleX4Bf4dzxft3mfWSM0aCTvxBI7hGL6vslwH8DXcUW828kG3f9kaqFkDYSfehWM4hidUVmov7kWt3mycHXT7n1plNass7MS7cBTH8JjKsBqY9Af1ZqMYdPufWkU1qyjsxBM4hmOYUlktu3Evrtebjd8Muv3LVknNKgk78VYcwzE8prLadqOO39ebjXcH3f5Vq2Dc6vkJ/hpHVNbKEVzGZ0itgppVEHbiJo7h+yprbS9q9Wbj8qDbP21INUMKO/E3cAx/ozIqB3Cl3mzMDLr9c4ZQM4SwE+/HMRzFFpVR2ovP683G2UG3P2OFalYo7MRbcRRHcb/KqG3BvbhUbzbeGnT7V61AYOV+gB9iv8p62Y8f4gdWqGYFwk48hafxY5X1FuJSvdn47aDbP2+ZapYp7MTb8DSewnaVMpjE7+rNxpuDbv+KZQgs33fwXTRUyqKB7+I7lqlmGcJOvA9P4SmVsgkxXW82fjPo9n9niQLL8yS+pVJW38KTlqFmicJOfBh/i++plNVODOrNxv8Ouv0LliCwdI/jCZWyewKPW6LAEoSdeAoJIpWyi5CEnXjKEgSW5ghilY0ixhFLELiFsBM/iMcQqWwUER4LO/GDbmHcrU1hSmUoeSszW5Qm1tgUpvCuRYxZRNiJd+Hv8VOVFclbmcVEaWIN/Qz/UrR7FywgsLhH8KjKiuStzK3krcwaehSPWERgcQ/jkMqy5a1MCRzCwxYRWEDYiffhIUyqLEveyixH3sqskUk8FHbifRYQWNhBHFRZlryVKZmDOGgBgYXtxwGVJctbmRI6gP0WEJhH2Ikb2IcJlY1uAvvCTtwwj8D8QjygsmR5K7NSUZpYYw8gNI/A/PZir8qS5K1Mye3FXvMIzG8P9qjcUt7KDCNKEyOwB3vMI3CDsBPvxv3YorKovJUZRpQmRmQL7g878W43CNzsPuxWWVTeygwjShMjthv3uUHgZjuxS2VBeSszjChNrINd2OkGgZtNYlJlXnkrM4woTayTSUy6QeBmE5hQuUneymxgE5hwg8AsYSe+A3XsUJkjb2WGFaWJdbQD9bAT32GWwFzbsUNl1UVpogR2YLtZAnNtwzaVOfJWZhhRmiiJbdhmlsBc92Cryv/LW5lhRGmiRLbiHrOMm+tubLEO8lZmtihNrLe8lRlGlCZKZgvuNsu4ue7EXUYob2Xmk7cyfxSlifWQtzLDiNJECd2FO80SmGsc40Ykb2VuJW9lRi1vZYYRpYmSGse4WQJzBQiUTN7KjEreygwjShMlFiAwS2Cd5K3McuStzFrLW5lhRGliownMdR3XlVTeyqyVvJW5DVzHdbME5rqGa0osb2VWW97KDCtKExvANVwzS2CuK/hSyeWtTJlEaWKD+BJXzBKY6zK+MAJRmhhG3sqshryVGUaUJjaQL3DZLIG5PsdnNoi8lRlG3soMI0oTG8xn+Nwsgbku4ZIRidLEsPJWZiXyVmYYUZrYgC7hklkCc32Ci0YoShPDyluZ5chbmWFEaWKDuohPzBKYpWj3ruJjXDRCUZoYVt7KLEXeygwjShMb1EV8XLR7V80SuNkMZoxYlCaGlbcyi8lbmWFEaWIDm8GMGwRuNo1p6yBKE8PKW5n55K3MMKI0scFNY9oNAjf7CBeskyhNDCtvZWbLW5mKC/jIDQI3O48PraMoTQwrb2X+KG9lhhWliU3gQ5x3gzHzCDvxP+AfscU6yluZ9RaliU3gC/xT0e79sxsE5ncO56yzKE2spyhNbBLncM48AvM7i7NKIEoT6yFKE5vIWZw1j8D8CnygJKI0MUpRmthkPkBhHoF5FO1eH2cwoySiNDEKUZrYZGZwpmj3+uYRWNj7eE+JRGliLUVpYhN6D+9bQGBhp3FayURpYi1EaWKTOo3TFhBYQNHuncE7mFYyUZpYTVGa2KSm8U7R7p2xgMDi3sYpJRSlicotncLbFhFY3Ft4U0lFaWJYUZrYxN7EWxYRWETR7l3ASZxSUlGaWKkoTWxip3CyaPcuWETg1k7ghBKL0sRyRWlikzuBE24hcAtFu/cu3kCuxKI0sVRRmtjkcrxRtHvvuoXA0ryOnpKL0sStRGniNtDD65ZgzBKFnfjv8FNENoC8lZktShO3iRw/K9q9f7UE45buNTyGyAYQpYnb1K/xmiWqWaJBt3+h3mxMIMROlTI6hZ8X7d4LliiwPK/iFZWyegWvWoaaZRh0+7+rNxt34esIVcrkZTxXtHv/YxkCy/dLvIS+Sln08RJ+aZlqlmnQ7V+pNxuX8Sc4rFIGz+PZot07a5lqVmDQ7Z+vNxt3YQKhynp6Gc8W7d5LVmDcyr2AP0UD+1XWw/v4L7xghWpWaNDtX603GzPYhoewRWWULuJZHC/avQtWqGYIg25/pt5sXMZWPKoySj/H8aLdO2kINUMadPvn6s2GP9iKAyqj8AscL9q9Fw2pZhUMuv3T9WbjTnwNe1XW0is4XrR7z1kF41bP89iKu3FEZS28jn/D81ZJzSoZdPtX681GjhomsVtlNZ3AM3imaPcuWiU1q2jQ7V+uNxtnfeVe7FZZDSfwDI4X7d60VVSzygbd/qf1ZqPAddTRUBnG63gGx4t274JVVrMGBt3+p/Vm4zf4PbZir8pKvILjeKZo96atgZo1Muj2L9ebjXdxBTUcUFmOX+A4jhft3kVrZMwIhJ24ib/EX2CHymIu4j/xH0W717XGakZg0O2frjcbM/gc92JCZT7v41kcL9q9F41AzYgMuv1z9WbjLC7hDoQqs72M4zhetHsnjUjNCA26/Zl6s/EWLuISJrHd7a2P5/Esni3avQtGaMw6CTvxFL6H7+Lbbk8v4yW8WLR7J6yDmnUy6PbP15uNNzGNadyDnW4Pp/BzPIfninbvrHUypgTCTrwPT+KbeAKRzSnHr/ErvFq0e2esszElEnbiw3gcCWJENoccPWR4rWj3TiqJMSUUduIpHMFjmMIhG9MpnMAbeL1o904omTElFnbiBzGFw3gUhzCp3KZxCm/iJE4U7d67SmrMBhB24l14BA/jIRzEAUwohxm8h9N4B2/jraLdu6DkxmwwYSfeh4PYj314AHuxB1uMxhc4h7P4AGfwPk4X7d4ZG8iYDSzsxA2E2Is9uB+7sQuTmMAOw7mIGUzjAj7Eb3EOZ1EU7V7fBjVmEwk78W7ch52YxATq2IFt2IotuAvjCHzlOq7hS3yBz3AJF/ExZjCNj3C+aPc+tEmM2eTCTnwHtmMb7sHduBPjCHzlOq7hCi7jc1zCJ0W7d1WlUqlUKpvP/wFilXoQgPJ6IAAAAABJRU5ErkJggg==",
+      "width": 128,
+      "height": 128,
+      "hasAlpha": true
+    },
+    "logo-svg": {
+      "id": "logo-svg",
+      "mime": "image/svg+xml",
+      "role": "svg",
+      "data": "PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI2NCIgaGVpZ2h0PSI2NCIgdmlld0JveD0iMCAwIDY0IDY0Ij48Y2lyY2xlIGN4PSIzMiIgY3k9IjMyIiByPSIzMCIgZmlsbD0iIzIxQTAzOCIvPjxwYXRoIGQ9Ik0xOCAzMyBMMjggNDMgTDQ2IDIzIiBmaWxsPSJub25lIiBzdHJva2U9IiNGRkZGRkYiIHN0cm9rZS13aWR0aD0iNiIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIi8+PC9zdmc+",
+      "width": 64,
+      "height": 64
+    }
+  },
+  "report": []
+}

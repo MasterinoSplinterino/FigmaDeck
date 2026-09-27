@@ -29,8 +29,8 @@ const SPACING_MAX = 158400;
 const MARGIN_MAX = 51206400;
 const MAX_LIST_LEVEL = 8;
 
-/** Characters treated as a soft line break inside a run (`<a:br/>`). ' ' is the IR's; the rest is defensive. */
-const SOFT_BREAK = /\r\n|[\n\r\u000B  ]/;
+/** Characters treated as a soft line break inside a run (`<a:br/>`). U+2028 is the IR's; the rest is defensive. */
+const SOFT_BREAK = /\r\n|[\n\r\u000B\u2028\u2029]/;
 
 export interface TextConversionOptions {
   /** px → pt factor of the slide. */
@@ -117,16 +117,28 @@ export function textBoxTransform(el: TextElement, widthSlackPercent: number): Tr
 
 // ─── Text case ───────────────────────────────────────────────────────────────
 
-const WORD_START_AFTER = /[\s\-‐-―/([{"'«“„‘]/u;
 const LETTER = /\p{L}/u;
+const LETTER_OR_DIGIT = /[\p{L}\p{N}]/u;
+/** Apostrophes / single quotes: inside a word ("don't") they do not start a new word. */
+const APOSTROPHE = /['\u2018\u2019]/;
 
-/** Uppercase the first letter of every word (CSS `capitalize`); `prev` = character before `text`. */
+/**
+ * Uppercase the first letter of every word (CSS `capitalize`, which Figma's TITLE case follows);
+ * `prev` = the character before `text` (previous run of the same paragraph).
+ */
 export function titleCase(text: string, prev = ''): string {
+  // A word starts after the paragraph start, whitespace or punctuation; an apostrophe keeps the state.
+  let atWordStart = prev === '' || !(LETTER_OR_DIGIT.test(prev) || APOSTROPHE.test(prev));
   let out = '';
-  let before = prev;
   for (const ch of text) {
-    out += LETTER.test(ch) && (before === '' || WORD_START_AFTER.test(before)) ? ch.toUpperCase() : ch;
-    before = ch;
+    if (LETTER.test(ch)) {
+      out += atWordStart ? ch.toUpperCase() : ch;
+      atWordStart = false;
+      continue;
+    }
+    out += ch;
+    if (LETTER_OR_DIGIT.test(ch)) atWordStart = false;
+    else if (!APOSTROPHE.test(ch)) atWordStart = true;
   }
   return out;
 }

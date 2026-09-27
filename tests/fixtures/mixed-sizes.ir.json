@@ -1,0 +1,361 @@
+{
+  "irVersion": 1,
+  "meta": {
+    "title": "Mixed sizes",
+    "author": "FigmaDeck tests",
+    "sourceFile": "fixtures.fig",
+    "createdAt": "2026-01-01T00:00:00Z"
+  },
+  "slides": [
+    {
+      "id": "40:1",
+      "name": "Full HD",
+      "width": 1920,
+      "height": 1080,
+      "background": {
+        "type": "solid",
+        "color": {
+          "r": 1,
+          "g": 1,
+          "b": 1,
+          "a": 1
+        }
+      },
+      "elements": [
+        {
+          "type": "shape",
+          "id": "s:45",
+          "name": "Frame fill",
+          "transform": {
+            "x": 0,
+            "y": 0,
+            "w": 1920,
+            "h": 1080,
+            "rotation": 0,
+            "flipH": false,
+            "flipV": false
+          },
+          "opacity": 1,
+          "geometry": "rect",
+          "cornerRadius": 0,
+          "fill": {
+            "type": "solid",
+            "color": {
+              "r": 0.054901960784313725,
+              "g": 0.6470588235294118,
+              "b": 0.9137254901960784,
+              "a": 1
+            }
+          },
+          "stroke": null
+        },
+        {
+          "type": "text",
+          "id": "t:46",
+          "name": "Label",
+          "transform": {
+            "x": 192,
+            "y": 108,
+            "w": 1536,
+            "h": 108,
+            "rotation": 0,
+            "flipH": false,
+            "flipV": false
+          },
+          "opacity": 1,
+          "verticalAlign": "top",
+          "autoResize": "WIDTH_AND_HEIGHT",
+          "paragraphs": [
+            {
+              "align": "left",
+              "spaceAfter": 0,
+              "firstLineIndent": 0,
+              "list": null,
+              "endStyle": {
+                "fontFamily": "Inter",
+                "fontStyle": "Regular",
+                "fontWeight": 400,
+                "fontSize": 65,
+                "lineHeight": {
+                  "unit": "AUTO"
+                },
+                "letterSpacing": {
+                  "unit": "PERCENT",
+                  "value": 0
+                },
+                "color": {
+                  "r": 1,
+                  "g": 1,
+                  "b": 1,
+                  "a": 1
+                },
+                "decoration": "none",
+                "textCase": "ORIGINAL",
+                "hyperlink": null
+              },
+              "runs": [
+                {
+                  "fontFamily": "Inter",
+                  "fontStyle": "Regular",
+                  "fontWeight": 400,
+                  "fontSize": 65,
+                  "lineHeight": {
+                    "unit": "AUTO"
+                  },
+                  "letterSpacing": {
+                    "unit": "PERCENT",
+                    "value": 0
+                  },
+                  "color": {
+                    "r": 1,
+                    "g": 1,
+                    "b": 1,
+                    "a": 1
+                  },
+                  "decoration": "none",
+                  "textCase": "ORIGINAL",
+                  "hyperlink": null,
+                  "text": "Full HD: 1920×1080"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "40:2",
+      "name": "Square",
+      "width": 1080,
+      "height": 1080,
+      "background": {
+        "type": "solid",
+        "color": {
+          "r": 1,
+          "g": 1,
+          "b": 1,
+          "a": 1
+        }
+      },
+      "elements": [
+        {
+          "type": "shape",
+          "id": "s:47",
+          "name": "Frame fill",
+          "transform": {
+            "x": 0,
+            "y": 0,
+            "w": 1080,
+            "h": 1080,
+            "rotation": 0,
+            "flipH": false,
+            "flipV": false
+          },
+          "opacity": 1,
+          "geometry": "rect",
+          "cornerRadius": 0,
+          "fill": {
+            "type": "solid",
+            "color": {
+              "r": 0.9764705882352941,
+              "g": 0.45098039215686275,
+              "b": 0.08627450980392157,
+              "a": 1
+            }
+          },
+          "stroke": null
+        },
+        {
+          "type": "text",
+          "id": "t:48",
+          "name": "Label",
+          "transform": {
+            "x": 108,
+            "y": 108,
+            "w": 864,
+            "h": 108,
+            "rotation": 0,
+            "flipH": false,
+            "flipV": false
+          },
+          "opacity": 1,
+          "verticalAlign": "top",
+          "autoResize": "WIDTH_AND_HEIGHT",
+          "paragraphs": [
+            {
+              "align": "left",
+              "spaceAfter": 0,
+              "firstLineIndent": 0,
+              "list": null,
+              "endStyle": {
+                "fontFamily": "Inter",
+                "fontStyle": "Regular",
+                "fontWeight": 400,
+                "fontSize": 65,
+                "lineHeight": {
+                  "unit": "AUTO"
+                },
+                "letterSpacing": {
+                  "unit": "PERCENT",
+                  "value": 0
+                },
+                "color": {
+                  "r": 1,
+                  "g": 1,
+                  "b": 1,
+                  "a": 1
+                },
+                "decoration": "none",
+                "textCase": "ORIGINAL",
+                "hyperlink": null
+              },
+              "runs": [
+                {
+                  "fontFamily": "Inter",
+                  "fontStyle": "Regular",
+                  "fontWeight": 400,
+                  "fontSize": 65,
+                  "lineHeight": {
+                    "unit": "AUTO"
+                  },
+                  "letterSpacing": {
+                    "unit": "PERCENT",
+                    "value": 0
+                  },
+                  "color": {
+                    "r": 1,
+                    "g": 1,
+                    "b": 1,
+                    "a": 1
+                  },
+                  "decoration": "none",
+                  "textCase": "ORIGINAL",
+                  "hyperlink": null,
+                  "text": "Square: 1080×1080"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "40:3",
+      "name": "4K",
+      "width": 3840,
+      "height": 2160,
+      "background": {
+        "type": "solid",
+        "color": {
+          "r": 1,
+          "g": 1,
+          "b": 1,
+          "a": 1
+        }
+      },
+      "elements": [
+        {
+          "type": "shape",
+          "id": "s:49",
+          "name": "Frame fill",
+          "transform": {
+            "x": 0,
+            "y": 0,
+            "w": 3840,
+            "h": 2160,
+            "rotation": 0,
+            "flipH": false,
+            "flipV": false
+          },
+          "opacity": 1,
+          "geometry": "rect",
+          "cornerRadius": 0,
+          "fill": {
+            "type": "solid",
+            "color": {
+              "r": 0.13333333333333333,
+              "g": 0.7725490196078432,
+              "b": 0.3686274509803922,
+              "a": 1
+            }
+          },
+          "stroke": null
+        },
+        {
+          "type": "text",
+          "id": "t:50",
+          "name": "Label",
+          "transform": {
+            "x": 384,
+            "y": 216,
+            "w": 3072,
+            "h": 216,
+            "rotation": 0,
+            "flipH": false,
+            "flipV": false
+          },
+          "opacity": 1,
+          "verticalAlign": "top",
+          "autoResize": "WIDTH_AND_HEIGHT",
+          "paragraphs": [
+            {
+              "align": "left",
+              "spaceAfter": 0,
+              "firstLineIndent": 0,
+              "list": null,
+              "endStyle": {
+                "fontFamily": "Inter",
+                "fontStyle": "Regular",
+                "fontWeight": 400,
+                "fontSize": 130,
+                "lineHeight": {
+                  "unit": "AUTO"
+                },
+                "letterSpacing": {
+                  "unit": "PERCENT",
+                  "value": 0
+                },
+                "color": {
+                  "r": 1,
+                  "g": 1,
+                  "b": 1,
+                  "a": 1
+                },
+                "decoration": "none",
+                "textCase": "ORIGINAL",
+                "hyperlink": null
+              },
+              "runs": [
+                {
+                  "fontFamily": "Inter",
+                  "fontStyle": "Regular",
+                  "fontWeight": 400,
+                  "fontSize": 130,
+                  "lineHeight": {
+                    "unit": "AUTO"
+                  },
+                  "letterSpacing": {
+                    "unit": "PERCENT",
+                    "value": 0
+                  },
+                  "color": {
+                    "r": 1,
+                    "g": 1,
+                    "b": 1,
+                    "a": 1
+                  },
+                  "decoration": "none",
+                  "textCase": "ORIGINAL",
+                  "hyperlink": null,
+                  "text": "4K: 3840×2160"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "assets": {},
+  "report": []
+}

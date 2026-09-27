@@ -1,0 +1,1974 @@
+{
+  "irVersion": 1,
+  "meta": {
+    "title": "Kitchen sink",
+    "author": "FigmaDeck tests",
+    "sourceFile": "fixtures.fig",
+    "createdAt": "2026-01-01T00:00:00Z"
+  },
+  "slides": [
+    {
+      "id": "20:1",
+      "name": "Kitchen sink",
+      "width": 1920,
+      "height": 1080,
+      "background": {
+        "type": "solid",
+        "color": {
+          "r": 0.9568627450980393,
+          "g": 0.9607843137254902,
+          "b": 0.9686274509803922,
+          "a": 1
+        }
+      },
+      "elements": [
+        {
+          "type": "text",
+          "id": "t:18",
+          "name": "Title",
+          "transform": {
+            "x": 80,
+            "y": 60,
+            "w": 700,
+            "h": 88,
+            "rotation": 0,
+            "flipH": false,
+            "flipV": false
+          },
+          "opacity": 1,
+          "verticalAlign": "top",
+          "autoResize": "WIDTH_AND_HEIGHT",
+          "paragraphs": [
+            {
+              "align": "left",
+              "spaceAfter": 0,
+              "firstLineIndent": 0,
+              "list": null,
+              "endStyle": {
+                "fontFamily": "Inter",
+                "fontStyle": "Bold",
+                "fontWeight": 700,
+                "fontSize": 72,
+                "lineHeight": {
+                  "unit": "PERCENT",
+                  "value": 120
+                },
+                "letterSpacing": {
+                  "unit": "PERCENT",
+                  "value": 0
+                },
+                "color": {
+                  "r": 0.06666666666666667,
+                  "g": 0.06666666666666667,
+                  "b": 0.06666666666666667,
+                  "a": 1
+                },
+                "decoration": "none",
+                "textCase": "ORIGINAL",
+                "hyperlink": null
+              },
+              "runs": [
+                {
+                  "fontFamily": "Inter",
+                  "fontStyle": "Bold",
+                  "fontWeight": 700,
+                  "fontSize": 72,
+                  "lineHeight": {
+                    "unit": "PERCENT",
+                    "value": 120
+                  },
+                  "letterSpacing": {
+                    "unit": "PERCENT",
+                    "value": 0
+                  },
+                  "color": {
+                    "r": 0.06666666666666667,
+                    "g": 0.06666666666666667,
+                    "b": 0.06666666666666667,
+                    "a": 1
+                  },
+                  "decoration": "none",
+                  "textCase": "ORIGINAL",
+                  "hyperlink": null,
+                  "text": "Kitchen sink"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "shape",
+          "id": "s:19",
+          "name": "Rect",
+          "transform": {
+            "x": 80,
+            "y": 200,
+            "w": 240,
+            "h": 160,
+            "rotation": 0,
+            "flipH": false,
+            "flipV": false
+          },
+          "opacity": 1,
+          "geometry": "rect",
+          "cornerRadius": 0,
+          "fill": {
+            "type": "solid",
+            "color": {
+              "r": 0.23137254901960785,
+              "g": 0.5098039215686274,
+              "b": 0.9647058823529412,
+              "a": 1
+            }
+          },
+          "stroke": {
+            "color": {
+              "r": 0.11764705882352941,
+              "g": 0.22745098039215686,
+              "b": 0.5411764705882353,
+              "a": 1
+            },
+            "weight": 4,
+            "align": "center",
+            "dash": null,
+            "cap": "none",
+            "join": "miter",
+            "startArrow": "none",
+            "endArrow": "none"
+          }
+        },
+        {
+          "type": "shape",
+          "id": "s:20",
+          "name": "Round rect",
+          "transform": {
+            "x": 360,
+            "y": 200,
+            "w": 240,
+            "h": 160,
+            "rotation": 0,
+            "flipH": false,
+            "flipV": false
+          },
+          "opacity": 0.8,
+          "geometry": "roundRect",
+          "cornerRadius": 24,
+          "fill": {
+            "type": "solid",
+            "color": {
+              "r": 0.9607843137254902,
+              "g": 0.6196078431372549,
+              "b": 0.043137254901960784,
+              "a": 1
+            }
+          },
+          "stroke": {
+            "color": {
+              "r": 0.48627450980392156,
+              "g": 0.17647058823529413,
+              "b": 0.07058823529411765,
+              "a": 0.5
+            },
+            "weight": 8,
+            "align": "inside",
+            "dash": null,
+            "cap": "none",
+            "join": "round",
+            "startArrow": "none",
+            "endArrow": "none"
+          }
+        },
+        {
+          "type": "shape",
+          "id": "s:21",
+          "name": "Ellipse",
+          "transform": {
+            "x": 640,
+            "y": 200,
+            "w": 240,
+            "h": 160,
+            "rotation": 0,
+            "flipH": false,
+            "flipV": false
+          },
+          "opacity": 1,
+          "geometry": "ellipse",
+          "cornerRadius": 0,
+          "fill": {
+            "type": "solid",
+            "color": {
+              "r": 0.06274509803921569,
+              "g": 0.7254901960784313,
+              "b": 0.5058823529411764,
+              "a": 1
+            }
+          },
+          "stroke": {
+            "color": {
+              "r": 0.023529411764705882,
+              "g": 0.3058823529411765,
+              "b": 0.23137254901960785,
+              "a": 1
+            },
+            "weight": 6,
+            "align": "outside",
+            "dash": null,
+            "cap": "none",
+            "join": "miter",
+            "startArrow": "none",
+            "endArrow": "none"
+          }
+        },
+        {
+          "type": "shape",
+          "id": "s:22",
+          "name": "Arrow line",
+          "transform": {
+            "x": 920,
+            "y": 280,
+            "w": 280,
+            "h": 0,
+            "rotation": 0,
+            "flipH": false,
+            "flipV": false
+          },
+          "opacity": 1,
+          "geometry": "line",
+          "cornerRadius": 0,
+          "fill": null,
+          "stroke": {
+            "color": {
+              "r": 0.06666666666666667,
+              "g": 0.06666666666666667,
+              "b": 0.06666666666666667,
+              "a": 1
+            },
+            "weight": 4,
+            "align": "center",
+            "dash": [
+              12,
+              8
+            ],
+            "cap": "round",
+            "join": "miter",
+            "startArrow": "oval",
+            "endArrow": "triangle"
+          }
+        },
+        {
+          "type": "shape",
+          "id": "s:23",
+          "name": "Diagonal line",
+          "transform": {
+            "x": 920,
+            "y": 320,
+            "w": 280,
+            "h": 40,
+            "rotation": 0,
+            "flipH": false,
+            "flipV": false
+          },
+          "opacity": 1,
+          "geometry": "line",
+          "cornerRadius": 0,
+          "fill": null,
+          "stroke": {
+            "color": {
+              "r": 0.8627450980392157,
+              "g": 0.14901960784313725,
+              "b": 0.14901960784313725,
+              "a": 1
+            },
+            "weight": 3,
+            "align": "center",
+            "dash": null,
+            "cap": "square",
+            "join": "bevel",
+            "startArrow": "none",
+            "endArrow": "arrow"
+          }
+        },
+        {
+          "type": "shape",
+          "id": "s:24",
+          "name": "Gradient",
+          "transform": {
+            "x": 1240,
+            "y": 200,
+            "w": 320,
+            "h": 160,
+            "rotation": 0,
+            "flipH": false,
+            "flipV": false
+          },
+          "opacity": 1,
+          "geometry": "rect",
+          "cornerRadius": 0,
+          "fill": {
+            "type": "linear-gradient",
+            "stops": [
+              {
+                "position": 0,
+                "color": {
+                  "r": 0.38823529411764707,
+                  "g": 0.4,
+                  "b": 0.9450980392156862,
+                  "a": 1
+                }
+              },
+              {
+                "position": 0.5,
+                "color": {
+                  "r": 0.6588235294117647,
+                  "g": 0.3333333333333333,
+                  "b": 0.9686274509803922,
+                  "a": 0.8
+                }
+              },
+              {
+                "position": 1,
+                "color": {
+                  "r": 0.9254901960784314,
+                  "g": 0.2823529411764706,
+                  "b": 0.6,
+                  "a": 1
+                }
+              }
+            ],
+            "gradientTransform": [
+              [
+                0.8660254037844387,
+                0.49999999999999994,
+                -0.18301270189221933
+              ],
+              [
+                -0.49999999999999994,
+                0.8660254037844387,
+                0.31698729810778065
+              ]
+            ]
+          },
+          "stroke": null
+        },
+        {
+          "type": "image",
+          "id": "i:25",
+          "name": "Photo",
+          "transform": {
+            "x": 1600,
+            "y": 200,
+            "w": 240,
+            "h": 160,
+            "rotation": 0,
+            "flipH": false,
+            "flipV": false
+          },
+          "opacity": 0.5,
+          "assetId": "photo",
+          "svgAssetId": null,
+          "crop": {
+            "left": 0.1,
+            "top": 0.2,
+            "right": 0.3,
+            "bottom": 0.1
+          },
+          "geometry": "roundRect",
+          "cornerRadius": 20
+        },
+        {
+          "type": "image",
+          "id": "i:26",
+          "name": "Round photo",
+          "transform": {
+            "x": 1600,
+            "y": 380,
+            "w": 120,
+            "h": 120,
+            "rotation": 0,
+            "flipH": false,
+            "flipV": false
+          },
+          "opacity": 1,
+          "assetId": "photo",
+          "svgAssetId": null,
+          "crop": {
+            "left": 0.2,
+            "top": 0.1,
+            "right": 0.3,
+            "bottom": 0.2
+          },
+          "geometry": "ellipse",
+          "cornerRadius": 0
+        },
+        {
+          "type": "group",
+          "id": "g:17",
+          "name": "Card",
+          "transform": {
+            "x": 80,
+            "y": 440,
+            "w": 520,
+            "h": 290,
+            "rotation": 0,
+            "flipH": false,
+            "flipV": false
+          },
+          "opacity": 1,
+          "children": [
+            {
+              "type": "shape",
+              "id": "s:16",
+              "name": "Card background",
+              "transform": {
+                "x": 80,
+                "y": 440,
+                "w": 520,
+                "h": 290,
+                "rotation": 0,
+                "flipH": false,
+                "flipV": false
+              },
+              "opacity": 1,
+              "geometry": "roundRect",
+              "cornerRadius": 16,
+              "fill": {
+                "type": "solid",
+                "color": {
+                  "r": 1,
+                  "g": 1,
+                  "b": 1,
+                  "a": 1
+                }
+              },
+              "stroke": null,
+              "shadow": {
+                "type": "outer",
+                "color": {
+                  "r": 0,
+                  "g": 0,
+                  "b": 0,
+                  "a": 0.15
+                },
+                "offsetX": 0,
+                "offsetY": 8,
+                "blur": 24,
+                "spread": 0
+              }
+            },
+            {
+              "type": "group",
+              "id": "g:15",
+              "name": "Card content",
+              "transform": {
+                "x": 112,
+                "y": 472,
+                "w": 460,
+                "h": 230,
+                "rotation": 0,
+                "flipH": false,
+                "flipV": false
+              },
+              "opacity": 1,
+              "children": [
+                {
+                  "type": "shape",
+                  "id": "s:13",
+                  "name": "Avatar",
+                  "transform": {
+                    "x": 112,
+                    "y": 472,
+                    "w": 64,
+                    "h": 64,
+                    "rotation": 0,
+                    "flipH": false,
+                    "flipV": false
+                  },
+                  "opacity": 1,
+                  "geometry": "ellipse",
+                  "cornerRadius": 0,
+                  "fill": {
+                    "type": "solid",
+                    "color": {
+                      "r": 0.8980392156862745,
+                      "g": 0.9058823529411765,
+                      "b": 0.9215686274509803,
+                      "a": 1
+                    }
+                  },
+                  "stroke": null
+                },
+                {
+                  "type": "text",
+                  "id": "t:14",
+                  "name": "Card title",
+                  "transform": {
+                    "x": 192,
+                    "y": 484,
+                    "w": 300,
+                    "h": 32,
+                    "rotation": 0,
+                    "flipH": false,
+                    "flipV": false
+                  },
+                  "opacity": 1,
+                  "verticalAlign": "top",
+                  "autoResize": "WIDTH_AND_HEIGHT",
+                  "paragraphs": [
+                    {
+                      "align": "left",
+                      "spaceAfter": 0,
+                      "firstLineIndent": 0,
+                      "list": null,
+                      "endStyle": {
+                        "fontFamily": "Inter",
+                        "fontStyle": "Semi Bold",
+                        "fontWeight": 600,
+                        "fontSize": 24,
+                        "lineHeight": {
+                          "unit": "PIXELS",
+                          "value": 32
+                        },
+                        "letterSpacing": {
+                          "unit": "PERCENT",
+                          "value": 0
+                        },
+                        "color": {
+                          "r": 0.06666666666666667,
+                          "g": 0.06666666666666667,
+                          "b": 0.06666666666666667,
+                          "a": 1
+                        },
+                        "decoration": "none",
+                        "textCase": "ORIGINAL",
+                        "hyperlink": null
+                      },
+                      "runs": [
+                        {
+                          "fontFamily": "Inter",
+                          "fontStyle": "Semi Bold",
+                          "fontWeight": 600,
+                          "fontSize": 24,
+                          "lineHeight": {
+                            "unit": "PIXELS",
+                            "value": 32
+                          },
+                          "letterSpacing": {
+                            "unit": "PERCENT",
+                            "value": 0
+                          },
+                          "color": {
+                            "r": 0.06666666666666667,
+                            "g": 0.06666666666666667,
+                            "b": 0.06666666666666667,
+                            "a": 1
+                          },
+                          "decoration": "none",
+                          "textCase": "ORIGINAL",
+                          "hyperlink": null,
+                          "text": "Card title"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "id": "t:12",
+                  "name": "Lists",
+                  "transform": {
+                    "x": 112,
+                    "y": 552,
+                    "w": 460,
+                    "h": 150,
+                    "rotation": 0,
+                    "flipH": false,
+                    "flipV": false
+                  },
+                  "opacity": 1,
+                  "verticalAlign": "top",
+                  "autoResize": "HEIGHT",
+                  "paragraphs": [
+                    {
+                      "align": "left",
+                      "spaceAfter": 0,
+                      "firstLineIndent": 0,
+                      "list": {
+                        "type": "unordered",
+                        "level": 0
+                      },
+                      "endStyle": {
+                        "fontFamily": "Inter",
+                        "fontStyle": "Regular",
+                        "fontWeight": 400,
+                        "fontSize": 16,
+                        "lineHeight": {
+                          "unit": "PIXELS",
+                          "value": 22
+                        },
+                        "letterSpacing": {
+                          "unit": "PERCENT",
+                          "value": 0
+                        },
+                        "color": {
+                          "r": 0.06666666666666667,
+                          "g": 0.06666666666666667,
+                          "b": 0.06666666666666667,
+                          "a": 1
+                        },
+                        "decoration": "none",
+                        "textCase": "ORIGINAL",
+                        "hyperlink": null
+                      },
+                      "runs": [
+                        {
+                          "fontFamily": "Inter",
+                          "fontStyle": "Regular",
+                          "fontWeight": 400,
+                          "fontSize": 16,
+                          "lineHeight": {
+                            "unit": "PIXELS",
+                            "value": 22
+                          },
+                          "letterSpacing": {
+                            "unit": "PERCENT",
+                            "value": 0
+                          },
+                          "color": {
+                            "r": 0.06666666666666667,
+                            "g": 0.06666666666666667,
+                            "b": 0.06666666666666667,
+                            "a": 1
+                          },
+                          "decoration": "none",
+                          "textCase": "ORIGINAL",
+                          "hyperlink": null,
+                          "text": "First bullet"
+                        }
+                      ]
+                    },
+                    {
+                      "align": "left",
+                      "spaceAfter": 0,
+                      "firstLineIndent": 0,
+                      "list": {
+                        "type": "unordered",
+                        "level": 1
+                      },
+                      "endStyle": {
+                        "fontFamily": "Inter",
+                        "fontStyle": "Regular",
+                        "fontWeight": 400,
+                        "fontSize": 16,
+                        "lineHeight": {
+                          "unit": "PIXELS",
+                          "value": 22
+                        },
+                        "letterSpacing": {
+                          "unit": "PERCENT",
+                          "value": 0
+                        },
+                        "color": {
+                          "r": 0.06666666666666667,
+                          "g": 0.06666666666666667,
+                          "b": 0.06666666666666667,
+                          "a": 1
+                        },
+                        "decoration": "none",
+                        "textCase": "ORIGINAL",
+                        "hyperlink": null
+                      },
+                      "runs": [
+                        {
+                          "fontFamily": "Inter",
+                          "fontStyle": "Regular",
+                          "fontWeight": 400,
+                          "fontSize": 16,
+                          "lineHeight": {
+                            "unit": "PIXELS",
+                            "value": 22
+                          },
+                          "letterSpacing": {
+                            "unit": "PERCENT",
+                            "value": 0
+                          },
+                          "color": {
+                            "r": 0.06666666666666667,
+                            "g": 0.06666666666666667,
+                            "b": 0.06666666666666667,
+                            "a": 1
+                          },
+                          "decoration": "none",
+                          "textCase": "ORIGINAL",
+                          "hyperlink": null,
+                          "text": "Nested bullet"
+                        }
+                      ]
+                    },
+                    {
+                      "align": "left",
+                      "spaceAfter": 0,
+                      "firstLineIndent": 0,
+                      "list": {
+                        "type": "ordered",
+                        "level": 0
+                      },
+                      "endStyle": {
+                        "fontFamily": "Inter",
+                        "fontStyle": "Regular",
+                        "fontWeight": 400,
+                        "fontSize": 16,
+                        "lineHeight": {
+                          "unit": "PIXELS",
+                          "value": 22
+                        },
+                        "letterSpacing": {
+                          "unit": "PERCENT",
+                          "value": 0
+                        },
+                        "color": {
+                          "r": 0.06666666666666667,
+                          "g": 0.06666666666666667,
+                          "b": 0.06666666666666667,
+                          "a": 1
+                        },
+                        "decoration": "none",
+                        "textCase": "ORIGINAL",
+                        "hyperlink": null
+                      },
+                      "runs": [
+                        {
+                          "fontFamily": "Inter",
+                          "fontStyle": "Regular",
+                          "fontWeight": 400,
+                          "fontSize": 16,
+                          "lineHeight": {
+                            "unit": "PIXELS",
+                            "value": 22
+                          },
+                          "letterSpacing": {
+                            "unit": "PERCENT",
+                            "value": 0
+                          },
+                          "color": {
+                            "r": 0.06666666666666667,
+                            "g": 0.06666666666666667,
+                            "b": 0.06666666666666667,
+                            "a": 1
+                          },
+                          "decoration": "none",
+                          "textCase": "ORIGINAL",
+                          "hyperlink": null,
+                          "text": "Step one"
+                        }
+                      ]
+                    },
+                    {
+                      "align": "left",
+                      "spaceAfter": 0,
+                      "firstLineIndent": 0,
+                      "list": {
+                        "type": "ordered",
+                        "level": 0
+                      },
+                      "endStyle": {
+                        "fontFamily": "Inter",
+                        "fontStyle": "Regular",
+                        "fontWeight": 400,
+                        "fontSize": 16,
+                        "lineHeight": {
+                          "unit": "PIXELS",
+                          "value": 22
+                        },
+                        "letterSpacing": {
+                          "unit": "PERCENT",
+                          "value": 0
+                        },
+                        "color": {
+                          "r": 0.06666666666666667,
+                          "g": 0.06666666666666667,
+                          "b": 0.06666666666666667,
+                          "a": 1
+                        },
+                        "decoration": "none",
+                        "textCase": "ORIGINAL",
+                        "hyperlink": null
+                      },
+                      "runs": [
+                        {
+                          "fontFamily": "Inter",
+                          "fontStyle": "Regular",
+                          "fontWeight": 400,
+                          "fontSize": 16,
+                          "lineHeight": {
+                            "unit": "PIXELS",
+                            "value": 22
+                          },
+                          "letterSpacing": {
+                            "unit": "PERCENT",
+                            "value": 0
+                          },
+                          "color": {
+                            "r": 0.06666666666666667,
+                            "g": 0.06666666666666667,
+                            "b": 0.06666666666666667,
+                            "a": 1
+                          },
+                          "decoration": "none",
+                          "textCase": "ORIGINAL",
+                          "hyperlink": null,
+                          "text": "Step two"
+                        }
+                      ]
+                    },
+                    {
+                      "align": "left",
+                      "spaceAfter": 0,
+                      "firstLineIndent": 0,
+                      "list": null,
+                      "endStyle": {
+                        "fontFamily": "Inter",
+                        "fontStyle": "Regular",
+                        "fontWeight": 400,
+                        "fontSize": 16,
+                        "lineHeight": {
+                          "unit": "PIXELS",
+                          "value": 22
+                        },
+                        "letterSpacing": {
+                          "unit": "PERCENT",
+                          "value": 0
+                        },
+                        "color": {
+                          "r": 0.06666666666666667,
+                          "g": 0.06666666666666667,
+                          "b": 0.06666666666666667,
+                          "a": 1
+                        },
+                        "decoration": "none",
+                        "textCase": "ORIGINAL",
+                        "hyperlink": null
+                      },
+                      "runs": []
+                    },
+                    {
+                      "align": "left",
+                      "spaceAfter": 0,
+                      "firstLineIndent": 0,
+                      "list": null,
+                      "endStyle": {
+                        "fontFamily": "Inter",
+                        "fontStyle": "Regular",
+                        "fontWeight": 400,
+                        "fontSize": 16,
+                        "lineHeight": {
+                          "unit": "PIXELS",
+                          "value": 22
+                        },
+                        "letterSpacing": {
+                          "unit": "PERCENT",
+                          "value": 0
+                        },
+                        "color": {
+                          "r": 0.06666666666666667,
+                          "g": 0.06666666666666667,
+                          "b": 0.06666666666666667,
+                          "a": 1
+                        },
+                        "decoration": "none",
+                        "textCase": "ORIGINAL",
+                        "hyperlink": null
+                      },
+                      "runs": [
+                        {
+                          "fontFamily": "Inter",
+                          "fontStyle": "Regular",
+                          "fontWeight": 400,
+                          "fontSize": 16,
+                          "lineHeight": {
+                            "unit": "PIXELS",
+                            "value": 22
+                          },
+                          "letterSpacing": {
+                            "unit": "PERCENT",
+                            "value": 0
+                          },
+                          "color": {
+                            "r": 0.06666666666666667,
+                            "g": 0.06666666666666667,
+                            "b": 0.06666666666666667,
+                            "a": 1
+                          },
+                          "decoration": "none",
+                          "textCase": "ORIGINAL",
+                          "hyperlink": null,
+                          "text": "Line one line two after a soft break"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "id": "t:27",
+          "name": "Rotated",
+          "transform": {
+            "x": 700,
+            "y": 470,
+            "w": 300,
+            "h": 40,
+            "rotation": 15,
+            "flipH": false,
+            "flipV": false
+          },
+          "opacity": 1,
+          "verticalAlign": "top",
+          "autoResize": "WIDTH_AND_HEIGHT",
+          "paragraphs": [
+            {
+              "align": "center",
+              "spaceAfter": 0,
+              "firstLineIndent": 0,
+              "list": null,
+              "endStyle": {
+                "fontFamily": "Inter",
+                "fontStyle": "Medium",
+                "fontWeight": 500,
+                "fontSize": 28,
+                "lineHeight": {
+                  "unit": "PIXELS",
+                  "value": 40
+                },
+                "letterSpacing": {
+                  "unit": "PERCENT",
+                  "value": 0
+                },
+                "color": {
+                  "r": 0.06666666666666667,
+                  "g": 0.06666666666666667,
+                  "b": 0.06666666666666667,
+                  "a": 1
+                },
+                "decoration": "none",
+                "textCase": "ORIGINAL",
+                "hyperlink": null
+              },
+              "runs": [
+                {
+                  "fontFamily": "Inter",
+                  "fontStyle": "Medium",
+                  "fontWeight": 500,
+                  "fontSize": 28,
+                  "lineHeight": {
+                    "unit": "PIXELS",
+                    "value": 40
+                  },
+                  "letterSpacing": {
+                    "unit": "PERCENT",
+                    "value": 0
+                  },
+                  "color": {
+                    "r": 0.06666666666666667,
+                    "g": 0.06666666666666667,
+                    "b": 0.06666666666666667,
+                    "a": 1
+                  },
+                  "decoration": "none",
+                  "textCase": "ORIGINAL",
+                  "hyperlink": null,
+                  "text": "Rotated 15°"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "id": "t:28",
+          "name": "Links",
+          "transform": {
+            "x": 700,
+            "y": 560,
+            "w": 520,
+            "h": 24,
+            "rotation": 0,
+            "flipH": false,
+            "flipV": false
+          },
+          "opacity": 1,
+          "verticalAlign": "top",
+          "autoResize": "WIDTH_AND_HEIGHT",
+          "paragraphs": [
+            {
+              "align": "left",
+              "spaceAfter": 0,
+              "firstLineIndent": 0,
+              "list": null,
+              "endStyle": {
+                "fontFamily": "Inter",
+                "fontStyle": "Regular",
+                "fontWeight": 400,
+                "fontSize": 18,
+                "lineHeight": {
+                  "unit": "AUTO"
+                },
+                "letterSpacing": {
+                  "unit": "PERCENT",
+                  "value": 0
+                },
+                "color": {
+                  "r": 0.06666666666666667,
+                  "g": 0.06666666666666667,
+                  "b": 0.06666666666666667,
+                  "a": 1
+                },
+                "decoration": "none",
+                "textCase": "ORIGINAL",
+                "hyperlink": {
+                  "type": "node",
+                  "nodeId": "99:99"
+                }
+              },
+              "runs": [
+                {
+                  "fontFamily": "Inter",
+                  "fontStyle": "Regular",
+                  "fontWeight": 400,
+                  "fontSize": 18,
+                  "lineHeight": {
+                    "unit": "AUTO"
+                  },
+                  "letterSpacing": {
+                    "unit": "PERCENT",
+                    "value": 0
+                  },
+                  "color": {
+                    "r": 0.06666666666666667,
+                    "g": 0.06666666666666667,
+                    "b": 0.06666666666666667,
+                    "a": 1
+                  },
+                  "decoration": "none",
+                  "textCase": "ORIGINAL",
+                  "hyperlink": null,
+                  "text": "Visit "
+                },
+                {
+                  "fontFamily": "Inter",
+                  "fontStyle": "Regular",
+                  "fontWeight": 400,
+                  "fontSize": 18,
+                  "lineHeight": {
+                    "unit": "AUTO"
+                  },
+                  "letterSpacing": {
+                    "unit": "PERCENT",
+                    "value": 0
+                  },
+                  "color": {
+                    "r": 0.1450980392156863,
+                    "g": 0.38823529411764707,
+                    "b": 0.9215686274509803,
+                    "a": 1
+                  },
+                  "decoration": "underline",
+                  "textCase": "ORIGINAL",
+                  "hyperlink": {
+                    "type": "url",
+                    "url": "https://www.figma.com/?a=1&b=2"
+                  },
+                  "text": "figma.com"
+                },
+                {
+                  "fontFamily": "Inter",
+                  "fontStyle": "Regular",
+                  "fontWeight": 400,
+                  "fontSize": 18,
+                  "lineHeight": {
+                    "unit": "AUTO"
+                  },
+                  "letterSpacing": {
+                    "unit": "PERCENT",
+                    "value": 0
+                  },
+                  "color": {
+                    "r": 0.06666666666666667,
+                    "g": 0.06666666666666667,
+                    "b": 0.06666666666666667,
+                    "a": 1
+                  },
+                  "decoration": "none",
+                  "textCase": "ORIGINAL",
+                  "hyperlink": null,
+                  "text": ", "
+                },
+                {
+                  "fontFamily": "Inter",
+                  "fontStyle": "Regular",
+                  "fontWeight": 400,
+                  "fontSize": 18,
+                  "lineHeight": {
+                    "unit": "AUTO"
+                  },
+                  "letterSpacing": {
+                    "unit": "PERCENT",
+                    "value": 0
+                  },
+                  "color": {
+                    "r": 0.06666666666666667,
+                    "g": 0.06666666666666667,
+                    "b": 0.06666666666666667,
+                    "a": 1
+                  },
+                  "decoration": "underline",
+                  "textCase": "ORIGINAL",
+                  "hyperlink": {
+                    "type": "node",
+                    "nodeId": "20:1"
+                  },
+                  "text": "this slide"
+                },
+                {
+                  "fontFamily": "Inter",
+                  "fontStyle": "Regular",
+                  "fontWeight": 400,
+                  "fontSize": 18,
+                  "lineHeight": {
+                    "unit": "AUTO"
+                  },
+                  "letterSpacing": {
+                    "unit": "PERCENT",
+                    "value": 0
+                  },
+                  "color": {
+                    "r": 0.06666666666666667,
+                    "g": 0.06666666666666667,
+                    "b": 0.06666666666666667,
+                    "a": 1
+                  },
+                  "decoration": "none",
+                  "textCase": "ORIGINAL",
+                  "hyperlink": null,
+                  "text": " or "
+                },
+                {
+                  "fontFamily": "Inter",
+                  "fontStyle": "Regular",
+                  "fontWeight": 400,
+                  "fontSize": 18,
+                  "lineHeight": {
+                    "unit": "AUTO"
+                  },
+                  "letterSpacing": {
+                    "unit": "PERCENT",
+                    "value": 0
+                  },
+                  "color": {
+                    "r": 0.06666666666666667,
+                    "g": 0.06666666666666667,
+                    "b": 0.06666666666666667,
+                    "a": 1
+                  },
+                  "decoration": "none",
+                  "textCase": "ORIGINAL",
+                  "hyperlink": {
+                    "type": "node",
+                    "nodeId": "99:99"
+                  },
+                  "text": "a layer"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "id": "t:29",
+          "name": "Upper",
+          "transform": {
+            "x": 700,
+            "y": 610,
+            "w": 300,
+            "h": 24,
+            "rotation": 0,
+            "flipH": false,
+            "flipV": false
+          },
+          "opacity": 1,
+          "verticalAlign": "top",
+          "autoResize": "WIDTH_AND_HEIGHT",
+          "paragraphs": [
+            {
+              "align": "left",
+              "spaceAfter": 0,
+              "firstLineIndent": 0,
+              "list": null,
+              "endStyle": {
+                "fontFamily": "Inter",
+                "fontStyle": "Bold",
+                "fontWeight": 400,
+                "fontSize": 20,
+                "lineHeight": {
+                  "unit": "AUTO"
+                },
+                "letterSpacing": {
+                  "unit": "PIXELS",
+                  "value": 1.5
+                },
+                "color": {
+                  "r": 0.06666666666666667,
+                  "g": 0.06666666666666667,
+                  "b": 0.06666666666666667,
+                  "a": 1
+                },
+                "decoration": "none",
+                "textCase": "UPPER",
+                "hyperlink": null
+              },
+              "runs": [
+                {
+                  "fontFamily": "Inter",
+                  "fontStyle": "Bold",
+                  "fontWeight": 400,
+                  "fontSize": 20,
+                  "lineHeight": {
+                    "unit": "AUTO"
+                  },
+                  "letterSpacing": {
+                    "unit": "PIXELS",
+                    "value": 1.5
+                  },
+                  "color": {
+                    "r": 0.06666666666666667,
+                    "g": 0.06666666666666667,
+                    "b": 0.06666666666666667,
+                    "a": 1
+                  },
+                  "decoration": "none",
+                  "textCase": "UPPER",
+                  "hyperlink": null,
+                  "text": "uppercase via cap"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "id": "t:30",
+          "name": "Cases",
+          "transform": {
+            "x": 700,
+            "y": 650,
+            "w": 520,
+            "h": 24,
+            "rotation": 0,
+            "flipH": false,
+            "flipV": false
+          },
+          "opacity": 1,
+          "verticalAlign": "top",
+          "autoResize": "WIDTH_AND_HEIGHT",
+          "paragraphs": [
+            {
+              "align": "left",
+              "spaceAfter": 0,
+              "firstLineIndent": 0,
+              "list": null,
+              "endStyle": {
+                "fontFamily": "Inter",
+                "fontStyle": "Regular",
+                "fontWeight": 400,
+                "fontSize": 18,
+                "lineHeight": {
+                  "unit": "AUTO"
+                },
+                "letterSpacing": {
+                  "unit": "PERCENT",
+                  "value": 0
+                },
+                "color": {
+                  "r": 0.06666666666666667,
+                  "g": 0.06666666666666667,
+                  "b": 0.06666666666666667,
+                  "a": 1
+                },
+                "decoration": "none",
+                "textCase": "SMALL_CAPS",
+                "hyperlink": null
+              },
+              "runs": [
+                {
+                  "fontFamily": "Inter",
+                  "fontStyle": "Regular",
+                  "fontWeight": 400,
+                  "fontSize": 18,
+                  "lineHeight": {
+                    "unit": "AUTO"
+                  },
+                  "letterSpacing": {
+                    "unit": "PERCENT",
+                    "value": 0
+                  },
+                  "color": {
+                    "r": 0.06666666666666667,
+                    "g": 0.06666666666666667,
+                    "b": 0.06666666666666667,
+                    "a": 1
+                  },
+                  "decoration": "none",
+                  "textCase": "TITLE",
+                  "hyperlink": null,
+                  "text": "title case words, "
+                },
+                {
+                  "fontFamily": "Inter",
+                  "fontStyle": "Regular",
+                  "fontWeight": 400,
+                  "fontSize": 18,
+                  "lineHeight": {
+                    "unit": "AUTO"
+                  },
+                  "letterSpacing": {
+                    "unit": "PERCENT",
+                    "value": 0
+                  },
+                  "color": {
+                    "r": 0.06666666666666667,
+                    "g": 0.06666666666666667,
+                    "b": 0.06666666666666667,
+                    "a": 1
+                  },
+                  "decoration": "none",
+                  "textCase": "LOWER",
+                  "hyperlink": null,
+                  "text": "LOWER "
+                },
+                {
+                  "fontFamily": "Inter",
+                  "fontStyle": "Regular",
+                  "fontWeight": 400,
+                  "fontSize": 18,
+                  "lineHeight": {
+                    "unit": "AUTO"
+                  },
+                  "letterSpacing": {
+                    "unit": "PERCENT",
+                    "value": 0
+                  },
+                  "color": {
+                    "r": 0.06666666666666667,
+                    "g": 0.06666666666666667,
+                    "b": 0.06666666666666667,
+                    "a": 1
+                  },
+                  "decoration": "none",
+                  "textCase": "SMALL_CAPS",
+                  "hyperlink": null,
+                  "text": "Small Caps"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "id": "t:31",
+          "name": "Faded",
+          "transform": {
+            "x": 700,
+            "y": 690,
+            "w": 300,
+            "h": 24,
+            "rotation": 0,
+            "flipH": false,
+            "flipV": false
+          },
+          "opacity": 0.5,
+          "verticalAlign": "top",
+          "autoResize": "WIDTH_AND_HEIGHT",
+          "paragraphs": [
+            {
+              "align": "left",
+              "spaceAfter": 0,
+              "firstLineIndent": 0,
+              "list": null,
+              "endStyle": {
+                "fontFamily": "Inter",
+                "fontStyle": "Regular",
+                "fontWeight": 400,
+                "fontSize": 18,
+                "lineHeight": {
+                  "unit": "AUTO"
+                },
+                "letterSpacing": {
+                  "unit": "PERCENT",
+                  "value": 0
+                },
+                "color": {
+                  "r": 0.06666666666666667,
+                  "g": 0.06666666666666667,
+                  "b": 0.06666666666666667,
+                  "a": 0.8
+                },
+                "decoration": "none",
+                "textCase": "ORIGINAL",
+                "hyperlink": null
+              },
+              "runs": [
+                {
+                  "fontFamily": "Inter",
+                  "fontStyle": "Regular",
+                  "fontWeight": 400,
+                  "fontSize": 18,
+                  "lineHeight": {
+                    "unit": "AUTO"
+                  },
+                  "letterSpacing": {
+                    "unit": "PERCENT",
+                    "value": 0
+                  },
+                  "color": {
+                    "r": 0.06666666666666667,
+                    "g": 0.06666666666666667,
+                    "b": 0.06666666666666667,
+                    "a": 0.8
+                  },
+                  "decoration": "none",
+                  "textCase": "ORIGINAL",
+                  "hyperlink": null,
+                  "text": "Half transparent text"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "id": "t:32",
+          "name": "Formula",
+          "transform": {
+            "x": 700,
+            "y": 730,
+            "w": 300,
+            "h": 30,
+            "rotation": 0,
+            "flipH": false,
+            "flipV": false
+          },
+          "opacity": 1,
+          "verticalAlign": "top",
+          "autoResize": "WIDTH_AND_HEIGHT",
+          "paragraphs": [
+            {
+              "align": "left",
+              "spaceAfter": 0,
+              "firstLineIndent": 0,
+              "list": null,
+              "endStyle": {
+                "fontFamily": "Inter",
+                "fontStyle": "Regular",
+                "fontWeight": 400,
+                "fontSize": 22,
+                "lineHeight": {
+                  "unit": "AUTO"
+                },
+                "letterSpacing": {
+                  "unit": "PERCENT",
+                  "value": 0
+                },
+                "color": {
+                  "r": 0.06666666666666667,
+                  "g": 0.06666666666666667,
+                  "b": 0.06666666666666667,
+                  "a": 1
+                },
+                "decoration": "strikethrough",
+                "textCase": "ORIGINAL",
+                "hyperlink": null
+              },
+              "runs": [
+                {
+                  "fontFamily": "Inter",
+                  "fontStyle": "Regular",
+                  "fontWeight": 400,
+                  "fontSize": 22,
+                  "lineHeight": {
+                    "unit": "AUTO"
+                  },
+                  "letterSpacing": {
+                    "unit": "PERCENT",
+                    "value": 0
+                  },
+                  "color": {
+                    "r": 0.06666666666666667,
+                    "g": 0.06666666666666667,
+                    "b": 0.06666666666666667,
+                    "a": 1
+                  },
+                  "decoration": "none",
+                  "textCase": "ORIGINAL",
+                  "hyperlink": null,
+                  "text": "E = mc"
+                },
+                {
+                  "fontFamily": "Inter",
+                  "fontStyle": "Regular",
+                  "fontWeight": 400,
+                  "fontSize": 22,
+                  "lineHeight": {
+                    "unit": "AUTO"
+                  },
+                  "letterSpacing": {
+                    "unit": "PERCENT",
+                    "value": 0
+                  },
+                  "color": {
+                    "r": 0.06666666666666667,
+                    "g": 0.06666666666666667,
+                    "b": 0.06666666666666667,
+                    "a": 1
+                  },
+                  "decoration": "none",
+                  "textCase": "ORIGINAL",
+                  "hyperlink": null,
+                  "baseline": "super",
+                  "text": "2"
+                },
+                {
+                  "fontFamily": "Inter",
+                  "fontStyle": "Regular",
+                  "fontWeight": 400,
+                  "fontSize": 22,
+                  "lineHeight": {
+                    "unit": "AUTO"
+                  },
+                  "letterSpacing": {
+                    "unit": "PERCENT",
+                    "value": 0
+                  },
+                  "color": {
+                    "r": 0.06666666666666667,
+                    "g": 0.06666666666666667,
+                    "b": 0.06666666666666667,
+                    "a": 1
+                  },
+                  "decoration": "none",
+                  "textCase": "ORIGINAL",
+                  "hyperlink": null,
+                  "text": " "
+                },
+                {
+                  "fontFamily": "Inter",
+                  "fontStyle": "Regular",
+                  "fontWeight": 400,
+                  "fontSize": 22,
+                  "lineHeight": {
+                    "unit": "AUTO"
+                  },
+                  "letterSpacing": {
+                    "unit": "PERCENT",
+                    "value": 0
+                  },
+                  "color": {
+                    "r": 0.06666666666666667,
+                    "g": 0.06666666666666667,
+                    "b": 0.06666666666666667,
+                    "a": 1
+                  },
+                  "decoration": "strikethrough",
+                  "textCase": "ORIGINAL",
+                  "hyperlink": null,
+                  "text": "struck"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "id": "t:33",
+          "name": "Justified",
+          "transform": {
+            "x": 700,
+            "y": 780,
+            "w": 460,
+            "h": 120,
+            "rotation": 0,
+            "flipH": false,
+            "flipV": false
+          },
+          "opacity": 1,
+          "verticalAlign": "middle",
+          "autoResize": "NONE",
+          "paragraphs": [
+            {
+              "align": "justify",
+              "spaceAfter": 12,
+              "firstLineIndent": 24,
+              "list": null,
+              "endStyle": {
+                "fontFamily": "Inter",
+                "fontStyle": "Regular",
+                "fontWeight": 400,
+                "fontSize": 14,
+                "lineHeight": {
+                  "unit": "PERCENT",
+                  "value": 140
+                },
+                "letterSpacing": {
+                  "unit": "PERCENT",
+                  "value": 0
+                },
+                "color": {
+                  "r": 0.06666666666666667,
+                  "g": 0.06666666666666667,
+                  "b": 0.06666666666666667,
+                  "a": 1
+                },
+                "decoration": "none",
+                "textCase": "ORIGINAL",
+                "hyperlink": null
+              },
+              "runs": [
+                {
+                  "fontFamily": "Inter",
+                  "fontStyle": "Regular",
+                  "fontWeight": 400,
+                  "fontSize": 14,
+                  "lineHeight": {
+                    "unit": "PERCENT",
+                    "value": 140
+                  },
+                  "letterSpacing": {
+                    "unit": "PERCENT",
+                    "value": 0
+                  },
+                  "color": {
+                    "r": 0.06666666666666667,
+                    "g": 0.06666666666666667,
+                    "b": 0.06666666666666667,
+                    "a": 1
+                  },
+                  "decoration": "none",
+                  "textCase": "ORIGINAL",
+                  "hyperlink": null,
+                  "text": "Justified paragraph with a first line indent and space after. It wraps over a couple of lines inside a fixed box."
+                }
+              ]
+            },
+            {
+              "align": "right",
+              "spaceAfter": 0,
+              "firstLineIndent": 0,
+              "list": null,
+              "endStyle": {
+                "fontFamily": "Inter",
+                "fontStyle": "Italic",
+                "fontWeight": 400,
+                "fontSize": 14,
+                "lineHeight": {
+                  "unit": "AUTO"
+                },
+                "letterSpacing": {
+                  "unit": "PERCENT",
+                  "value": 0
+                },
+                "color": {
+                  "r": 0.06666666666666667,
+                  "g": 0.06666666666666667,
+                  "b": 0.06666666666666667,
+                  "a": 1
+                },
+                "decoration": "none",
+                "textCase": "ORIGINAL",
+                "hyperlink": null
+              },
+              "runs": [
+                {
+                  "fontFamily": "Inter",
+                  "fontStyle": "Italic",
+                  "fontWeight": 400,
+                  "fontSize": 14,
+                  "lineHeight": {
+                    "unit": "AUTO"
+                  },
+                  "letterSpacing": {
+                    "unit": "PERCENT",
+                    "value": 0
+                  },
+                  "color": {
+                    "r": 0.06666666666666667,
+                    "g": 0.06666666666666667,
+                    "b": 0.06666666666666667,
+                    "a": 1
+                  },
+                  "decoration": "none",
+                  "textCase": "ORIGINAL",
+                  "hyperlink": null,
+                  "text": "Second paragraph, right aligned."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "shape",
+          "id": "s:34",
+          "name": "Inset",
+          "transform": {
+            "x": 1240,
+            "y": 440,
+            "w": 320,
+            "h": 160,
+            "rotation": 0,
+            "flipH": false,
+            "flipV": false
+          },
+          "opacity": 1,
+          "geometry": "rect",
+          "cornerRadius": 0,
+          "fill": {
+            "type": "solid",
+            "color": {
+              "r": 0.9529411764705882,
+              "g": 0.9568627450980393,
+              "b": 0.9647058823529412,
+              "a": 1
+            }
+          },
+          "stroke": null,
+          "shadow": {
+            "type": "inner",
+            "color": {
+              "r": 0,
+              "g": 0,
+              "b": 0,
+              "a": 0.25
+            },
+            "offsetX": 0,
+            "offsetY": 4,
+            "blur": 8,
+            "spread": 0
+          }
+        },
+        {
+          "type": "group",
+          "id": "g:37",
+          "name": "Button",
+          "transform": {
+            "x": 1240,
+            "y": 640,
+            "w": 240,
+            "h": 64,
+            "rotation": 0,
+            "flipH": false,
+            "flipV": false
+          },
+          "opacity": 1,
+          "children": [
+            {
+              "type": "shape",
+              "id": "s:35",
+              "name": "Button background",
+              "transform": {
+                "x": 1240,
+                "y": 640,
+                "w": 240,
+                "h": 64,
+                "rotation": 0,
+                "flipH": false,
+                "flipV": false
+              },
+              "opacity": 1,
+              "geometry": "roundRect",
+              "cornerRadius": 32,
+              "fill": {
+                "type": "solid",
+                "color": {
+                  "r": 0.06666666666666667,
+                  "g": 0.09411764705882353,
+                  "b": 0.15294117647058825,
+                  "a": 1
+                }
+              },
+              "stroke": null,
+              "hyperlink": {
+                "type": "url",
+                "url": "https://example.com/buy?x=1&y=2"
+              }
+            },
+            {
+              "type": "text",
+              "id": "t:36",
+              "name": "Button label",
+              "transform": {
+                "x": 1240,
+                "y": 640,
+                "w": 240,
+                "h": 64,
+                "rotation": 0,
+                "flipH": false,
+                "flipV": false
+              },
+              "opacity": 1,
+              "verticalAlign": "middle",
+              "autoResize": "NONE",
+              "paragraphs": [
+                {
+                  "align": "center",
+                  "spaceAfter": 0,
+                  "firstLineIndent": 0,
+                  "list": null,
+                  "endStyle": {
+                    "fontFamily": "Inter",
+                    "fontStyle": "Semi Bold",
+                    "fontWeight": 400,
+                    "fontSize": 20,
+                    "lineHeight": {
+                      "unit": "AUTO"
+                    },
+                    "letterSpacing": {
+                      "unit": "PERCENT",
+                      "value": 0
+                    },
+                    "color": {
+                      "r": 1,
+                      "g": 1,
+                      "b": 1,
+                      "a": 1
+                    },
+                    "decoration": "none",
+                    "textCase": "ORIGINAL",
+                    "hyperlink": null
+                  },
+                  "runs": [
+                    {
+                      "fontFamily": "Inter",
+                      "fontStyle": "Semi Bold",
+                      "fontWeight": 400,
+                      "fontSize": 20,
+                      "lineHeight": {
+                        "unit": "AUTO"
+                      },
+                      "letterSpacing": {
+                        "unit": "PERCENT",
+                        "value": 0
+                      },
+                      "color": {
+                        "r": 1,
+                        "g": 1,
+                        "b": 1,
+                        "a": 1
+                      },
+                      "decoration": "none",
+                      "textCase": "ORIGINAL",
+                      "hyperlink": null,
+                      "text": "Buy now"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "image",
+          "id": "i:38",
+          "name": "Play icon",
+          "transform": {
+            "x": 1600,
+            "y": 560,
+            "w": 96,
+            "h": 96,
+            "rotation": 0,
+            "flipH": false,
+            "flipV": false
+          },
+          "opacity": 1,
+          "assetId": "play-png",
+          "svgAssetId": "play-svg",
+          "crop": null,
+          "geometry": "rect",
+          "cornerRadius": 0,
+          "rasterized": {
+            "reasons": [
+              "vector"
+            ]
+          }
+        },
+        {
+          "type": "shape",
+          "id": "s:39",
+          "name": "Dashed frame",
+          "transform": {
+            "x": 1600,
+            "y": 700,
+            "w": 240,
+            "h": 120,
+            "rotation": 0,
+            "flipH": false,
+            "flipV": false
+          },
+          "opacity": 1,
+          "geometry": "roundRect",
+          "cornerRadius": 200,
+          "fill": null,
+          "stroke": {
+            "color": {
+              "r": 0.4196078431372549,
+              "g": 0.4470588235294118,
+              "b": 0.5019607843137255,
+              "a": 1
+            },
+            "weight": 2,
+            "align": "center",
+            "dash": [
+              6,
+              4,
+              2,
+              4
+            ],
+            "cap": "none",
+            "join": "miter",
+            "startArrow": "none",
+            "endArrow": "none"
+          }
+        }
+      ],
+      "notes": "Speaker notes & <markup> stay text."
+    }
+  ],
+  "assets": {
+    "photo": {
+      "id": "photo",
+      "mime": "image/png",
+      "role": "image-fill",
+      "data": "iVBORw0KGgoAAAANSUhEUgAAAZAAAAEsCAYAAADtt+XCAABvaUlEQVR4AezBW9Iu6nme1fHMmo2hOTQBySBrY6c1luSwqXBKUQTIhjbQqwv//rI0l/TeFCdQJLHHuP/iv/w/8w/Ol5yP83G+5PxwPk6+nI/zk5yP83G+5HycH06+nI/zJeeH83Hy5Xycj5OfnI/zJefj/HDy5Xycj5Mv54eTL+fjfJz85HycLzkf5+N8yZfzcT5Ovpwfzpecj/Nx8uX8cL7kfJyP8yVfzsf5OPlyPs5Pcj7Ox/mS88P5kvNxPs6XnB/Ox8mX83F+kvNxPs6XnI/zw8mX83G+5PxwPk6+nI/zcfKT83G+5HycH06+nI/zcfLl/HDy5Xycj5OfnI/zJefjfJwv+XI+zsfJl/PD+ZLzcT5Ovpwfzpecj/NxvuTL+TgfJ1/Ox/lJzsf5OF9yfjhfcj7Ox/mS88P5OPlyPs5Pcj7Ox/mS83F+OPlyPs6XnB/Ox8mX83E+Tn5yPs6XnI/zw8mX83E+Tr6cH06+nI/zcfKT83G+5Hycj/MlX87H+Tj5cn44X3I+zsfJl/PD+ZLzcT4O3/xJtmzZsmXLK1u2bNmy5ZUtW7Zs2fLKli1btmx5ZcuWLVu2vLJly5YtW17ZsmXLli2vbNmyZcuWV7Zs2bJlyytbtmzZsuWVLVu2bNnyypYt351/kC1btmzZ8sqWLVu2bHlly5YtW7a8smXLli1bXtmyZcuWLa9s2bJly5ZXtmzZsmXLK1u2bNmy5ZUtW7Zs2fLKli1btmx5ZcuWLVu2vLJly5dvZMuWLVu2vLJly5YtW17ZsmXLli2vbNmyZcuWV7Zs2bJlyytbtmzZsuWVLVu2bNnyypYtW7ZseWXLli1btryyZcuWLVte2bJly5Ytr2zZ8pPvzpAtW7ZseWXLli1btryyZcuWLVte2bJly5Ytr2zZsmXLlle2bNmyZcsrW7Zs2bLllS1btmzZ8sqWLVu2bHlly5YtW7a8smXLli1bXtmy5ee+eWTLli1bXtmyZcuWLa9s2bJly5ZXtmzZsmXLK1u2bNmy5ZUtW7Zs2fLKli1btmx5ZcuWLVu2vLJly5YtW17ZsmXLli2vbNmyZcuWV7Zs+Uvf/Jls2bJlyytbtmzZsuWVLVu2bNnyypYtW7ZseWXLli1btryyZcuWLVte2bJly5Ytr2zZsmXLlle2bNmyZcsrW7Zs2bLllS1btmzZ8sqWLct35z/Ili1btryyZcuWLVte2bJly5Ytr2zZsmXLlle2bNmyZcsrW7Zs2bLllS1btmzZ8sqWLVu2bHlly5YtW7a8smXLli1bXtmyZcuWLa9s2bLlm3+ULVu2bHlly5YtW7a8smXLli1bXtmyZcuWLa9s2bJly5ZXtmzZsmXLK1u2bNmy5ZUtW7Zs2fLKli1btmx5ZcuWLVu2vLJly5YtW17ZsmXLl+8uW7Zs2fLKli1btmx5ZcuWLVu2vLJly5YtW17ZsmXLli2vbNmyZcuWV7Zs2bJlyytbtmzZsuWVLVu2bNnyypYtW7ZseWXLli1btryyZcuWn3wzZcuWLa9s2bJly5ZXtmzZsmXLK1u2bNmy5ZUtW7Zs2fLKli1btmx5ZcuWLVu2vLJly5YtW17ZsmXLli2vbNmyZcuWV7Zs2bJlyytbtmz5uW8e2bJlyytbtmzZsuWVLVu2bNnyypYtW7ZseWXLli1btryyZcuWLVte2bJly5Ytr2zZsmXLlle2bNmyZcsrW7Zs2bLllS1btmzZ8sqWLVv+0nfnZ7Jly5ZXtmzZsmXLK1u2bNmy5ZUtW7Zs2fLKli1btmx5ZcuWLVu2vLJly5YtW17ZsmXLli2vbNmyZcuWV7Zs2bJlyytbtmzZsuWVLVu2LN/8SbZs2fLKli1btmx5ZcuWLVu2vLJly5YtW17ZsmXLli2vbNmyZcuWV7Zs2bJlyytbtmzZsuWVLVu2bNnyypYtW7ZseWXLli1btryyZcuWLd+df5AtW7a8smXLli1bXtmyZcuWLa9s2bJly5ZXtmzZsmXLK1u2bNmy5ZUtW7Zs2fLKli1btmx5ZcuWLVu2vLJly5YtW17ZsmXLli2vbNmyZcuXb2TLli2vbNmyZcuWV7Zs2bJlyytbtmzZsuWVLVu2bNnyypYtW7ZseWXLli1btryyZcuWLVte2bJly5Ytr2zZsmXLlle2bNmyZcsrW7Zs2fKTb6Zs2fLKli1btmx5ZcuWLVu2vLJly5YtW17ZsmXLli2vbNmyZcuWV7Zs2bJlyytbtmzZsuWVLVu2bNnyypYtW7ZseWXLli1btryyZcuWLT/33fkL2bLllS1btmzZ8sqWLVu2bHlly5YtW7a8smXLli1bXtmyZcuWLa9s2bJly5ZXtmzZsmXLK1u2bNmy5ZUtW7Zs2fLKli1btmx5ZcuWLVv+0jd/Jlu2vLJly5YtW17ZsmXLli2vbNmyZcuWV7Zs2bJlyytbtmzZsuWVLVu2bNnyypYtW7ZseWXLli1btryyZcuWLVte2bJly5Ytr2zZsmXL8t35D7JlyytbtmzZsuWVLVu2bNnyypYtW7ZseWXLli1btryyZcuWLVte2bJly5Ytr2zZsmXLlle2bNmyZcsrW7Zs2bLllS1btmzZ8sqWLVu2bPnmH2XLlle2bNmyZcsrW7Zs2bLllS1btmzZ8sqWLVu2bHlly5YtW7a8smXLli1bXtmyZcuWLa9s2bJly5ZXtmzZsmXLK1u2bNmy5ZUtW7Zs2fLlG9my5ZUtW7Zs2fLKli1btmx5ZcuWLVu2vLJly5YtW17ZsmXLli2vbNmyZcuWV7Zs2bJlyytbtmzZsuWVLVu2bNnyypYtW7ZseWXLli1btvzkuzNkyytbtmzZsuWVLVu2bNnyypYtW7ZseWXLli1btryyZcuWLVte2bJly5Ytr2zZsmXLlle2bNmyZcsrW7Zs2bLllS1btmzZ8sqWLVu2bPm5bx7Z8sqWLVu2bHlly5YtW7a8smXLli1bXtmyZcuWLa9s2bJly5ZXtmzZsmXLK1u2bNmy5ZUtW7Zs2fLKli1btmx5ZcuWLVu2vLJly5YtW/7Sd+dnsuWVLVu2bNnyypYtW7ZseWXLli1btryyZcuWLVte2bJly5Ytr2zZsmXLlle2bNmyZcsrW7Zs2bLllS1btmzZ8sqWLVu2bHlly5YtW7a88s2fZMsrW7Zs2bLllS1btmzZ8sqWLVu2bHlly5YtW7a8smXLli1bXtmyZcuWLa9s2bJly5ZXtmzZsmXLK1u2bNmy5ZUtW7Zs2fLKli1btmx55cs3/yhbXtmyZcuWLa9s2bJly5ZXtmzZsmXLK1u2bNmy5ZUtW7Zs2fLKli1btmx5ZcuWLVu2vLJly5YtW17ZsmXLli2vbNmyZcuWV7Zs2bJlyys/+e6y5ZUtW7Zs2fLKli1btmx5ZcuWLVu2vLJly5YtW17ZsmXLli2vbNmyZcuWV7Zs2bJlyytbtmzZsuWVLVu2bNnyypYtW7ZseWXLli1btrzyc99MeWXLli1btryyZcuWLVte2bJly5Ytr2zZsmXLlle2bNmyZcsrW7Zs2bLllS1btmzZ8sqWLVu2bHlly5YtW7a8smXLli1bXtmyZcuWLa/8pe/OX8grW7Zs2bLllS1btmzZ8sqWLVu2bHlly5YtW7a8smXLli1bXtmyZcuWLa9s2bJly5ZXtmzZsmXLK1u2bNmy5ZUtW7Zs2fLKli1btmx5Zfnmz+SVLVu2bNnyypYtW7ZseWXLli1btryyZcuWLVte2bJly5Ytr2zZsmXLlle2bNmyZcsrW7Zs2bLllS1btmzZ8sqWLVu2bHlly5YtW7a8suWbP8krW7Zs2bLllS1btmzZ8sqWLVu2bHlly5YtW7a8smXLli1bXtmyZcuWLa9s2bJly5ZXtmzZsmXLK1u2bNmy5ZUtW7Zs2fLKli1btmx5ZcuX784/yCtbtmzZsuWVLVu2bNnyypYtW7ZseWXLli1btryyZcuWLVte2bJly5Ytr2zZsmXLlle2bNmyZcsrW7Zs2bLllS1btmzZ8sqWLVu2bHlly0++kVe2bNmyZcsrW7Zs2bLllS1btmzZ8sqWLVu2bHlly5YtW7a8smXLli1bXtmyZcuWLa9s2bJly5ZXtmzZsmXLK1u2bNmy5ZUtW7Zs2fLKlp/77vyFbNmyZcuWV7Zs2bJlyytbtmzZsuWVLVu2bNnyypYtW7ZseWXLli1btryyZcuWLVte2bJly5Ytr2zZsmXLlle2bNmyZcsrW7Zs2bLllS1/6Zs/ky1btmzZ8sqWLVu2bHlly5YtW7a8smXLli1bXtmyZcuWLa9s2bJly5ZXtmzZsmXLK1u2bNmy5ZUtW7Zs2fLKli1btmx5ZcuWLVu2vLJl+eZPsmXLli1bXtmyZcuWLa9s2bJly5ZXtmzZsmXLK1u2bNmy5ZUtW7Zs2fLKli1btmx5ZcuWLVu2vLJly5YtW17ZsmXLli2vbNmyZcuWV7Zs+e78g2zZsmXLlle2bNmyZcsrW7Zs2bLllS1btmzZ8sqWLVu2bHlly5YtW7a8smXLli1bXtmyZcuWLa9s2bJly5ZXtmzZsmXLK1u2bNmy5ZUtW758I1u2bNmy5ZUtW7Zs2fLKli1btmx5ZcuWLVu2vLJly5YtW17ZsmXLli2vbNmyZcuWV7Zs2bJlyytbtmzZsuWVLVu2bNnyypYtW7ZseWXLlp98d4Zs2bJlyytbtmzZsuWVLVu2bNnyypYtW7ZseWXLli1btryyZcuWLVte2bJly5Ytr2zZsmXLlle2bNmy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sBiGYRgWwzAMw2IYhmFYDMMwDIthGIbFMAzDsBiGYRgWwzAMw2IYhmFYDMMwDIthGIbFMAzDsBiGYRgWwzAMw2IYhmFYDMMwDIthGIbFMAzDsBiGYRgWwzAMw2IYhmFYDMMwDIthGIbFMAzDsBiGYRgWwzAMw2IYhmFYDMMwDIthGIbFMAzDsBiGYRgWwzAMw2IYhmFYDMMwDIthGIblw8/kllduueWWW2555ZZbvvx7yC2v3HLLLbfc8sott9xyyy2v3HLLLbfc8sott9xyyy2v3HLLLbfc8sott9xyyy2v3HLLLbfc8sp3Pvyb3PLKLbfccsstr9xyyz/+3re+/L/7q9/7A+SWV2655ZZbbnnllltuueWWV2655ZZbbnnllltuueWWV2655ZZbbnnllltuueWWV2655ZZbbnnlex8WwzAMw2IYhmExDMMwLIZhGIbFMAzDsBiGYRgWwzAMw2IYhmExDMMwLIZhGIblH3/vW1/+//3V7/2EYRiGxTAMw2IYhmFYDMMwDIthGIZhMQzDMCyGYRiGxTAMw2IYhmFYDMMwDIthGIZhMQzDMCyGYRiGxTAMw2IYhmFYDMMwDIthGIZhMQzDMCyGYRiGxTAMw2IYhmFYDMMwDIthGIZhMQzDMCyGYRiGxTAMw2IYhmFYDMMwDIthGIZhMQzDMCyGYRiGxTAMw2IYhmFYDMMwDIthGIZhMQzDMCyGYRiGxTAMw2IYhmFYDMMwDIthGIZhMQzDMCyGYRiGxTAMw2IYxodTXrnllltuueWVW275p9/91pd/P3/5uz/xv+WVW2655ZZbXrnllltuueWVW2655ZZbXrnllltuueWVW2655ZZbXrnllltuueWVW2655ZZbXvmxb8yP5JVbbrnlllteueWWL78g81N55ZZbbrnlllduueWWW2555ZZbbrnlllduueWWW2555ZZbbrnlllduueWWW2555ZZbbrnlllcuH35OXrnllltuueWVW275zj99+60v//7+8tufeOWWW2655ZZXbrnllltueeWWW2655ZZXbrnllltueeWWW2655ZZXbrnllltueeWWW2655ZZXbvnwM3nllltuueWWV2655csvW2655ZZbbnnllltuueWWV2655ZZbbnnllltuueWWV2655ZZbbnnllltuueWWV2655ZZbbnnllu98GBbDMAyLYRiGYTEMwzAshmEYhsUwDMOwGIZhGBbDMAyLYRiGYTEMwzAshvHP337ryy/OX3z7hwyLYRiGYTEMwzAshmEYhsUwDMOwGIZhGBbDMAyLYRiGYTEMwzAshmEYhsUwDMOwGIZhGBbDMAyLYRiGYTEMwzAshmEYhsUwDMOwGIZhGBbDMAyLYRiGYTEMwzAshmEYhsUwDMOwGIZhGBbDMAyLYRiGYTEMwzAshmEYhsUwDMOwGIZhGBbDMAyLYRiGYTEMwzAshmEYhsUwDMOwGIZhGBbDMAyLYRiGYTEMwzAshmEYhsUwDMOwGIZhGBbDMAyLYRiGYTGMD/LKLbfccsstr9xyy5dfttxyyy233PLKLbfccsstr9xyyy233PLKLbfccsstr9xyyy233PLKLbfccsstr9xyyy233PLKLT/0YRiGYTEMwzAshmEYhsUwDMOwGIZhGBbDMAzDYhiGYTEMwzAshmEYhsUwjH/+nW99+cX7i9/5I4ZhGBbDMAzDYhiGYVgMwzAMi2EYhmExDMOwGIZhGBbDMAzDYhiGYVgMwzAMi2EYhmExDMOwGIZhGBbDMAzDYhiGYVgMwzAMi2EYhmExDMOwGIZhGBbDMAzDYhiGYVgMwzAMi2EYhmExDMOwGIZhGBbDMAzDYhiGYVgMwzAMi2EYhmExDMOwGIZhGBbDMAzDYhiGYVgMwzAMi2EYhmExDMOwGIZhGBbDMAzDYhiGYVgMwzAMi2EYhmExDMOwGIZhGBbDMIwPPye33HLLLbe8csstXz6L3HLLLbe8csstt9xyyyu33HLLLbe8csstt9xyyyu33HLLLbe8csstt9xyyyu33HLLLbe8csvlw8/klltuueWWV2655cf+5be/9eWX589/+4/8T7nllltueeWWW2655ZZXbrnllltueeWWW2655ZZXbrnllltueeWWW2655ZZXbrnllltueeWWW74xP5VbbrnlllteueWWL5/Ecsstt9zyyi233HLLLa/ccsstt9zyyi233HLLLa/ccsstt9zyyi233HLLLa/ccsstt9zyyi23fOeD3HLLLbfc8sott1z+5be+9eWX789/64+9csstt7xyyy233HLLK7fccsstt7xyyy233HLLK7fccsstt7xyyy233HLLK7fccsstt7xyyy3f+8Yccsstt9zyyi233PLlV2h+ILfccssrt9xyyy23vHLLLbfccssrt9xyyy23vHLLLbfccssrt9xyyy23vHLLLbfccssrt9zyQx8eueWWW2555ZZbbvnyWeSWW2555ZZbbrnlllduueWWW2555ZZbbrnlllduueWWW2555ZZbbrnlllduueWWW2555ZZbfuzDz8ktt9xyyyu33HLLl88it9xyyyu33HLLLbe8csstt9xyyyu33HLLLbe8csstt9xyyyu33HLLLbe8csstt9xyyyu33HL5MAyLYRiGYTEMwzAshmEYhsUwDMOwGIZhWAzDMAyLYRiGYTEMwzAshvGvv/m7vvzq/Nlv/jHDMAzDYhiGYVgMwzAMi2EYhsUwDMOwGIZhGBbDMAzDYhiGYVgMwzAMi2EYhsUwDMOwGIZhGBbDMAzDYhiGYVgMwzAMi2EYhsUwDMOwGIZhGBbDMAzDYhiGYVgMwzAMi2EYhsUwDMOwGIZhGBbDMAzDYhiGYVgMwzAMi2EYhsUwDMOwGIZhGBbDMAzDYhiGYVgMwzAMi2EYhsUwDMOwGIZhGBbDMAzDYhiGYVgMwzAMi2EYhsUwDMOwGIZhGBbDMAzD8uHf5JZbbrnllVtuueXLZ5dbbnnllltuueWWV2655ZZbbnnllltuueWWV2655ZZbbnnllltuueWWV2655ZZbbnnllltu+c43lltuueWWV2655ZYvn9D8QG655ZVbbrnlllteueWWW2655ZVbbrnlllteueWWW2655ZVbbrnlllteueWWW2655ZVbbrnlex9OueWWW1655ZZbvnx2ueWWV2655ZZbbnnllltuueWWV2655ZZbbnnllltuueWWV2655ZZbbnnllltuueWWV2655ZYf+vDILbfc8sott9xy+dff+F1ffvX+7Df+E3LLLa/ccsstt9zyyi233HLLLa/ccsstt9zyyi233HLLLa/ccsstt9zyyi233HLLLa/ccsstP/aN+YHccsstr9xyyy23fPlE5pBbXrnllltuueWVW2655ZZbXrnllltuueWVW2655ZZbXrnllltuueWVW2655ZZbXrnlllsuH34mt9xyyyu33HLLLV8+u9zyyi233HLLLa/ccsstt9zyyi233HLLLa/ccsstt9zyyi233HLLLa/ccsstt9zyyi233HLLN+ancsstt7xyyy233PLlE5ofyC2v3HLLLbfc8sott9xyyy2v3HLLLbfc8sott9xyyy2v3HLLLbfc8sott9xyyy2v3HLLLbd854Pccsstr9xyyy23fPnscssrt9xyyy23vHLLLbfccssrt9xyyy23vHLLLbfccssrt9xyyy23vHLLLbfccssrt9xyyy3f+3DKLbe8csstt9zy5bPLLa/ccsstt9zyyi233HLLLa/ccsstt9zyyi233HLLLa/ccsstt9zyyi233HLLLa/ccsstt/zQN+ZHcsstr9xyyy23fPnkllteueWWW2655ZVbbrnlllteueWWW2655ZVbbrnlllteueWWW2655ZVbbrnlllteueWWW275sQ8/J7fc8sott9xyyy1fPru8csstt9xyyyu33HLLLbe8csstt9xyyyu33HLLLbe8csstt9xyyyu33HLLLbe8csstt9xy+cb8L7nlllduueWWW2758snMj+SVW2655ZZbXrnllltuueWVW2655ZZbXrnllltuueWVW2655ZZbXrnllltuueWVW2655ZZbPvyb3HLLK7fccsstt3z57PLKLbfccsstr9xyyy233PLKLbfccsstr9xyyy233PLKLbfccsstr9xyyy233PLKLbfccsst3/kgt9zyyi233HLLLV8+u7xyyy233HLLK7fccsstt7xyyy233HLLK7fccsstt7xyyy233HLLK7fccsstt7xyyy233HLL974xh9zyyi233HLLLV8+sfmpvHLLLbfccssrt9xyyy23vHLLLbfccssrt9xyyy23vHLLLbfccssrt9xyyy23vHLLLbfccssPfXjkllduueWWW2555ctnklduueWWW2555ZZbbrnlllduueWWW2555ZZbbrnlllduueWWW2555ZZbbrnlllduueWWW275sW/MD+SWV2655ZZbbnnlyyczP5JbbrnlllteueWWW2655ZVbbrnlllteueWWW2655ZVbbrnlllteueWWW2655ZVbbrnlllte+fAzueWVW2655ZZbXvny2eWWW2655ZZXbrnllltueeWWW2655ZZXbrnllltueeWWW2655ZZXbrnllltueeWWW2655ZZXvvPh3+SWV2655ZZbbnnly2eXW2655ZZbXrnllltuueWVW2655ZZbXrnllltuueWVW2655ZZbXrnllltuueWVW2655ZZbXvneN5ZbXrnllltuueWVL5/Y/FRuueWWW2555ZZbbrnlllduueWWW2555ZZbbrnlllduueWWW2555ZZbbrnlllduueWWW2555Yc+nPLKLbfccsstr3z57HLLLbfccssrt9xyyy23vHLLLbfccssrt9xyyy23vHLLLbfccssrt9xyyy23vHLLLbfccssrP/aN+ZG8csstt9xyyyu3fPlE5pBbbrnlllduueWWW2555ZZbbrnlllduueWWW2555ZZbbrnlllduueWWW2555ZZbbrnlllcuH35OXrnllltuueWVW77za3/z33z51fvDv/lTr9xyyy23vHLLLbfccssrt9xyyy23vHLLLbfccssrt9xyyy23vHLLLbfccssrt9xyyy23vHLLh5/JK7fccsstt7xyy5fPLrfccsstr9xyyy233PLKLbfccsstr9xyyy233PLKLbfccsstr9xyyy233PLKLbfccsstr9zynW/MT+WVW2655ZZbXrnlyyc0P5BbbrnlllduueWWW2555ZZbbrnlllduueWWW2555ZZbbrnlllduueWWW2555ZZbbrnllldu+d4HeeWWW2655ZZXbvny2eWWW2655ZVbbrnlllteueWWW2655ZVbbrnlllteueWWW2655ZVbbrnlllteueWWW2655ZVbfujDMAzDYhiGYVgMwzAMi2EYhmExDMMwLIZhGIbFMAzDYhiGYVgMwzAMy6/97X/15VfnD//2TxkWwzAMw2IYhmFYDMMwDIthGIZhMQzDsBiGYRgWwzAMw2IYhmFYDMMwDIthGIZhMQzDsBiGYRgWwzAMw2IYhmFYDMMwDIthGIZhMQzDsBiGYRgWwzAMw2IYhmFYDMMwDIthGIZhMQzDsBiGYRgWwzAMw2IYhmFYDMMwDIthGIZhMQzDsBiGYRgWwzAMw2IYhmFYDMMwDIthGIZhMQzDsBiGYRgWwzAMw2IYhmFYDMMwDIthGIZhMQzDsBiGYRgWwzCMDz8nt9xyyy23vHLLLV8+i9xyyy23vHLLLbfccssrt9xyyy23vHLLLbfccssrt9xyyy23vHLLLbfccssrt9xyyy23vHLL5cPP5JZbbrnlllduueXLZ5FbbrnlllduueWWW2555ZZbbrnlllduueWWW2555ZZbbrnlllduueWWW2555ZZbbrnlllduueUb81O55ZZbbrnllVtu+fKJzCG33HLLK7fccsstt7xyyy233HLLK7fccsstt7xyyy233HLLK7fccsstt7xyyy233HLLK7fc8p0Pcsstt9xyyyu33HL59b/7a19++X7yd3/ilVtuueWVW2655ZZbXrnllltuueWVW2655ZZbXrnllltuueWVW2655ZZbXrnllltuueWVW2753jfmkFtuueWWV2655ZYvvyLzI7nlllteueWWW2655ZVbbrnlllteueWWW2655ZVbbrnlllteueWWW2655ZVbbrnlllteueWWH/rwyC233HLLK7fccsv3fv3v/9qXX56f/P2f+Hm55ZZbXrnllltuueWVW2655ZZbXrnllltuueWVW2655ZZbXrnllltuueWVW2655ZZbXrnllh/78HNyyy233PLKLbfc8uWzyC233PLKLbfccsstr9xyyy233PLKLbfccsstr9xyyy233PLKLbfccsstr9xyyy233PLKLbdcPgzDYhiGYVgMwzAMi2EYhmExDMMwLIZhGBbDMAzDYhiGYVgMwzAMi2EYhvEf/uG/+PKL9wf/8CcMw2IYhmFYDMMwDIthGIZhMQzDsBiGYRgWwzAMw2L+B3twtsRrfpYFdD27+mL6iCGAKEcyhQQsB5D5RMuJqcOkjLFKJNkdTAIWg/dgWSppktDpBDpoqYWMekOP/eP1z7fT32shkIR0Z69FEARBShAEQZASBEEQpARBEKQEQRAEKUEQBEFKEARBkBIEQRCkBEEQBClBEAQpQRAEQUoQBEGQEgRBEKQEQRAEKUEQBEFKEARBShAEQZASBEEQpARBEAQpQRAEQUoQBEGQEgRBkBIEQRCkBEEQBClBEARBShAEQZASBEEQpARBEKQEQRAEKUEQBEFKEARBkBIEQRCkBEEQBClBEAQpQRAEQUoQBEGQEgRBEKSe+BO1q13tald3tatd7WpXz32+1a52tau72tWudrWrXd3Vrna1q13t6q52tatd7WpXd7WrXe1qV7u6q13tale72tVd7WpXu9rVru5qV7va1fFEShAEQZASBEEQpARBEAQpQRAEQUoQBEFKEARBkBIEQRCkBEEQBClBEARBShC+6ZV/57nPnR9+5WWClCAIgiAlCIIgSAmCIAhSgiAIUoIgCIKUIAiCICUIgiBICYIgCFKCIAiClCAIgpQgCIIgJQiCIEgJgiAIUoIgCIKUIAiCICUIgiAlCIIgSAmCIAhSgiAIgpQgCIIgJQiCIEgJgiBICYIgCFKCIAiClCAIgiAlCIIgSAmCIAhSgiAIUoIgCIKUIAiCICUIgiBICYIgCFKCIAiClCAIgpQgCIIgJQiCIEgJgiAIUoIgCIKUIAiCICUIgiAlCIIgSAmCIAhSgiAIgpQgPLGqXe1qV3e1q13talfPfb7Vrna1q7va1a52tatd3dWudrWrXe3qrna1q13tald3tatd7WpXu7qrXe1qV7va1V3tale72tWu7mpXu9rVs564qV3tald3tatd7WpXm3e98mue++x7zysvo3a1q13d1a52tatd7equdrWrXe1qV3e1q13tale7uqtd7WpXu9rVXe1qV7va1a7uale72tWudnVXu9rVrt7sBfGM2tWudnVXu9rVrna1q+c+R1K72tWu7mpXu9rVrnZ1V7va1a52tau72tWudrWrXd3Vrna1q13t6q52tatd7WpXd7WrXe1qV7u6q13talebJ/5U7WpXu7qrXe1qV7va1cO7fuPXPPfZ857feGpXu9rVXe1qV7va1a7uale72tWudnVXu9rVrna1q7va1a52tatd3dWudrWrXe3qrna1q13tald3tatd7WpXTwQpQRAEQUoQBEGQEgRBEKQEQRCkBEEQBClBEARBShAEQZASBEEQpARBEAQpQRCEd3/0Vz33l/fSR58SBEEQpARBEAQpQRAEQUoQBEFKEARBkBIEQRCkBEEQBClBEARBShAEQZASBEGQEgRBEKQEQRAEKUEQBEFKEARBkBIEQRCkBEEQpARBEAQpQRAEQUoQBEGQEgRBEKQEQRAEKUEQBClBEARBShAEQZASBEEQpARBEAQpQRAEQUoQBEFKEARBkBIEQRCkBEEQBClBEARBShAEQZASBEGQEgRBEKQEQRAEKUEQBEFKEARBkBIEQRCkBEEQpARBEAQpQRAEQUoQBEGQEgRBEKSEJ9SudrWru9rVrna1q13d1fHuj/6q5/7iXvroU7va1a7uale72tWudnVXu9rVrna1q7va1a52tatd3dWudrWrXe3qrna1q13tald3tatd7WpXu7qrXe1qV7t6eGJVu9rVXe1qV7va1a7u6rnPpdrVru5qV7va1a52dVe72tWudrWru9rVrna1q13d1a52tatd7equdrWrXe1qV3e1q13tale7uqtd7WpXu3rWE0EQBClBEARBShAEQZASBEGQ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jDgqLt/625/2dve7X/fXPEQdMWJEHXGJo2LEiKOOGDGijhjxUDFiRB1xiaNixIij4hIj6ogRDxUjRhwVIx4qRow4KsiLL3+kVIwYUUeMeKgYMeKouMSIOmLEiHqIEUfFiIeKESOOihGXqCNGjKiHGHFUjBhx1BEjjooRl6j/+I0/7gvFP/rky+ISR8WIEUfFJUbUESMeKkaMqCNGPFSMGHFUXGJEHTFiRD3EiKNivPxTL3mr+PAHPuiIESPqiEscFSNGHHXEiBF1xIijjhgxoo7gW3/r077Y/O7Xf5UYMeKoGHGJOmLEiHqIEUfFiBFHHTHiqBhxiTpixIg64hJHxYgRRx0xYkQdMeKoI0aMqCN4gbqrXe1qV7va1V3tale72tWu7mpXx7d98sNiBP/hG3/c58s//OQHxFGxqV3tald3tatd7WpXu3p7qV3tald3tavj237r075YffVv/Z7jf379V7nUrna1q13d1a52tatd7equdvWsvPiBX683xIg6YsSIeogRR8WIS9QRI0bUEZc4KkaMqIcYcVSMGHHUESNG1BGXOCpGjDgqLnFUjBhx1BEjRtQRI/j33/DPfbb8g099wEOMqCNGPFSMGHFUjLhEHTFiRD3EiDpixIh6iBFHxYhL1BEjRtQRlzgqRvDyT77krebDv/BBMaKOGPFQMWLEUXGJEXXEiKPiEiPq73/q0577TL/3DV8pRow46ogRI+qISxwVI0YcFZc4KkaMOOqIESPqiBEPFSNGHBWXGFFHjDgqLjGijhjBCz5D7WpXu9rVru5qV7va1a52dVe72tXmOz/1QUeMGFFHXOKoGDGijniz2tWudrWru9rVrna1q129vdSudrWru9p8+6de99zuqz71+47f/4avdKld7WpXd7WrXe1qV7u6q11tnvhTtatd7WpXu7qrXe1qV7va1V3tale72tWu7mpXu9rVrnZ1V7va1a52tas3e/knX/JW9OM/+S9Qu9rVru5q8+2fet1zf7av/NTvG7WrXe3qrna1q13tald3tatdvSDeULva1a52tau72tWudrWrXd3Vrna1q13t6q52tatd7WpXd7WrXe1qV7u6q7e0WNSudnVXb/Ydn3zdc38+X/Gp33f84Td+hc9Uu9rVXe1qV7va1a7uale7Op5Qu9rVrna1q7va1a52tatd3dWudrWrXe3qrna1q13tald3tatd7WpXu7qrt5/a1a7u6s2+45Ove+4v7h2f/AOX2tWu7mpXu9rVrnZ1V7va1cMTQRAEQUoQBEGQEgRBEKQEQRAEKUEQBEFKEARBShAEQZASBEEQpARBEAQpQRAEQUoQBEGQEgRBkBIEQRCkBEEQBClBEARBShAEQZASBEEQpARBEKQEQRAEKUEQBEFKEARBkBIEQRCkBEEQBClBEAQpQRAEQUoQBEGQEgRBEKQEQRAEKUEQBEFKEARBSvjAT7zHW9mP/cRPEAQpQRAEQUoQBEGQEgRBkBIEQfjOT77uub+8d3zyD0gJgiAIUoIgCIKUIAiClCAIgiAlCIIgSAmCIAhSgiAIgpQgCIIgJQiCICUIgiBICYIgCFKCILzgpna1q13t6q52tatd7WpXd7WrXe1qV7u6q13tale72tVd7WpXu9rVru7q7ad2tau7etZ3vfa65z673vHaHzr+6J3vcKld3dWudrWrXe3qrna1qzd74jPUrna1q13d1a52tatd7equdrWrXe1qV3e1q13tale7uqtd7WpXu9rVXb391K52dVfP+q7XXvfc586Xv/aHRu3qrna1q13tald3tatdbV4Q/1ftale72tVd7WpXu9rVru5qV7va1a52dVe72tWudrWru9rVrna1q13d1dtSLGpXd/Ws7/7E65773Puy1/7QH3/Tl7uru9rVrna1q13d1a52tasn/kTtale72tVd7WpXu9rVru5qV7va1a52dVe72tWudrWru9rVrna1q13d1ReP2tVdPeu7P/G65z5/vuwTf+Qz1V3tale72tWu7mpXu9rV8YLUrna1q13d1a52tatd7equdrWrXe1qV3e1q13tale7uqtd7WpXu9rVXe3qbSGeUbu6q2d9z6uve+7z70s/8Uf+17u+HHVXu9rVrna1q7va1a529fDEqna1q13d1a52tatd7equdrWrXe1qV3e1q13tale7uqtd7WpXu9rVXe3q7ad2dVfP+p5XX/fcX50vffWP3NWudrWrXe3qrna1q10964mb2tWudnVXu9rVrna1q7va1a52tatd3dWudrWrXe3qrna1q13tald3tau3n9rVXT3re1993XN/9b7k1T92qV3tale72tVd7WpXu3qzF8Qzale72tVd7WpXu9rVru5qV7va1a52dVe72tWudrWru9rVrna1q13d1a7e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tmzZsmXLK1u2bNmy5ZUtW/7I//lv+/j4xu/76//QP/7v/H5btmzZ8sqWLV/7QrZs2bJlyytbtmzZsuWVLVu2bNnyypYtW7ZseWXLli1btryyZcuWLVte2bLl4+Mnly1btryyZcs3vnKGbNmyZcsrW7Zs2bLllS1btmzZ8sqWLVu2bHlly5YtW7a8smXLli1bXtmy5ePjn+p8R7Zs2fLKli3f9sUjW7Zs2fLKli1btmx5ZcuWLVu2vLJly5YtW17ZsmXLli2vbNmyZcuWV7Zs+cYv/Ud/28fHd/3e/+gf+ZFs2bLllS1bvuuLH5MtW7ZseWXLli1btryyZcuWLVte2bJly5Ytr2zZsmXLlle2bNmyZcsrW7Z8fPzksmXLlle2bFm+cn5btmzZsuWVLVu2bNnyypYtW7ZseWXLli1btryyZcuWLVte2bJly5Ytr2zZ8vHxE7ts2bLllS1btnzxm7Jly5Ytr2zZsmXLlle2bNmyZcsrW7Zs2bLllS1btmzZ8sqWLVu2bHlly5aPj59etmx5ZcuWLV/7ymXLli1bXtmyZcuWLa9s2bJly5ZXtmzZsmXLK1u2bNmy5ZUtW7Zs2fLKli3LL/0f/7aPj3+a3/t/+g3/5L/7+/xItmx5ZcuWLd/4YsqWLVte2bJly5Ytr2zZsmXLlle2bNmyZcsrW7Zs2bLllS1btmzZ8sqWLVs+Pn5y2bLllS1btnzbF49s2bLllS1btmzZ8sqWLVu2bHlly5YtW7a8smXLli1bXtmyZcuWLa9s2bLl4+Mnly1bXtmyZct3feV8S7Zs2fLKli1btmx5ZcuWLVu2vLJly5YtW17ZsmXLli2vbNmyZcuWV7Zs2fLx8RO7bNnyypYtW5Yvfihbtmx5ZcuWLVu2vLJly5YtW17ZsmXLli2vbNmyZcuWV7Zs2bJlyytbtmz5+PjpZcsrW7Zs2fKV8wPZsmXLK1u2bNmy5ZUtW7Zs2fLKli1btmx5ZcuWLVu2vLJly5YtW17ZsmXLt/3R//3/zcfHP8t//v/wj/2T/97v9SPZ8sqWLVu2fO0L2bJlyytbtmzZsuWVLVu2bNnyypYtW7ZseWXLli1btryyZcuWLVte2bJly8fHTy9bXtmyZcuWb3wxZcuWV7Zs2bJlyytbtmzZsuWVLVu2bNnyypYtW7ZseWXLli1btryyZcuWj4+fXra8smXLli3f9pXzHdmy5ZUtW7Zs2fLKli1btmx5ZcuWLVu2vLJly5YtW17ZsmXLli2vbNmyZcvHx0/ssuWVLVu2bPmuL35Mtmx5ZcuWLVu2vLJly5YtW17ZsmXLli2vbNmyZcuWV7Zs2bJlyytbtmzZ8vHx08srW7Zs2bJ85fy2bNnyypYtW7ZseWXLli1btryyZcuWLVte2bJly5Ytr2zZsmXLlle2bNmy5ePjn9v5jryyZcuWLVu++E3ZsuWVLVu2bNnyypYtW7ZseWXLli1btryyZcuWLVte2bJly5Ytr2zZsmXLx8dPL69s2bJly5avfSFbtryyZcuWLVte2bJly5Ytr2zZsmXLlle2bNmyZcsrW7Zs2bLllS1btmz5+Pjp5ZUtW7Zs2fKNr5whW17ZsmXLli2vbNmyZcuWV7Zs2bJlyytbtmzZsuWVLVu2bNnyypYtW7Z8fPxUzg/klS1btmzZ8m1fPLLllS1btmzZ8sqWLVu2bHlly5YtW7a8smXLli1bXtmyZcuWLa9s2bJly5aPj59cXtmyZcuWLd/1lfMt2fLKli1btmx5ZcuWLVu2vLJly5YtW17ZsmXLli2vbNmyZcuWV7Zs2bJly8fHP5fzHdmyZcuWLa988UPZ8sqWLVu2bHlly5YtW7a8smXLli1bXtmyZcuWLa9s2bJly5ZXtmzZsmXLx8dPJ1u2bNmy5ZWvffGbsuWVLVu2bNnyypYtW7ZseWXLli1btryyZcuWLVte2bJly5Ytr2zZsmXLlo+Pn062bNmyZcsr3/jKZcsrW7Zs2bLllS1btmzZ8sqWLVu2bHlly5YtW7a8smXLli1bXtmyZcuWLR8f/6mdH8iWLVu2bHnl276Y8sqWLVu2bHlly5YtW7a8smXLli1bXtmyZcuWLa9s2bJly5ZXtmzZsmXLKx8fP7ls2bJly5ZXvusr5zvyypYtW7ZseWXLli1btryyZcuWLVte2bJly5Ytr2zZsmXLlle2bNmyZcsrHx//XM6QLVu2bHll+eLH5JUtW7Zs2fLKli1btmx5ZcuWLVu2vLJly5YtW17ZsmXLli2vbNmyZcuWVz4+fnrZsmXLlle2fPFDeWXLli1btryyZcuWLVte2bJly5Ytr2zZsmXLlle2bNmyZcsrW7Zs2bLllY+Pn162bNmy5ZUtX/vK+YG8smXLli1bXtmyZcuWLa9s2bJly5ZXtmzZsmXLK1u2bNmy5ZUtW7Zs2fLKx8d/aue3ZcuWLVte2fKNL+SVLVu2bNnyypYtW7ZseWXLli1btryyZcuWLVte2bJly5Ytr2zZsmXLllc+Pn562bJly5ZXtnzbV853ZMuWLVu2vLJly5YtW17ZsmXLli2vbNmyZcuWV7Zs2bJlyytbtmzZsuWVLR8fP7HLli1btryy5bu++DHZsmXLli2vbNmyZcuWV7Zs2bJlyytbtmzZsuWVLVu2bNnyypYtW7ZseWXLx8dPL1u2bHlly/LFD2XLli1btryyZcuWLVte2bJly5Ytr2zZsmXLlle2bNmyZcsrW7Zs2bLllS0fHz+9bNmy5ZUtW75yfiBbtmzZsuWVLVu2bNnyypYtW7ZseWXLli1btryyZcuWLVte2bJly5Ytr2z5tv/dL/7X/NG/9n/38fH/zT/5xf+cH5ctW7a8smXL176QLVu2bNnyypYtW7ZseWXLli1btryyZcuWLVte2bJly5Ytr2zZsmXLlle2fHz89LJly5ZXtmz5xlfOkC1btmx5ZcuWLVu2vLJly5YtW17ZsmXLli2vbNmyZcuWV7Zs2bJlyytbtnx8/DOd35YtW7a8smXLt33xyJYtW7a8smXLli1bXtmyZcuWLa9s2bJly5ZXtmzZsmXLK1u2bNmy5ZUtWz4+fnLZsmXLK1u2fNcXPyZbtmzZ8sqWLVu2bHlly5YtW7a8smXLli1bXtmyZcuWLa9s2bJly5ZXtmz5+PjJZcuWLa9s2bJ85fy2bNmyZcsrW7Zs2bLllS1btmzZ8sqWLVu2bHlly5YtW7a8smXLli1bXtmy5dv+6i/9V/3SX/1/+PhY/vEv/R5nyZYtr2zZsuWL35QtW7ZseWXLli1btryyZcuWLVte2bJly5Ytr2zZsmXLlle2bNmyZcsrW7Z8fPz0smXLK1u2bPnaVy5btmzZ8sqWLVu2bHlly5YtW7a8smXLli1bXtmyZcuWLa9s2bJly5ZXtmzZ8vHxT3W+I1u2vLJly5ZvfDFly5Ytr2zZsmXLlle2bNmyZcsrW7Zs2bLllS1btmzZ8sqWLVu2bHlly5YtHx8/uWzZ8sqWLVu+7YtHtmzZ8sqWLVu2bHlly5YtW7a8smXLli1bXtmyZcuWLa9s2bJly5ZXtmzZ8o2/+kf/Kz4+vusf/9Hf40eyZcsrW7Zs+a6v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F29N33vqirtkSZMmTZo0WdKkybUTSJMmTZo0WdKkSZMmTZY0adKkSZMlTZo0adJkSZMmTZo0WdKkSZMmTZY0adKkyX1ffuqDXLz1vPLUFXfJkiZNmjRpsqRJkxtnDoI0adKkyZImTZo0abKkSZMmTZosadKkSZMmS5o0adKkyZImTZo0abKkSZMmTZp8+ekP8Bt/8B0u3hpeefqKu2RJkyZNmjRZ0qTJbSeGNGnSpMmSJk2aNGmypEmTJk2aLGnSpEmTJkuaNGnSpMmSJk2aNGmypEmTJk2a3Pjy0x/g4sfvlaevuEuWNGnSpEmTJU2a3HfiDmnSpEmTJU2aNGnSZEmTJk2aNFnSpEmTJk2WNGnSpEmTJU2aNGnSZEmTJk2aNLnvK0+/n4sfn+8+fcVdsqRJkyZNmixp0qScOXiTNGnSpMmSJk2aNGmypEmTJk2aLGnSpEmTJkuaNGnSpMmSJk2aNGmypEmTJk2aLLn2lWfez6///ne5+NH67jNX3CVLmjRp0qTJkiZNmpx4gzRp0qTJkiZNmjRpsqRJkyZNmixp0qRJkyZLmjRp0qTJkiZNmjRpsqRJkyZNmiy57avPvJ+LH53vPHPFXbKkSZMmTZosadKkybUzhzRp0qTJkiZNmjRpsqRJkyZNmixp0qRJkyZLmjRp0qTJkiZNmjRpsqRJkyZNmiwpX332ffzaZ1/h4ofrO89ecZcsadKkSZMmS5o0aXLjRJImTZosadKkSZMmS5o0adKkyZImTZo0abKkSZMmTZosadKkSZMmS5o0adKkyZIm17727Pu4+OH59rNX3CVLmjRp0qTJkiZNmtx2ZkiTJk2WNGnSpEmTJU2aNGnSZEmTJk2aNFnSpEmTJk2WNGnSpEmTJU2aNGnSZEmT27727Ps4gI999hUu/n+8/OwVB/fJkiZNmjRpsqRJkyb3nTm4RZo0abKkSZMmTZosadKkSZMmS5o0adKkyZImTZo0abKkSZMmTZosadKkSZMmS5o0+ZPn3svHfu97XPzfvPzcFUuWNGnSpEmTJU2aNCknHpImTZosadKkSZMmS5o0adKkyZImTZo0abKkSZMmTZosadKkSZMmS5o0adKkyZImTW58/bn3cvG/9/JzVyxZ0qRJkyZNljRp0qTJmYPXSZMmTZY0adKkSZMlTZo0adJkSZMmTZo0WdKkSZMmTZY0adKkSZMlTZo0adJkSZMm9339+fcC8qufeZWL/5l/ff6Kawf3yZImTZo0abKkSZMmTa6dQJo0abKkSZMmTZosadKkSZMmS5o0adKkyZImTZo0abKkSZMmTZosadKkSZMmS5o0aXLtG8+/h4v/3reev6LJkiZNmjRpsqRJkyZNbpxJ0qTJkiZNmjRpsqRJkyZNmixp0qRJkyZLmjRp0qTJkiZNmjRpsqRJkyZNmixp0qTJbd94/j0cwK985lUu7vqX5x/jQJosadKkSZMmS5o0adLktjMH90iTJkuaNGnSpMmSJk2aNGmypEmTJk2aLGnSpEmTJkuaNGnSpMmSJk2aNGmypEmTJk3+9IV3cwC//OnX+En3zy88xsE1abKkSZMmTZosadKkSZP7ztwhTZosadKkSZMmS5o0adKkyZImTZo0abKkSZMmTZosadKkSZMmS5o0adKkyZImTZo0ue3PXng3B/DRT7/GT5pvvvAYBzekyZImTZo0abKkSZMmTcqZgzdJkyZLmjRp0qTJkiZNmjRpsqRJkyZNmixp0qRJkyZLmjRp0qTJkiZNmjRpsqRJkyZNmvz5i+/i2kc/9X0edd988THukiZLmjRp0qTJkiZNmjRpcuYN0qTJkiZNmjRpsqRJkyZNmixp0qRJkyZLmjRp0qTJkiZNmjRpsqRJkyZNmixp0qRJkya3/cWL7wLkAH7pUz/gUfFPLz7GwQMHt0mTJU2aNGnSZEmTJk2aNLl2BmnSZEmTJk2aNFnSpEmTJk2WNGnSpEmTJU2aNGnSZEmTJk2aNFnSpEmTJk2WNGnSpEmTJTf+8sWf5QB+8VM/4O3qH198BwfSpMmSJk2aNGmypEmTJk2a3DhzEKTJkiZNmjRpsqRJkyZNmixp0qRJkyZLmjRp0qTJkiZNmjRpsqRJkyZNmixp0qRJkyZLyl+99E4OHviFT/4bb3X/8NI7uHZwTZo0WdKkSZMmTZY0adKkSZPbzgxpsqRJkyZNmixp0qRJkyZLmjRp0qTJkiZNmjRpsqRJkyZNmixp0qRJkyZLmjRp0qTJkia3/fVL7+QBOYCf/+S/8+P29y+9g4MHDm6TJk2WNGnSpEmTJU2aNGnS5L4zB7dIkyVNmjRp0mRJkyZNmjRZ0qRJkyZNljRp0qRJkyVNmjRp0mRJkyZNmjRZ0qRJkyZNljRpcuNvPvEzHDxwINd+7nf/gx+Wv/vET3Ht4IEDadKkyZImTZo0abKkSZMmTZosOfOQNFnSpEmTJk2WNGnSpEmTJU2aNGnSZEmTJk2aNFnSpEmTJk2WNGnSpEmTJU2aNGnSZEmTJk1u/O0nfpobB3Lt4IGDBw7k2sF/OZBrBw8cPHAgNw5ukyZNmixp0qRJkyZLmjRp0qTJkmsn3iBNljRp0qRJkyVNmjRp0mRJkyZNmjRZ0qRJkyZNljRp0qRJkyVNmjRp0mRJkyZNmjRZ0qRJkyZNljRp0qRJkyVNmjRp0mRJkyZNmjRZcuPMIU2WNGnSpEmTJU2aNGnSZEmTJk2aNFnSpEmTJk2WNGnSpEmTJU2aNGnSZEmTJk2aNFnSpEmTJk2WNGnSpEmTJU2aNGnSZEmTJk2aNFly24kkS5o0adKkyZImTZo0abKkSZMmTZosadKkSZMmS5o0adKkyZImTZo0abKkSZMmTZosadKkSZMmS5o0adKkyZImTZo0abKkSZMmTZosue/MwT2ypEmTJk2aLGnSpEmTJkuaNGnSpMmSJk2aNGmypEmTJk2aLGnSpEmTJkuaNGnSpMmSJk2aNGmypEmTJk2aLGnSpEmTJkuaNGnSpMmScuIOWdKkSZMmTZY0adKkSZMlTZo0adJkSZMmTZo0WdKkSZMmTZY0adKkSZMlTZo0adJkSZMmTZo0WdKkSZMmTZY0adKkSZMlTZo0adJkSZMTD8mSJk2aNGmypEmTJk2aLGnSpEmTJkuaNGnSpMmSJk2aNGmypEmTJk2aLGnSpEmTJkuaNGnSpMmSJk2aNGmypEmTJk2aLGnSpEmTJkuaXDtz8DpZ0qRJkyZNljRp0qRJkyVNmjRp0mRJkyZNmjRZ0qRJkyZNljRp0qRJkyVNmjRp0mRJkyZNmjRZ0qRJkyZNljRp0qRJkyVNmjRp0mRJkxsnkCVNmjRp0mRJkyZNmjRZ0qRJkyZNljRp0qRJkyVNmjRp0mRJkyZNmjRZ0qRJkyZNljRp0qRJkyVNmjRp0mRJkyZNmjRZ0qRJkyZNljS57czBPdKkSZMmTZY0adKkSZMlTZo0adJkSZMmTZo0WdKkSZMmTZY0adKkSZMlTZo0adJkSZMmTZo0WdKkSZMmTZY0adKkSZMlTZo0adJkSZP7TtwhTZo0adJkSZMmTZo0WdKkSZMmTZY0adKkSZMlTZo0adJkSZMmTZo0WdKkSZMmTZY0adKkSZMlTZo0adJkSZMmTZo0WdKkSZMmTZY0KScekiZNmjRpsqRJkyZNmixp0qRJkyZLmjRp0qTJkiZNmjRpsqRJkyZNmixp0qRJkyZLmjRp0qTJkiZNmjRpsqRJkyZNmixp0qRJkyZLmjQ5c/A6adKkSZMmS5o0adKkyZImTZo0abKkSZMmTZosadKkSZMmS5o0adKkyZImTZo0abKkSZMmTZosadKkSZMmS5o0adKkyZImTZo0abKkSZNrJ5AmTZo0abKkSZMmTZosadKkSZMmS5o0adKkyZImTZo0abKkSZMmTZosadKkSZMmS5o0adKkyZImTZo0abKkSZMmTZosadKkSZMmS5o0uXHmIEiTJk2aLGnSpEmTJkuaNGnSpMmSJk2aNGmypEmTJk2aLGnSpEmTJkuaNGnSpMmSJk2aNGmypEmTJk2aLGnSpEmTJkuaNGnSpMmSJk1uOzGkSZMmTZY0adKkSZMlTZo0adJkSZMmTZo0WdKkSZMmTZY0adKkSZMlTZo0adJkSZMmTZo0WdKkSZMmTZY0adKkSZMlTZo0adJkSZMm9524Q5o0adJkSZMmTZo0WdKkSZMmTZY0adKkSZMlTZo0adJkSZMmTZo0WdKkSZMmTZY0adKkSZMlTZo0adJkSZMmTZo0WdKkSZMmTZY0aVLOHLxJmjRp0mRJkyZNmjRZ0qRJkyZNljRp0qRJkyVNmjRp0mRJkyZNmjRZ0qRJkyZNljRp0qRJkyVNmjRp0mRJkyZNmjRZ0qRJkyZNljRp0uTEG6RJkyZNljRp0qRJkyVNmjRp0mRJkyZNmjRZ0qRJkyZNljRp0qRJkyVNmjRp0mRJkyZNmjRZ0qRJkyZNljRp0qRJkyVNmjRp0mRJkyZNrp05pEmTJk2WNGnSpEmTJU2aNGnSZEmTJk2aNFnSpEmTJk2WNGnSpEmTJU2aNGnSZEmTJk2aNFnSpEmTJk2WNGnSpEmTJU2aNGnSZEmTJk1unEjSpEmTJU2aNGnSZEmTJk2aNFnSpEmTJk2WNGnSpEmTJU2aNGnSZEmTJk2aNFnSpEmTJk2WNGnSpEmTJU2aNGnSZEmTJk2aNFnSpEmT204MadKkyZImTZo0abKkSZMmTZosadKkSZMmS5o0adKkyZImTZo0abKkSZMmTZosadKkSZMmS5o0adKkyZImTZo0abKkSZMmTZosadKkyX1nDm6RJk2aLGnSpEmTJkuaNGnSpMmSJk2aNGmypEmTJk2aLGnSpEmTJkuaNGnSpMmSJk2aNGmypEmTJk2aLGnSpEmTJkuaNGnSpMmSJk2alBMPSZMmTZY0adKkSZMlTZo0adJkSZMmTZo0WdKkSZMmTZY0adKkSZMlTZo0adJkSZMmTZo0WdKkSZMmTZY0adKkSZMlTZo0adJkSZMmTZqcOXidNGnSZEmTJk2aNFnSpEmTJk2WNGnSpEmTJU2aNGnSZEmTJk2aNFnSpEmTJk2WNGnSpEmTJU2aNGnSZEmTJk2aNFnSpEmTJk2WNGnSpMm1E0iTJk2WNGnSpEmTJU2aNGnSZEmTJk2aNFnSpEmTJk2WNGnSpEmTJU2aNGnSZEmTJk2aNFnSpEmTJk2WNGnSpEmTJU2aNGnSZEmTJk2a3DiRpEmTJU2aNGnSZEmTJk2aNFnSpEmTJk2WNGnSpEmTJU2aNGnSZEmTJk2aNFnSpEmTJk2WNGnSpEmTJU2aNGnSZEmTJk2aNFnSpEmTJredObhHmjRZ0qRJkyZNljRp0qRJkyVNmjRp0mRJkyZNmjRZ0qRJkyZNljRp0qRJkyVNmjRp0mRJkyZNmjRZ0qRJkyZNljRp0qRJkyVNmjRpct+JO6RJkyVNmjRp0mRJkyZNmjRZ0qRJkyZNljRp0qRJkyVNmjRp0mRJkyZNmjRZ0qRJkyZNljRp0qRJkyVNmjRp0mRJkyZNmjRZ0qRJkyblzMGbpEmTJU2aNGnSZEmTJk2aNFnSpEmTJk2WNGnSpEmTJU2aNGnSZEmTJk2aNFnSpEmTJk2WNGnSpEmTJU2aNGnSZEmTJk2aNFnSpEmTJk3+E0e7p7xN1rMSAAAAAElFTkSuQmCC",
+      "width": 400,
+      "height": 300,
+      "hasAlpha": false
+    },
+    "play-png": {
+      "id": "play-png",
+      "mime": "image/png",
+      "role": "vector-fallback",
+      "data": "iVBORw0KGgoAAAANSUhEUgAAAGAAAABgCAYAAADimHc4AAACZklEQVR4Ae3BPW4cMQyA0Y/EXkAdq2nVzP1PokatKnY6ggKkCALH9v54A81o+B4hhBAuS3izZHmwsO5VeCPhh5LlwYV1r8IPCC9Klgfhj+5VeIHwgmR5EP7RvQpPEp6QLA/CXd2r8CDhQcnyIDysexUeIDwgWR6Ep3Wvwh3CHcnyILysexW+oYSphG8ky4PwY92r8AXhC8nyILxN9yp8QglTCZ9Ilgfh7bpX4QMlTKWEqZQwlfBBsjwI/033KvxFCVMpYSolTKWEqZQwlRKmUsJUSphKCVMpB+WtcAXKgXkreCusTDkBb4VVKSfhreCtsBrlZLwVvBVWoZyUt8IKlBPzVvBWODNlAd4K3gpnpCzEW+FslMV4K3grnIWyKG8Fb4WjUxbnrXBkygV4K3grHJFyId4K3gpHolyQt8JRKBflreCtMJtycd4K3gqzKOE3b4UZlDCVEn6zbWeGGxdn285MNy7Ktp0jUC7Itp2juHEhtu0czY0LsG3nqJTF2bZzZDcWZdvOGdxYjG07Z6IsxLads7mxANt2zurGidm2c3bKSdm2s4IbJ2PbzkpunIRtOytSTsC2nVXdODDbdlYnfJAsD8J/070Kf1HCVEqYSglTKWEqJUylhKmUMJUSplLCVMInkuVBeLvuVfhACVMpYSolTCV8IVkehLfpXoVPKGEq4RvJ8iD8WPcqfEG4I1kehJd1r8I3lDCV8IBkeRCe1r0KdwgPSpYH4WHdq/AA4QnJ8iDc1b0KDxJekCwPwj+6V+FJwouS5UH4o3sVXiD8ULI8uLDuVfgB4c2S5cHCulchhBBCeINfYzWzFwxn+6YAAAAASUVORK5CYII=",
+      "width": 96,
+      "height": 96,
+      "hasAlpha": true
+    },
+    "play-svg": {
+      "id": "play-svg",
+      "mime": "image/svg+xml",
+      "role": "svg",
+      "data": "PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0OCIgaGVpZ2h0PSI0OCIgdmlld0JveD0iMCAwIDQ4IDQ4Ij48cmVjdCB4PSIyIiB5PSIyIiB3aWR0aD0iNDQiIGhlaWdodD0iNDQiIHJ4PSIxMCIgZmlsbD0iIzExMTgyNyIvPjxwYXRoIGQ9Ik0xOSAxNSBMMzQgMjQgTDE5IDMzIFoiIGZpbGw9IiNGOUZBRkIiLz48L3N2Zz4=",
+      "width": 48,
+      "height": 48
+    }
+  },
+  "report": []
+}

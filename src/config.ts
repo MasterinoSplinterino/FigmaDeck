@@ -128,9 +128,10 @@ export const CONFIG = {
     /** Store byte-identical media files once (a logo or background repeated on every slide). */
     dedupeMedia: true,
     /**
-     * Inside / outside strokes are emulated by shrinking / growing the geometry. When the stroke is
-     * semi-transparent or the fill is a gradient, emit the fill and the stroke as two shapes so the fill
-     * keeps its original geometry.
+     * Inside / outside strokes are emulated by shrinking / growing the geometry (the fill then extends
+     * under half of the stroke). When the stroke is semi-transparent (color alpha × layer opacity < 1)
+     * that would show, so the fill and the stroke are emitted as two shapes, the fill keeping its
+     * original geometry. Gradient fills are re-framed onto the adjusted geometry either way.
      */
     splitAlignedStroke: true,
   },
@@ -142,6 +143,63 @@ export const CONFIG = {
     minHeight: 480,
     thumbnailWidth: 320,
     previewWidth: 1400,
+    /** Debounce (ms) before changed settings are persisted with `save-settings`. */
+    settingsSaveDebounceMs: 400,
+    /** Min interval (ms) between `resize` messages while the resize grip is dragged. */
+    resizeThrottleMs: 50,
+    /** Delay (ms) before the big preview is requested after the selection changes (holding ↑/↓). */
+    previewRequestDelayMs: 120,
+    /** The preview spinner gives up after this long (ms) when main sends no preview (export failed). */
+    previewTimeoutMs: 20000,
+    /** Thumbnails are re-requested when the plugin window regains focus, at most this often (ms). */
+    thumbnailRefreshMinIntervalMs: 5000,
+    /** Toast lifetime (ms); errors stay longer. */
+    toastMs: 3500,
+    errorToastMs: 7000,
+    /** Pointer travel (px) before a press on a thumbnail turns into a drag. */
+    dragThresholdPx: 4,
+    /** Auto-scroll of the slide list while dragging: edge zone height (px) and max speed (px per frame). */
+    dragAutoScrollZonePx: 36,
+    dragAutoScrollMaxPx: 14,
+    /** Size of the floating drag preview relative to the thumbnail. */
+    dragGhostScale: 0.7,
+    /** Sidebar thumbnails (px): fixed width, height from the frame aspect, clamped (very tall frames shrink in width). */
+    listThumbWidthPx: 108,
+    listThumbMaxHeightPx: 150,
+    listThumbMinHeightPx: 24,
+    /**
+     * Share of the overall progress bar per export phase (UI progress overlay). Phases that a format
+     * does not run are skipped and the remaining weights are renormalized.
+     */
+    progressWeights: { extract: 0.55, pdf: 0.8, images: 0.1, build: 0.2, package: 0.15, merge: 0.2 },
+    /** JPEG quality slider range in the settings (0..1). */
+    jpegQualityMin: 0.5,
+    jpegQualityMax: 1,
+    jpegQualityStep: 0.05,
+    /** Width slack slider range (% of the text box width). */
+    widthSlackMax: 10,
+    widthSlackStep: 0.5,
+    /** Custom slide size inputs: step (inches). Limits come from CONFIG.slide. */
+    slideSizeStepIn: 0.001,
+    /**
+     * UI-side image optimization: an image-fill is only downscaled when the target side is at most this
+     * share of the current side (skips re-encoding for marginal gains).
+     */
+    imageDownscaleMaxRatio: 0.9,
+    /** JPEG quality used when a JPEG original is downscaled while "JPEG compression" is off (0..1). */
+    imageReencodeJpegQuality: 0.92,
+    /** Transparency scan reads the bitmap in bands of about this many pixels (bounds peak memory). */
+    imageAlphaScanBandPx: 4000000,
+    /** After "Cancel", the overlay waits this long (ms) for main to confirm before closing anyway. */
+    cancelTimeoutMs: 10000,
+    /** Object URLs of downloads are revoked after this delay (ms), once the browser has picked the file up. */
+    downloadRevokeMs: 60000,
+    /** Max length (characters) of a downloaded file's base name. */
+    maxFileNameLength: 120,
+    /** Base name used when the deck title is empty. */
+    fallbackFileName: 'FigmaDeck',
+    /** Max layers listed per slide in the report dialog before "and N more" (the text export lists all). */
+    reportMaxItemsPerSlide: 50,
   },
 
   export: {
@@ -180,6 +238,50 @@ export const CONFIG = {
     /** Name + plugin-data marker of temporary composite nodes (so leftovers can be found and removed). */
     tempNodeName: '[FigmaDeck temp]',
     tempPluginDataKey: 'figmadeck.temp',
+    /** Walk progress is reported every N visited layers… */
+    progressEveryNodes: 100,
+    /** …and the main thread forwards at most one progress message per this many ms. */
+    progressIntervalMs: 100,
+  },
+
+  /**
+   * Stage 4 (EXPERIMENTAL, not wired into the UI): font embedding prototype, src/fonts/embed.ts.
+   * Research and sources: docs/font-embedding.md.
+   */
+  fontEmbed: {
+    /**
+     * EOT header `Charset` byte (0 = ANSI). LibreOffice's PPTX exporter and pptxboss (whose header test
+     * mirrors PowerPoint-written parts) both write 0; the EOT spec's "no preference" value would be 1.
+     */
+    eotCharset: 0,
+    /**
+     * Embed fonts whose OS/2 fsType is "Preview & Print" (0x0004). PowerPoint opens such a file
+     * read-only on machines where the font is not installed; the prototype warns either way.
+     */
+    allowPreviewPrint: true,
+    /**
+     * Embed OpenType fonts with CFF (PostScript) outlines ("OTTO"). PowerPoint's support for them is
+     * unverified (and Office's own PDF export never embeds CFF fonts); TrueType outlines are the safe choice.
+     */
+    allowCff: true,
+    /** Refuse font files larger than this (bytes). The EOT is written uncompressed: the PPTX grows by ~this much. */
+    maxFontBytes: 50 * 1024 * 1024,
+    /** DEFLATE level used when the package is re-zipped after embedding (0..9). */
+    zipCompressionLevel: 6,
+  },
+
+  /** scripts/visual-regression.ts defaults (LibreOffice render vs PNGs exported from Figma). */
+  visual: {
+    /** pixelmatch per-pixel color threshold (0..1, smaller = more sensitive). */
+    threshold: 0.1,
+    /** A slide fails when more than this share (0..1) of its pixels differ. */
+    maxDiffRatio: 0.02,
+    /** Rendered vs expected height difference (px) that is tolerated by comparing the common area only. */
+    heightTolerancePx: 2,
+    /** Timeout (ms) of one LibreOffice conversion. */
+    sofficeTimeoutMs: 180000,
+    /** Default output directory (relative to the repository root). */
+    outDir: 'tests/visual/out',
   },
 
   /** Metadata written to docProps (never the PptxGenJS defaults). */

@@ -43,6 +43,10 @@ export interface EmuTransform extends EmuRect {
   flipV: boolean;
 }
 
+function finite(v: number): number {
+  return Number.isFinite(v) ? v : 0;
+}
+
 export class SlideContext {
   readonly manifest: SlideManifest;
   private readonly linkKeys = new Map<string, number>();
@@ -67,24 +71,24 @@ export class SlideContext {
     return this.placement.scale;
   }
 
-  /** Length in px → pt (slide scale applied). */
-  pt(px: number): number {
-    return px * this.placement.scale;
-  }
-
   /** Slide px rectangle → EMU rectangle (scale + centering offset), integers. */
   rectEmu(r: Rect): EmuRect {
     const s = this.placement.scale;
-    const x = ptToEmu(this.placement.offsetX + r.x * s);
-    const y = ptToEmu(this.placement.offsetY + r.y * s);
+    // Non-finite IR values would end up as "NaN" in the XML; treat them as 0.
+    const rx = finite(r.x);
+    const ry = finite(r.y);
+    const rw = Math.max(0, finite(r.w));
+    const rh = Math.max(0, finite(r.h));
+    const x = ptToEmu(this.placement.offsetX + rx * s);
+    const y = ptToEmu(this.placement.offsetY + ry * s);
     // Round the far edges, not the sizes, so adjacent objects stay adjacent.
-    const x2 = ptToEmu(this.placement.offsetX + (r.x + r.w) * s);
-    const y2 = ptToEmu(this.placement.offsetY + (r.y + r.h) * s);
+    const x2 = ptToEmu(this.placement.offsetX + (rx + rw) * s);
+    const y2 = ptToEmu(this.placement.offsetY + (ry + rh) * s);
     return { x, y, w: Math.max(0, x2 - x), h: Math.max(0, y2 - y) };
   }
 
   transformEmu(t: Transform): EmuTransform {
-    return { ...this.rectEmu(t), rotation: t.rotation, flipH: t.flipH, flipV: t.flipV };
+    return { ...this.rectEmu(t), rotation: finite(t.rotation), flipH: !!t.flipH, flipV: !!t.flipV };
   }
 
   /** Next unique object name `fd:<n>`. */

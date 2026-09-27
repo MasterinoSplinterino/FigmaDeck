@@ -234,7 +234,7 @@ function pointsBounds(pts: readonly Point[]): Rect {
     x1 = Math.max(x1, p.x);
     y1 = Math.max(y1, p.y);
   }
-  return { x: x0, y: y0, w: x1 - x0, h: y1 - y0 };
+  return { x: clean(x0), y: clean(y0), w: clean(x1 - x0), h: clean(y1 - y0) };
 }
 
 /** Rotation is a multiple of 90° (an axis-aligned box stays axis-aligned). */

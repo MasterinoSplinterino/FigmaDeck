@@ -34,9 +34,9 @@ export function emitText(ctx: SlideContext, el: TextElement): string[] {
     margin: 0,
     valign: VALIGN[el.verticalAlign] ?? 'top',
   };
-  if (t.rotation) opts.rotate = t.rotation;
-  if (t.flipH) opts.flipH = true;
-  if (t.flipV) opts.flipV = true;
+  if (box.rotation) opts.rotate = box.rotation;
+  if (box.flipH) opts.flipH = true;
+  if (box.flipV) opts.flipV = true;
   // Placeholder run: the whole <p:txBody> is replaced in post/.
   ctx.pptSlide.addText([{ text: ' ' }], opts);
 
@@ -53,7 +53,7 @@ export function emitText(ctx: SlideContext, el: TextElement): string[] {
     kind: 'text',
     name,
     layerName: el.name,
-    bounds: rotatedBounds(box, t.rotation),
+    bounds: rotatedBounds(box, box.rotation),
     link,
     effectLst: el.shadow ? shadowEffectXml(el.shadow, ctx.scale, el.opacity) : null,
     body,

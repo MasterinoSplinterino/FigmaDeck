@@ -11,7 +11,7 @@
  * U+FFFE / U+FFFF, and unpaired UTF-16 surrogates.
  */
 const INVALID_XML_CHARS =
-  /[\u0000-\u0008\u000B\u000C\u000E-\u001F￾￿]|[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/g;
+  /[\u0000-\u0008\u000B\u000C\u000E-\u001F\uFFFE\uFFFF]|[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/g;
 
 /** Remove characters that cannot appear in an XML 1.0 document at all (not even escaped). */
 export function stripInvalidXmlChars(text: string): string {

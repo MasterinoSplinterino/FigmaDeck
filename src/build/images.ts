@@ -14,6 +14,7 @@ import { rotatedBounds, type SlideContext } from './context';
 import { shadowEffectXml } from './effects';
 import { roundRectGeometryXml } from './shapes';
 import { emuArg } from './units';
+import { stripInvalidXmlChars } from './xml';
 
 /** A crop is usable when every side is finite and the visible part is non-empty. Negative = padding. */
 export function validCrop(crop: Crop | null | undefined): crop is Crop {
@@ -57,7 +58,8 @@ export function emitImage(ctx: SlideContext, el: ImageElement): string[] {
   const opts: PptxGenJS.ImageProps = {
     data: dataUrl(ctx, asset.id || el.assetId, asset.mime, asset.data),
     objectName: name,
-    altText: el.name,
+    // pptxgenjs escapes the alt text but does not drop XML-invalid characters.
+    altText: stripInvalidXmlChars(el.name),
     x: emuArg(box.x),
     y: emuArg(box.y),
     w: emuArg(Math.max(1, box.w)),
@@ -79,9 +81,9 @@ export function emitImage(ctx: SlideContext, el: ImageElement): string[] {
   }
   if (el.opacity < 1) opts.transparency = alphaToTransparency(Math.max(0, el.opacity));
   if (el.geometry === 'ellipse') opts.rounding = true;
-  if (t.rotation) opts.rotate = t.rotation;
-  if (t.flipH) opts.flipH = true;
-  if (t.flipV) opts.flipV = true;
+  if (box.rotation) opts.rotate = box.rotation;
+  if (box.flipH) opts.flipH = true;
+  if (box.flipV) opts.flipV = true;
 
   ctx.pptSlide.addImage(opts);
 
@@ -100,7 +102,7 @@ export function emitImage(ctx: SlideContext, el: ImageElement): string[] {
     kind: 'image',
     name,
     layerName: el.name,
-    bounds: rotatedBounds(box, t.rotation),
+    bounds: rotatedBounds(box, box.rotation),
     link,
     effectLst: el.shadow ? shadowEffectXml(el.shadow, ctx.scale, el.opacity) : null,
     geometry: el.geometry === 'roundRect' ? roundRectGeometryXml(el.cornerRadius || 0, t.w, t.h) : null,

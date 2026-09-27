@@ -136,7 +136,9 @@ export function pathFrom(ancestor: BaseNode, node: BaseNode): number[] | null {
   while (n !== ancestor) {
     const parent: BaseNode | null = n.parent;
     if (!parent) return null;
-    const index = childrenOf(parent).indexOf(n as SceneNode);
+    // Compare by id: node wrappers are not guaranteed to be identical objects.
+    const id = n.id;
+    const index = childrenOf(parent).findIndex((c) => c.id === id);
     if (index < 0) return null;
     path.unshift(index);
     n = parent;

@@ -142,9 +142,9 @@ function emitPart(ctx: SlideContext, el: ShapeElement, part: ShapePart, link: nu
     h: emuArg(box.h),
     objectName: name,
   };
-  if (t.rotation) opts.rotate = t.rotation;
-  if (t.flipH) opts.flipH = true;
-  if (t.flipV) opts.flipV = true;
+  if (box.rotation) opts.rotate = box.rotation;
+  if (box.flipH) opts.flipH = true;
+  if (box.flipV) opts.flipV = true;
 
   let fillXml: string | null = null;
   if (part.fill?.type === 'solid') {
@@ -161,7 +161,7 @@ function emitPart(ctx: SlideContext, el: ShapeElement, part: ShapePart, link: nu
     kind: 'shape',
     name,
     layerName: el.name,
-    bounds: rotatedBounds(box, t.rotation),
+    bounds: rotatedBounds(box, box.rotation),
     link,
     effectLst: part.shadow && el.shadow ? shadowEffectXml(el.shadow, ctx.scale, el.opacity) : null,
     fill: fillXml,
