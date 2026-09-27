@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Ewento Slides — four formats</title>
+<link rel="stylesheet" href="base.css">
+<style>
+  .formats {
+    margin-top: 40px;
+    display: grid;
+    gap: 14px;
+  }
+  .format {
+    display: grid;
+    grid-template-columns: 76px 1fr;
+    align-items: center;
+    gap: 18px;
+    padding: 14px 20px 14px 14px;
+    border-radius: 16px;
+    background: #fff;
+    box-shadow: 0 0 0 1px var(--line), 0 6px 18px -8px rgba(21, 18, 46, 0.18);
+  }
+  .format .badge { height: 44px; border-radius: 10px; font-size: 16px; color: #fff; }
+  .format .badge.pptx { background: linear-gradient(160deg, #ff8a4d, #e8552a); }
+  .format .badge.pdf { background: linear-gradient(160deg, #ef5a5a, #c7303b); }
+  .format b { display: block; font-size: 22px; font-weight: 680; white-space: nowrap; }
+  .format small { display: block; margin-top: 3px; font-size: 18px; font-weight: 460; color: var(--ink-3); white-space: nowrap; }
+
+  .window { left: 820px; top: 198px; }
+  /* The open "Export" menu (without the debug item) cut from export-menu.png, laid over deck.png at
+     the same place — deck.png has a sharper slide preview. */
+  .menu {
+    position: absolute;
+    left: 649px;
+    top: 42px;
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.08), 0 12px 32px rgba(0, 0, 0, 0.5);
+  }
+  .window .body { position: relative; }
+</style>
+</head>
+<body>
+<div class="canvas">
+  <section class="text">
+    <span class="kicker"><span class="num">02</span>Four export formats</span>
+    <h1>One deck, four formats</h1>
+    <p class="sub">From a deck your team will edit to a light PDF for email.</p>
+    <div class="formats">
+      <div class="format"><span class="badge pptx">PPTX</span><span><b>PowerPoint — editable</b><small>Native text, shapes, images and groups</small></span></div>
+      <div class="format"><span class="badge pptx">PPTX</span><span><b>PowerPoint — images</b><small>Exactly like Figma, one picture per slide</small></span></div>
+      <div class="format"><span class="badge pdf">PDF</span><span><b>PDF — vector</b><small>Sharp at any zoom, repeats stored once</small></span></div>
+      <div class="format"><span class="badge pdf">PDF</span><span><b>PDF — images</b><small>One JPEG per page, easy to send</small></span></div>
+    </div>
+  </section>
+
+  <div class="window">
+    <div class="bar"><img src="icon.svg" alt=""><span>Ewento Slides</span><i class="x"></i></div>
+    <div class="body">
+      <div class="shot" data-shot="deck"></div>
+      <div class="menu"><div class="shot" data-shot="export-menu" data-crop="649,42,340,204"></div></div>
+    </div>
+  </div>
+
+  <footer class="brand"></footer>
+</div>
+<script src="page.js"></script>
+</body>
+</html>

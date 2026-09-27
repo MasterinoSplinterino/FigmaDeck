@@ -1,0 +1,266 @@
+/* Shared styles for the Figma Community listing assets (cover + carousel, 1920×1080). */
+
+@font-face {
+  font-family: 'Inter Local';
+  font-style: normal;
+  font-weight: 100 900;
+  src: url(fonts/inter-latin-opsz-normal.woff2) format('woff2-variations');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329,
+    U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: 'Inter Local';
+  font-style: normal;
+  font-weight: 100 900;
+  src: url(fonts/inter-latin-ext-opsz-normal.woff2) format('woff2-variations');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+1D00-1DBF, U+1E00-1E9F,
+    U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: 'Inter Local';
+  font-style: normal;
+  font-weight: 100 900;
+  src: url(fonts/inter-cyrillic-opsz-normal.woff2) format('woff2-variations');
+  unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
+}
+
+:root {
+  /* Palette (Ewento brand colours could not be fetched — see docs/publishing/CHECKLIST.md). */
+  --ink: #15122e;
+  --ink-2: #4a4668;
+  --ink-3: #7c7898;
+  --paper: #f5f4fb;
+  --line: #e3e0f2;
+  --violet: #5b45f0;
+  --violet-2: #8373ff;
+  --violet-soft: #ebe8ff;
+  --amber: #ffc14d;
+  --green: #16a36a;
+  --red: #e5484d;
+  --figma-chrome: #2c2c2c;
+  --font: 'Inter Local', 'Liberation Sans', 'DejaVu Sans', sans-serif;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  width: 1920px;
+  height: 1080px;
+  overflow: hidden;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--font);
+  font-feature-settings: 'cv11', 'ss01';
+  -webkit-font-smoothing: antialiased;
+  text-rendering: geometricPrecision;
+}
+
+.canvas {
+  position: relative;
+  width: 1920px;
+  height: 1080px;
+  overflow: hidden;
+  background:
+    radial-gradient(900px 700px at 1480px 520px, rgba(131, 115, 255, 0.22), transparent 70%),
+    radial-gradient(700px 500px at 1750px 980px, rgba(255, 193, 77, 0.16), transparent 70%),
+    var(--paper);
+}
+
+/* ─── Text column (carousel) ─────────────────────────────────────────────── */
+
+.text {
+  position: absolute;
+  left: 120px;
+  top: 196px;
+  width: 600px;
+  height: 760px;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  overflow: hidden;
+}
+
+.kicker {
+  display: inline-flex;
+  align-self: flex-start;
+  align-items: center;
+  gap: 12px;
+  height: 44px;
+  padding: 0 20px 0 8px;
+  border-radius: 22px;
+  background: var(--violet-soft);
+  color: var(--violet);
+  font-size: 20px;
+  font-weight: 650;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+}
+.kicker .num {
+  display: inline-grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 15px;
+  background: var(--violet);
+  color: #fff;
+  font-size: 15px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+h1 {
+  margin-top: 30px;
+  font-size: 68px;
+  line-height: 1.06;
+  font-weight: 760;
+  letter-spacing: -0.03em;
+  font-variation-settings: 'opsz' 32;
+  text-wrap: balance;
+}
+
+.sub {
+  margin-top: 28px;
+  font-size: 26px;
+  line-height: 1.45;
+  font-weight: 420;
+  color: var(--ink-2);
+  text-wrap: pretty;
+}
+
+.points {
+  list-style: none;
+  margin-top: 40px;
+  display: grid;
+  gap: 18px;
+}
+.points li {
+  position: relative;
+  padding-left: 44px;
+  font-size: 22px;
+  line-height: 1.4;
+  font-weight: 520;
+  color: var(--ink);
+}
+.points li::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 1px;
+  width: 28px;
+  height: 28px;
+  border-radius: 14px;
+  background: var(--violet) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 28 28'%3E%3Cpath d='M8.5 14.5l3.5 3.5 7.5-8' fill='none' stroke='white' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center / 28px 28px no-repeat;
+}
+.points li span { color: var(--ink-3); font-weight: 450; }
+
+/* ─── Visual area (carousel) ─────────────────────────────────────────────── */
+
+.visual {
+  position: absolute;
+  left: 800px;
+  top: 0;
+  width: 1120px;
+  height: 1080px;
+}
+
+/* Figma-like plugin window around a UI screenshot. */
+.window {
+  position: absolute;
+  border-radius: 14px;
+  overflow: hidden;
+  background: var(--figma-chrome);
+  box-shadow:
+    0 0 0 1px rgba(21, 18, 46, 0.10),
+    0 2px 6px rgba(21, 18, 46, 0.10),
+    0 30px 80px -10px rgba(40, 24, 140, 0.35);
+}
+.window .bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 44px;
+  padding: 0 16px;
+  background: var(--figma-chrome);
+  border-bottom: 1px solid #3d3d3d;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.window .bar img { width: 20px; height: 20px; }
+.window .bar .x {
+  margin-left: auto;
+  width: 14px;
+  height: 14px;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 14 14'%3E%3Cpath d='M2 2l10 10M12 2L2 12' stroke='%23bbb' stroke-width='1.6' stroke-linecap='round'/%3E%3C/svg%3E") center / contain no-repeat;
+}
+
+/* A (cropped) screenshot; filled in by page.js from docs/screenshots. */
+.shot {
+  position: relative;
+  overflow: hidden;
+  display: block;
+}
+.shot img { position: absolute; display: block; max-width: none; }
+.shot.missing {
+  display: grid;
+  place-items: center;
+  background: repeating-linear-gradient(45deg, #3a3a3a 0 12px, #333 12px 24px);
+  color: #ddd;
+  font: 600 18px/1.3 var(--font);
+}
+
+/* Floating card with a cropped screenshot (second layer over a window). */
+.card {
+  position: absolute;
+  border-radius: 12px;
+  overflow: hidden;
+  background: var(--figma-chrome);
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.06),
+    0 0 0 1px rgba(21, 18, 46, 0.12),
+    0 24px 60px -8px rgba(21, 18, 46, 0.45);
+}
+
+/* ─── Footer ─────────────────────────────────────────────────────────────── */
+
+.brand {
+  position: absolute;
+  left: 120px;
+  bottom: 64px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  font-size: 20px;
+  font-weight: 650;
+  color: var(--ink);
+  white-space: nowrap;
+}
+.brand img { width: 36px; height: 36px; }
+.brand .dot { color: var(--ink-3); font-weight: 400; }
+.brand .note { color: var(--ink-3); font-weight: 450; }
+
+/* ─── Small parts ────────────────────────────────────────────────────────── */
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  height: 48px;
+  padding: 0 20px;
+  border-radius: 24px;
+  font-size: 20px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.badge {
+  display: inline-grid;
+  place-items: center;
+  height: 28px;
+  padding: 0 10px;
+  border-radius: 7px;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}

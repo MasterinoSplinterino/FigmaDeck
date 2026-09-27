@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Ewento Slides — settings</title>
+<link rel="stylesheet" href="base.css">
+<style>
+  .window { left: 840px; top: 196px; }
+  /* Font mapping table from settings-fonts (the part above it names another plugin — keep it cropped out). */
+  .card.fonts { left: 740px; top: 612px; }
+  .card.fonts .cap {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    height: 44px;
+    padding: 0 18px;
+    border-bottom: 1px solid #3d3d3d;
+    color: #fff;
+    font-size: 15px;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+  .card.fonts .cap small { color: #aaa; font-weight: 450; }
+</style>
+</head>
+<body>
+<div class="canvas">
+  <section class="text">
+    <span class="kicker"><span class="num">05</span>Settings</span>
+    <h1>Fits your template and your fonts</h1>
+    <p class="sub">Set an exact slide size, choose how font names are written, map any font by hand.</p>
+    <ul class="points">
+      <li>Slide size in cm or inches <span>— e.g. 87.82 × 27.09 cm</span></li>
+      <li>RIBBI or full style names</li>
+      <li>Per-font mapping with bold / italic</li>
+      <li>Title, author and company in the file</li>
+    </ul>
+  </section>
+
+  <div class="window">
+    <div class="bar"><img src="icon.svg" alt=""><span>Ewento Slides</span><i class="x"></i></div>
+    <div class="shot" data-shot="settings-slide-size"></div>
+  </div>
+
+  <div class="card fonts">
+    <div class="cap">Font mapping <small>· Settings › Fonts</small></div>
+    <div class="shot" data-shot="settings-fonts" data-crop="588,294,404,264" data-scale="1.15"></div>
+  </div>
+
+  <footer class="brand"></footer>
+</div>
+<script src="page.js"></script>
+</body>
+</html>

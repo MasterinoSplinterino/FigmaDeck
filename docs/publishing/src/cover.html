@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Ewento Slides — cover</title>
+<link rel="stylesheet" href="base.css">
+<style>
+  .canvas {
+    background:
+      radial-gradient(760px 620px at 1540px 180px, rgba(255, 255, 255, 0.16), transparent 70%),
+      radial-gradient(820px 620px at 1720px 1080px, rgba(255, 193, 77, 0.22), transparent 70%),
+      radial-gradient(900px 800px at 0px 1080px, rgba(35, 18, 120, 0.55), transparent 70%),
+      linear-gradient(135deg, #2b1d93 0%, #4b33e6 48%, #7b63ff 100%);
+    color: #fff;
+  }
+  .hero {
+    position: absolute;
+    left: 120px;
+    top: 0;
+    width: 680px;
+    height: 1080px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+  }
+  .hero .logo {
+    width: 120px;
+    height: 120px;
+    border-radius: 28px;
+    box-shadow: 0 20px 50px -10px rgba(10, 4, 60, 0.6), 0 0 0 1px rgba(255, 255, 255, 0.18);
+  }
+  .hero h1 {
+    margin-top: 44px;
+    font-size: 104px;
+    line-height: 1;
+    font-weight: 780;
+    letter-spacing: -0.035em;
+    white-space: nowrap;
+  }
+  .hero .tagline {
+    margin-top: 28px;
+    font-size: 40px;
+    line-height: 1.25;
+    font-weight: 500;
+    letter-spacing: -0.012em;
+    color: rgba(255, 255, 255, 0.9);
+  }
+  .hero .chips {
+    margin-top: 52px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 14px;
+  }
+  .hero .chip {
+    background: rgba(255, 255, 255, 0.14);
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.22);
+    color: #fff;
+  }
+  .hero .local {
+    margin-top: 30px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: 24px;
+    font-weight: 500;
+    color: rgba(255, 255, 255, 0.82);
+    white-space: nowrap;
+  }
+  .hero .local svg { width: 26px; height: 26px; flex: none; }
+
+  .window { left: 860px; top: 200px; }
+  .window .bar { background: #2c2c2c; }
+
+  .file {
+    position: absolute;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 18px 26px 18px 18px;
+    border-radius: 18px;
+    background: #fff;
+    color: var(--ink);
+    box-shadow: 0 24px 60px -12px rgba(15, 6, 80, 0.55), 0 0 0 1px rgba(21, 18, 46, 0.06);
+    white-space: nowrap;
+  }
+  .file .ext {
+    display: grid;
+    place-items: center;
+    width: 64px;
+    height: 72px;
+    border-radius: 10px;
+    color: #fff;
+    font-size: 17px;
+    font-weight: 800;
+    letter-spacing: 0.03em;
+  }
+  .file b { display: block; font-size: 21px; font-weight: 680; }
+  .file small { display: block; margin-top: 4px; font-size: 17px; font-weight: 480; color: var(--ink-3); }
+  .file.pptx { left: 760px; top: 760px; }
+  .file.pptx .ext { background: linear-gradient(160deg, #ff8a4d, #e8552a); }
+  .file.pdf { left: 1470px; top: 104px; }
+  .file.pdf .ext { background: linear-gradient(160deg, #ef5a5a, #c7303b); }
+</style>
+</head>
+<body>
+<div class="canvas">
+  <section class="hero">
+    <img class="logo" src="icon.svg" alt="">
+    <h1>Ewento Slides</h1>
+    <p class="tagline">Export Figma frames to editable PowerPoint and&nbsp;PDF</p>
+    <div class="chips">
+      <span class="chip">Editable PPTX</span>
+      <span class="chip">Vector PDF</span>
+      <span class="chip">LED-wide slides</span>
+    </div>
+    <p class="local">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="10.5" width="14" height="10" rx="2.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="M8.5 10.5V8a3.5 3.5 0 0 1 7 0v2.5" fill="none" stroke="currentColor" stroke-width="2"/></svg>
+      100% local — no network, no account. Free.
+    </p>
+  </section>
+
+  <div class="window">
+    <div class="bar"><img src="icon.svg" alt=""><span>Ewento Slides</span><i class="x"></i></div>
+    <div class="shot" data-shot="deck"></div>
+  </div>
+
+  <div class="file pptx">
+    <span class="ext">PPTX</span>
+    <span><b>Startup Summit 2026.pptx</b><small>6 slides · editable text &amp; shapes</small></span>
+  </div>
+  <div class="file pdf">
+    <span class="ext">PDF</span>
+    <span><b>Vector PDF</b><small>shared images stored once</small></span>
+  </div>
+</div>
+<script src="page.js"></script>
+</body>
+</html>

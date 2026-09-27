@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
+  <title>Ewento Slides</title>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#8373FF"/>
+      <stop offset="1" stop-color="#4B33E6"/>
+    </linearGradient>
+    <!-- Cuts a gap into the slide around the arrow so the two shapes stay apart at 16–24 px. -->
+    <mask id="cut" maskUnits="userSpaceOnUse" x="0" y="0" width="128" height="128">
+      <rect width="128" height="128" fill="#fff"/>
+      <path d="M70 68 L107 31 M84 30 H108 V54" fill="none" stroke="#000" stroke-width="22" stroke-linecap="round" stroke-linejoin="round"/>
+    </mask>
+  </defs>
+  <rect width="128" height="128" rx="28" fill="url(#bg)"/>
+  <g mask="url(#cut)">
+    <rect x="16" y="42" width="80" height="60" rx="10" fill="#fff"/>
+    <rect x="27" y="67" width="24" height="9" rx="4.5" fill="#5B45F0"/>
+    <rect x="27" y="81" width="16" height="9" rx="4.5" fill="#C4BAFF"/>
+  </g>
+  <path d="M70 68 L107 31 M84 30 H108 V54" fill="none" stroke="#FFC14D" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

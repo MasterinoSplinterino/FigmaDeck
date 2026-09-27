@@ -1,0 +1,208 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Ewento Slides — editable PowerPoint</title>
+<link rel="stylesheet" href="base.css">
+<style>
+  /* An editable slide (illustration, not a screenshot): selection handles, crop marks, labels. */
+  .slide {
+    position: absolute;
+    left: 820px;
+    top: 226px;
+    width: 980px;
+    height: 551px;
+    border-radius: 6px;
+    overflow: visible;
+    background:
+      radial-gradient(420px 320px at 820px 90px, rgba(56, 189, 248, 0.35), transparent 70%),
+      linear-gradient(135deg, #0c1650 0%, #16329a 60%, #2446c7 100%);
+    box-shadow: 0 0 0 1px rgba(21, 18, 46, 0.10), 0 30px 80px -10px rgba(22, 30, 120, 0.45);
+    color: #fff;
+  }
+  .slide .title {
+    position: absolute;
+    left: 64px;
+    top: 118px;
+    font-size: 76px;
+    line-height: 1;
+    font-weight: 720;
+    letter-spacing: -0.01em;
+    white-space: nowrap;
+  }
+  .slide .title span { display: block; color: #5fd4ff; }
+  .slide .caret {
+    display: inline-block;
+    width: 4px;
+    height: 70px;
+    margin-left: 6px;
+    vertical-align: -8px;
+    background: #fff;
+  }
+  .slide .date {
+    position: absolute;
+    left: 64px;
+    top: 318px;
+    font-size: 28px;
+    font-weight: 500;
+    color: rgba(255, 255, 255, 0.78);
+    white-space: nowrap;
+  }
+  /* Selection box with 8 handles around the title. */
+  .sel {
+    position: absolute;
+    left: 50px;
+    top: 104px;
+    width: 540px;
+    height: 180px;
+    border: 2px solid #9d8cff;
+  }
+  .sel i {
+    position: absolute;
+    width: 14px;
+    height: 14px;
+    border-radius: 7px;
+    background: #fff;
+    border: 2px solid #7b63ff;
+  }
+  .sel i:nth-child(1) { left: -8px; top: -8px; }
+  .sel i:nth-child(2) { left: calc(50% - 7px); top: -8px; }
+  .sel i:nth-child(3) { right: -8px; top: -8px; }
+  .sel i:nth-child(4) { right: -8px; top: calc(50% - 7px); }
+  .sel i:nth-child(5) { right: -8px; bottom: -8px; }
+  .sel i:nth-child(6) { left: calc(50% - 7px); bottom: -8px; }
+  .sel i:nth-child(7) { left: -8px; bottom: -8px; }
+  .sel i:nth-child(8) { left: -8px; top: calc(50% - 7px); }
+
+  .photo {
+    position: absolute;
+    left: 640px;
+    top: 70px;
+    width: 270px;
+    height: 330px;
+    border-radius: 28px;
+    overflow: hidden;
+    box-shadow: 0 18px 40px -10px rgba(0, 0, 0, 0.55);
+  }
+  .photo {
+    background:
+      radial-gradient(90px 90px at 185px 95px, #ffe9a8 0%, #ffc14d 40%, transparent 72%),
+      radial-gradient(260px 200px at 60px 360px, #2a0f6b 10%, transparent 70%),
+      linear-gradient(170deg, #ff9b6a 0%, #f2567a 38%, #8a3fd8 70%, #3b1f9e 100%);
+  }
+  .photo::after {
+    content: '';
+    position: absolute;
+    left: -20px;
+    right: -20px;
+    bottom: -10px;
+    height: 150px;
+    background:
+      radial-gradient(160px 90px at 70px 120px, #1d0b52 60%, transparent 62%),
+      radial-gradient(200px 110px at 230px 140px, #26106a 60%, transparent 62%);
+  }
+  /* Crop marks around the picture. */
+  .crop {
+    position: absolute;
+    left: 632px;
+    top: 62px;
+    width: 286px;
+    height: 346px;
+  }
+  .crop b {
+    position: absolute;
+    width: 30px;
+    height: 30px;
+    border: 0 solid #fff;
+    filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.6));
+  }
+  .crop b:nth-child(1) { left: 0; top: 0; border-left-width: 7px; border-top-width: 7px; }
+  .crop b:nth-child(2) { right: 0; top: 0; border-right-width: 7px; border-top-width: 7px; }
+  .crop b:nth-child(3) { right: 0; bottom: 0; border-right-width: 7px; border-bottom-width: 7px; }
+  .crop b:nth-child(4) { left: 0; bottom: 0; border-left-width: 7px; border-bottom-width: 7px; }
+
+  .speakers {
+    position: absolute;
+    left: 58px;
+    top: 420px;
+    display: flex;
+    gap: 14px;
+    padding: 10px;
+    border: 2px dashed rgba(255, 255, 255, 0.55);
+    border-radius: 14px;
+  }
+  .speakers span {
+    width: 58px;
+    height: 58px;
+    border-radius: 29px;
+    box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.9);
+  }
+
+  /* Callout labels. */
+  .label {
+    position: absolute;
+    display: inline-flex;
+    align-items: center;
+    gap: 12px;
+    height: 52px;
+    padding: 0 20px 0 12px;
+    border-radius: 14px;
+    background: #fff;
+    color: var(--ink);
+    font-size: 20px;
+    font-weight: 620;
+    white-space: nowrap;
+    box-shadow: 0 0 0 1px rgba(21, 18, 46, 0.06), 0 14px 34px -8px rgba(21, 18, 46, 0.38);
+  }
+  .label .ic {
+    display: grid;
+    place-items: center;
+    width: 32px;
+    height: 32px;
+    border-radius: 9px;
+    background: var(--violet-soft);
+    color: var(--violet);
+    font-size: 18px;
+    font-weight: 800;
+  }
+  .label .ic svg { width: 20px; height: 20px; }
+  .label small { color: var(--ink-3); font-size: 18px; font-weight: 500; }
+</style>
+</head>
+<body>
+<div class="canvas">
+  <section class="text">
+    <span class="kicker"><span class="num">01</span>Editable PowerPoint</span>
+    <h1>Real PowerPoint, not pictures of&nbsp;slides</h1>
+    <p class="sub">Text stays text. Shapes, gradients, shadows, groups and images arrive as native objects you can edit.</p>
+    <ul class="points">
+      <li>Right language per text run <span>— Cyrillic is ru-RU</span></li>
+      <li>Pictures keep an editable crop</li>
+      <li>“Exact look” mode <span>— true-to-Figma background, editable text</span></li>
+    </ul>
+  </section>
+
+  <div class="slide">
+    <div class="title">STARTUP<span>SUMMIT 2026<i class="caret"></i></span></div>
+    <div class="date">Moscow · 14–16 October</div>
+    <div class="sel"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+    <div class="photo"></div>
+    <div class="crop"><b></b><b></b><b></b><b></b></div>
+    <div class="speakers">
+      <span style="background: linear-gradient(135deg,#ff9a3d,#f5652b)"></span>
+      <span style="background: linear-gradient(135deg,#a88bff,#7b5cff)"></span>
+      <span style="background: linear-gradient(135deg,#39d0e0,#12a4c2)"></span>
+      <span style="background: linear-gradient(135deg,#ff6fa8,#e43d86)"></span>
+    </div>
+
+    <span class="label" style="left: 40px; top: -30px"><span class="ic">T</span>Native text <small>· Inter Bold 76 pt</small></span>
+    <span class="label" style="left: 610px; top: -30px"><span class="ic"><svg viewBox="0 0 20 20"><rect x="3" y="4" width="14" height="12" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><path d="M3 13l4-4 3 3 2-2 5 5" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg></span>Picture + crop</span>
+    <span class="label" style="left: 372px; top: 434px"><span class="ic"><svg viewBox="0 0 20 20"><rect x="2.5" y="2.5" width="15" height="15" rx="3" fill="none" stroke="currentColor" stroke-width="2" stroke-dasharray="3 2.4"/></svg></span>Group</span>
+    <span class="label" style="left: 620px; top: 520px"><span class="ic"><svg viewBox="0 0 20 20"><defs><linearGradient id="g" x1="0" x2="1"><stop offset="0" stop-color="#5b45f0"/><stop offset="1" stop-color="#5b45f0" stop-opacity="0.15"/></linearGradient></defs><rect x="2.5" y="4" width="15" height="12" rx="3" fill="url(#g)"/></svg></span>Linear gradient <small>· native</small></span>
+  </div>
+
+  <footer class="brand"></footer>
+</div>
+<script src="page.js"></script>
+</body>
+</html>

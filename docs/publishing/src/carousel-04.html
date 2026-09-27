@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Ewento Slides — image compression</title>
+<link rel="stylesheet" href="base.css">
+<style>
+  /* Numbers: README "Сжатие картинок" — PNGs of a real event deck: 4016 KB → Balanced 1134 KB (−71.8 %),
+     Strong −76.1 % (≈ 960 KB). */
+  .stat {
+    position: absolute;
+    left: 820px;
+    top: 196px;
+    width: 480px;
+    padding: 44px 44px 40px;
+    border-radius: 24px;
+    background: #fff;
+    box-shadow: 0 0 0 1px var(--line), 0 30px 70px -24px rgba(40, 24, 140, 0.32);
+    display: flex;
+    flex-direction: column;
+  }
+  .stat .big {
+    font-size: 150px;
+    line-height: 0.9;
+    font-weight: 800;
+    letter-spacing: -0.05em;
+    font-variation-settings: 'opsz' 32;
+    background: linear-gradient(120deg, #5b45f0, #8a6bff 60%, #c48bff);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    white-space: nowrap;
+  }
+  .stat .what { margin-top: 14px; font-size: 22px; font-weight: 600; color: var(--ink); }
+  .bars { margin-top: 64px; display: grid; gap: 26px; }
+  .bars .row { display: grid; gap: 10px; }
+  .bars .row header { display: flex; justify-content: space-between; font-size: 19px; font-weight: 600; color: var(--ink-2); }
+  .bars .row header small { font-size: 17px; font-weight: 500; color: var(--ink-3); }
+  .bars .row header b { color: var(--ink); font-weight: 750; font-variant-numeric: tabular-nums; }
+  .bars .track { height: 26px; border-radius: 13px; background: #f0eef9; overflow: hidden; }
+  .bars .fill { height: 100%; border-radius: 13px; }
+  .source { margin-top: 26px; font-size: 16px; line-height: 1.4; color: var(--ink-3); }
+
+  .panel {
+    position: absolute;
+    left: 1340px;
+    top: 290px;
+    border-radius: 16px;
+    overflow: hidden;
+    box-shadow: 0 0 0 1px rgba(21, 18, 46, 0.10), 0 30px 80px -10px rgba(40, 24, 140, 0.35);
+  }
+</style>
+</head>
+<body>
+<div class="canvas">
+  <section class="text">
+    <span class="kicker"><span class="num">04</span>Image compression</span>
+    <h1>72% lighter images, nothing uploaded</h1>
+    <p class="sub">Smart palettes and JPEG, TinyPNG-style, run right inside the plugin. Balanced mode is visually lossless.</p>
+    <ul class="points">
+      <li>Quality checks on every image</li>
+      <li>Never bigger than the original</li>
+      <li>1x, 2x or 3x raster scale</li>
+    </ul>
+  </section>
+
+  <div class="stat">
+    <div class="big">−72%</div>
+    <div class="what">image weight in a real event deck</div>
+    <div class="bars">
+      <div class="row">
+        <header><span>Exported as is</span><b>4.0 MB</b></header>
+        <div class="track"><div class="fill" style="width: 100%; background: #c9c3e6"></div></div>
+      </div>
+      <div class="row">
+        <header><span>Balanced <small>· visually lossless</small></span><b>1.1 MB</b></header>
+        <div class="track"><div class="fill" style="width: 28.2%; background: linear-gradient(90deg, #5b45f0, #8a6bff)"></div></div>
+      </div>
+      <div class="row">
+        <header><span>Strong <small>· −76%</small></span><b>0.96 MB</b></header>
+        <div class="track"><div class="fill" style="width: 23.9%; background: linear-gradient(90deg, #8a6bff, #c48bff)"></div></div>
+      </div>
+    </div>
+    <p class="source">Card backgrounds with gradients and icons, 1168 × 874 px and smaller.</p>
+  </div>
+
+  <div class="panel">
+    <div class="shot" data-shot="settings-compression" data-crop="581,42,419,398" data-scale="1.15"></div>
+  </div>
+
+  <footer class="brand"></footer>
+</div>
+<script src="page.js"></script>
+</body>
+</html>

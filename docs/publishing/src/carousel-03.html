@@ -1,0 +1,203 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Ewento Slides — LED screens</title>
+<link rel="stylesheet" href="base.css">
+<style>
+  /* Before / after at one scale: 11.2 px per inch. 69.33″ × 21.33″ → 776 × 239; 56″ × 17.23″ → 627 × 193. */
+  .compare {
+    position: absolute;
+    left: 820px;
+    top: 196px;
+    width: 1000px;
+    display: flex;
+    flex-direction: column;
+    gap: 36px;
+  }
+  .case {
+    padding: 30px 36px 36px;
+    border-radius: 22px;
+    background: #fff;
+    box-shadow: 0 0 0 1px var(--line), 0 24px 60px -24px rgba(40, 24, 140, 0.30);
+  }
+  .case header {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    font-size: 22px;
+    font-weight: 680;
+    white-space: nowrap;
+  }
+  .case header .mark {
+    display: grid;
+    place-items: center;
+    width: 34px;
+    height: 34px;
+    border-radius: 17px;
+    color: #fff;
+  }
+  .case header .mark svg { width: 18px; height: 18px; }
+  .case.bad .mark { background: var(--red); }
+  .case.good .mark { background: var(--green); }
+  .case header small { margin-left: auto; font-size: 19px; font-weight: 520; color: var(--ink-3); }
+
+  .ruler {
+    position: relative;
+    height: 44px;
+    margin-top: 18px;
+  }
+  .ruler .dim {
+    position: absolute;
+    left: 0;
+    top: 26px;
+    height: 2px;
+  }
+  .ruler .dim::before, .ruler .dim::after {
+    content: '';
+    position: absolute;
+    top: -7px;
+    width: 2px;
+    height: 16px;
+    background: inherit;
+  }
+  .ruler .dim::before { left: 0; }
+  .ruler .dim::after { right: 0; }
+  .ruler .val {
+    position: absolute;
+    top: 0;
+    padding: 0 10px;
+    font-size: 19px;
+    font-weight: 700;
+    white-space: nowrap;
+    transform: translateX(-50%);
+    background: #fff;
+  }
+
+  .led {
+    position: relative;
+    overflow: hidden;
+    border-radius: 4px;
+    background:
+      radial-gradient(22% 60% at 78% 45%, rgba(236, 72, 153, 0.55), transparent 70%),
+      radial-gradient(30% 80% at 62% 60%, rgba(99, 102, 241, 0.65), transparent 70%),
+      radial-gradient(40% 90% at 15% 20%, rgba(56, 189, 248, 0.25), transparent 70%),
+      #090720;
+    color: #fff;
+  }
+  .led .t {
+    position: absolute;
+    left: 6%;
+    top: 30%;
+    font-weight: 800;
+    letter-spacing: 0.02em;
+    white-space: nowrap;
+  }
+  .led .d {
+    position: absolute;
+    left: 6%;
+    top: 58%;
+    font-weight: 500;
+    opacity: 0.75;
+    white-space: nowrap;
+  }
+  .bad .led { width: 776px; height: 239px; }
+  .bad .led .t { font-size: 60px; }
+  .bad .led .d { font-size: 22px; }
+  .good .led { width: 627px; height: 193px; }
+  .good .led .t { font-size: 48px; }
+  .good .led .d { font-size: 18px; }
+
+  /* Part beyond PowerPoint's 56″ limit. */
+  .over {
+    position: absolute;
+    left: 627px;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    background: repeating-linear-gradient(-45deg, rgba(229, 72, 77, 0.55) 0 10px, rgba(229, 72, 77, 0.22) 10px 20px);
+    border-left: 3px dashed #fff;
+  }
+  .limit {
+    position: absolute;
+    left: 627px;
+    top: -2px;
+    transform: translateX(-50%);
+    padding: 0 8px;
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--red);
+    background: #fff;
+    white-space: nowrap;
+  }
+  .presets {
+    display: flex;
+    flex-wrap: nowrap;
+    gap: 12px;
+    margin-top: 36px;
+  }
+  .presets .chip {
+    height: 40px;
+    padding: 0 16px;
+    font-size: 18px;
+    background: var(--violet-soft);
+    color: var(--violet);
+  }
+  .presets .chip.lead { background: none; color: var(--ink-3); padding-left: 0; font-weight: 520; }
+</style>
+</head>
+<body>
+<div class="canvas">
+  <section class="text">
+    <span class="kicker"><span class="num">03</span>LED screens &amp; wide slides</span>
+    <h1>Giant LED frames that PowerPoint opens</h1>
+    <p class="sub">PowerPoint caps slides at 56 inches. Ewento Slides scales wide frames to fit — font sizes, spacing, strokes and shadows included.</p>
+    <ul class="points">
+      <li>Or set your own slide size <span>— cm or inches</span></li>
+      <li>Frames are fitted and centered</li>
+    </ul>
+    <div class="presets">
+      <span class="chip lead">Presets:</span>
+      <span class="chip">16:9</span>
+      <span class="chip">4:3</span>
+      <span class="chip">LED 3.25:1</span>
+      <span class="chip">87.82 × 27.09 cm</span>
+    </div>
+  </section>
+
+  <div class="compare">
+    <div class="case bad">
+      <header>
+        <span class="mark"><svg viewBox="0 0 18 18"><path d="M4.5 4.5l9 9M13.5 4.5l-9 9" stroke="#fff" stroke-width="2.6" stroke-linecap="round"/></svg></span>
+        Exported 1 px = 1 pt
+        <small>PowerPoint can’t open the file</small>
+      </header>
+      <div class="ruler">
+        <span class="dim" style="width: 776px; background: var(--red)"></span>
+        <span class="val" style="left: 388px; color: var(--red)">4992 px frame = 69.33 in</span>
+      </div>
+      <div style="position: relative">
+        <div class="led"><div class="t">STARTUP SUMMIT 2026</div><div class="d">14–16 October · Moscow</div><div class="over"></div></div>
+        <span class="limit">56 in limit</span>
+      </div>
+    </div>
+
+    <div class="case good">
+      <header>
+        <span class="mark"><svg viewBox="0 0 18 18"><path d="M4 9.5l3.2 3.2L14 5.8" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+        Ewento Slides
+        <small>opens, fully editable</small>
+      </header>
+      <div class="ruler">
+        <span class="dim" style="width: 627px; background: var(--green)"></span>
+        <span class="val" style="left: 313px; color: var(--green)">56 × 17.23 in</span>
+      </div>
+      <div class="led"><div class="t">STARTUP SUMMIT 2026</div><div class="d">14–16 October · Moscow</div></div>
+    </div>
+  </div>
+
+  <footer class="brand"></footer>
+</div>
+<script src="page.js"></script>
+</body>
+</html>
