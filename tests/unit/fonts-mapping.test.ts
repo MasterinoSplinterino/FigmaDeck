@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { FontTracker } from '../../src/build/fonts';
 import { parseStyle, resolveFont, ribbiFont } from '../../src/fonts/mapping';
 
 describe('parseStyle', () => {
@@ -74,5 +75,45 @@ describe('resolveFont overrides', () => {
 
   it('works without overrides', () => {
     expect(resolveFont('Inter', 'Medium Italic')).toEqual({ face: 'Inter Medium', bold: false, italic: true, overridden: false });
+  });
+});
+
+describe('full-name mapping (fontNaming: full)', () => {
+  it.each([
+    ['SB Sans Display', 'Regular', 'SB Sans Display', false, false],
+    ['SB Sans Display', 'Bold', 'SB Sans Display Bold', false, false],
+    ['SB Sans Display', 'Bold Italic', 'SB Sans Display Bold', false, true],
+    ['SB Sans Display', 'Italic', 'SB Sans Display', false, true],
+    ['SB Sans Display', 'Semibold', 'SB Sans Display Semibold', false, false],
+    ['Roboto', 'Condensed Bold', 'Roboto Condensed Bold', false, false],
+  ])('%s / %s → "%s" b=%s i=%s', (family, style, face, bold, italic) => {
+    expect(resolveFont(family, style, undefined, 'full')).toEqual({ face, bold, italic, overridden: false });
+  });
+
+  it('overrides win over both rules', () => {
+    const o = { 'SB Sans Display::Bold': { face: 'SB Sans Display Heavy', bold: true, italic: false } };
+    for (const naming of ['ribbi', 'full'] as const) {
+      expect(resolveFont('SB Sans Display', 'Bold', o, naming)).toEqual({ face: 'SB Sans Display Heavy', bold: true, italic: false, overridden: true });
+    }
+  });
+});
+
+describe('FontTracker', () => {
+  it('resolves with the naming rule and reports what was written', () => {
+    const full = new FontTracker({}, 'full');
+    full.use('SB Sans Display', 'Bold', 2);
+    full.use('SB Sans Display', 'Bold');
+    expect(full.report()).toEqual([
+      { family: 'SB Sans Display', style: 'Bold', face: 'SB Sans Display Bold', bold: false, italic: false, overridden: false, runs: 3 },
+    ]);
+    const ribbi = new FontTracker({});
+    expect(ribbi.use('SB Sans Display', 'Bold')).toEqual({ face: 'SB Sans Display', bold: true, italic: false, overridden: false });
+  });
+
+  it('treats unknown naming values as ribbi and lets overrides win', () => {
+    const t = new FontTracker({ 'Inter::Bold': { face: 'Inter Heavy', bold: false, italic: false } }, 'other' as unknown as 'full');
+    expect(t.resolve('Inter', 'Semi Bold').face).toBe('Inter Semi Bold');
+    expect(t.resolve('Inter', 'Bold Italic')).toEqual({ face: 'Inter', bold: true, italic: true, overridden: false });
+    expect(t.resolve('Inter', 'Bold')).toEqual({ face: 'Inter Heavy', bold: false, italic: false, overridden: true });
   });
 });

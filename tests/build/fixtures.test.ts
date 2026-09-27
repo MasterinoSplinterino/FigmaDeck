@@ -4,9 +4,10 @@
 import { beforeAll, describe, expect, it } from 'vitest';
 import { buildPptx } from '../../src/build';
 import type { BuildResult } from '../../src/build/api';
+import { hexColor } from '../../src/build/color';
 import { convertLinearGradient, gradientFillXml } from '../../src/build/gradient';
 import { CONFIG } from '../../src/config';
-import type { Deck, Element, LinearGradientFill, ShapeElement } from '../../src/ir/types';
+import type { Deck, Element, ImageElement, LinearGradientFill, ShapeElement } from '../../src/ir/types';
 import { FIXTURE_NAMES, loadFixture, testOptions } from '../fixtures/load';
 import {
   countTags,
@@ -58,6 +59,15 @@ function findElement(elements: Element[], name: string): Element | undefined {
 describe.each(FIXTURE_NAMES)('%s: package', (name) => {
   it('is a valid package (well-formed XML, relationships, content types, ids, slide size, no PptxGenJS)', () => {
     expect(validatePackage(get(name).pkg)).toEqual([]);
+  });
+
+  it('slide size is within PowerPoint limits: 914 400…51 206 400 EMU (1″…56″) per side', () => {
+    const { cx, cy } = slideSize(get(name).pkg);
+    for (const v of [cx, cy]) {
+      expect(Number.isInteger(v)).toBe(true);
+      expect(v).toBeGreaterThanOrEqual(914400);
+      expect(v).toBeLessThanOrEqual(51206400);
+    }
   });
 
   it('has one slide per IR slide and matching stats', () => {
@@ -347,5 +357,146 @@ describe('tiny', () => {
     expect(tagAttrs(objectByName(slideXml(pkg, 1), 'Dot'), 'a:ext')[0]).toEqual({ cx: String(32 * 1.5 * 12700), cy: String(32 * 1.5 * 12700) });
     expect(tagAttrs(objectByName(slideXml(pkg, 1), 'Hi'), 'a:rPr')[0].sz).toBe(String(Math.round(11 * 1.5 * 100)));
     expect(result.report.find((r) => r.code === 'slide-scaled')?.level).toBe('info');
+  });
+});
+
+describe('startup-summit-wide (real 4992×1536 production frame)', () => {
+  const S = 4032 / 4992;
+  /** Slide px → EMU at the deck scale (unrounded). */
+  const emu = (px: number) => px * S * 12700;
+  const CARD_X = [1345, 2133, 2921];
+  const CARD_Y = [380, 380.43, 380.43];
+  const CARD_W = 728.738;
+  const CARD_H = 845.857;
+  const STROKE = 3.2533;
+  const RADIUS = 81.3324;
+  const pkg = () => get('startup-summit-wide').pkg;
+  const xml = () => slideXml(pkg(), 1);
+  const cardBackgrounds = () => [1, 2, 3].map((i) => objectByName(xml(), `Card ${i}`));
+  const rPr = (name: string) => tagAttrs(objectByName(xml(), name), 'a:rPr');
+
+  it('is scaled into 56″ (sldSz cx = 51 206 400), aspect ratio kept, reported as info', () => {
+    const { cx, cy } = slideSize(pkg());
+    expect(cx).toBe(51206400);
+    expect(Math.abs(cy - Math.round(1536 * S * 12700))).toBeLessThanOrEqual(1);
+    const scaled = get('startup-summit-wide').result.report.filter((r) => r.code === 'slide-scaled');
+    expect(scaled).toHaveLength(1);
+    expect(scaled[0]).toMatchObject({ level: 'info', slideName: 'Sber500 в цифрах' });
+    expect(scaled[0].message).toContain('80.8%');
+  });
+
+  it('exactly one picture: the image-fill background with the FILL (cover) crop', () => {
+    const { result, deck } = get('startup-summit-wide');
+    expect(countTags(xml(), 'p:pic')).toBe(1);
+    expect(result.stats).toEqual({ slides: 1, texts: 7, shapes: 3, images: 1, groups: 3 });
+    // 4096×1260 image in a 4992×1536 box: scale = max(4992 / 4096, 1536 / 1260) = 1536 / 1260 → the
+    // image is 4993.2 px wide; 1.2 px are cut, half on each side.
+    const crop = (findElement(deck.slides[0].elements, 'Background') as ImageElement).crop!;
+    const cut = (1 - (4992 * 1260) / (4096 * 1536)) / 2;
+    expect(crop.left).toBeCloseTo(cut, 12);
+    expect(crop.right).toBeCloseTo(cut, 12);
+    expect(crop.top).toBe(0);
+    expect(crop.bottom).toBe(0);
+    const bg = objectByName(xml(), 'Background');
+    expect(tagAttrs(bg, 'a:srcRect')[0]).toEqual({ l: String(Math.round(cut * 100000)), r: String(Math.round(cut * 100000)), t: '0', b: '0' });
+    expect(tagAttrs(bg, 'a:off')[0]).toEqual({ x: '0', y: '0' });
+    const { cx, cy } = slideSize(pkg());
+    expect(tagAttrs(bg, 'a:ext')[0]).toEqual({ cx: String(cx), cy: String(cy) });
+  });
+
+  it('three cards → three groups of roundRect background + two native text boxes', () => {
+    const groups = elements(xml(), 'p:grpSp');
+    expect(groups).toHaveLength(3);
+    groups.forEach((g, i) => {
+      expect(tagAttrs(g, 'p:cNvPr')[0].name).toBe(`Card ${i + 1}`);
+      expect(countTags(g, 'p:sp')).toBe(3);
+      expect(countTags(g, 'p:txBody')).toBe(2);
+      expect(countTags(g, 'p:pic')).toBe(0);
+    });
+  });
+
+  it('card backgrounds: native roundRect + gradFill (lin 90°, stops 0 and ≈71 800) + innerShdw + inset line', () => {
+    const cards = cardBackgrounds();
+    expect(cards).toHaveLength(3);
+    // An opaque inside stroke is not split: one shape per card.
+    expect(elements(xml(), 'p:sp').filter((sp) => /name="Card \d"/.test(sp))).toHaveLength(3);
+    // The card FRAME is a group and its background shape carries the frame's name (as the extractor does).
+    const cardGroup = findElement(get('startup-summit-wide').deck.slides[0].elements, 'Card 1');
+    const background = (cardGroup?.type === 'group' ? cardGroup.children[0] : undefined) as ShapeElement;
+    const [c0, c1] = (background.fill as LinearGradientFill).stops.map((st) => hexColor(st.color));
+    cards.forEach((card, i) => {
+      // Geometry: inside stroke → box shrunk by the stroke weight (center kept), radius − weight / 2.
+      const off = tagAttrs(card, 'a:off')[0];
+      const ext = tagAttrs(card, 'a:ext')[0];
+      expect(Math.abs(Number(off.x) - emu(CARD_X[i] + STROKE / 2))).toBeLessThanOrEqual(2);
+      expect(Math.abs(Number(off.y) - emu(CARD_Y[i] + STROKE / 2))).toBeLessThanOrEqual(2);
+      expect(Math.abs(Number(ext.cx) - emu(CARD_W - STROKE))).toBeLessThanOrEqual(2);
+      expect(Math.abs(Number(ext.cy) - emu(CARD_H - STROKE))).toBeLessThanOrEqual(2);
+      expect(tagAttrs(card, 'a:prstGeom')[0].prst).toBe('roundRect');
+      const adj = Number(/val (\d+)/.exec(tagAttrs(card, 'a:gd')[0].fmla)?.[1]);
+      expect(adj).toBe(Math.round(((RADIUS - STROKE / 2) / (CARD_W - STROKE)) * 100000));
+      // Gradient: t = 1.3925·v → vertical (90°); t = 1 is reached at 71.8 % of the height.
+      expect(countTags(card, 'a:gradFill')).toBe(1);
+      expect(tagAttrs(card, 'a:lin')[0]).toEqual({ ang: '5400000', scaled: '0' });
+      const gs = tagAttrs(card, 'a:gs').map((g) => Number(g.pos));
+      expect(gs).toHaveLength(2);
+      expect(gs[0]).toBe(0);
+      expect(Math.abs(gs[1] - 71800)).toBeLessThan(300);
+      expect(tagAttrs(card, 'a:srgbClr').slice(0, 2).map((a) => a.val)).toEqual([c0, c1]);
+      // Inner shadow: blur scaled, no offset, mint, opaque.
+      const shdw = elements(card, 'a:innerShdw')[0];
+      expect(tagAttrs(shdw, 'a:innerShdw')[0]).toMatchObject({ blurRad: String(Math.round(emu(130.13))), dist: '0' });
+      expect(shdw).toContain('<a:srgbClr val="80EDD1"/>');
+      // Inset line: 3.2533 px scaled.
+      expect(card).toContain(`<a:ln w="${Math.round(emu(STROKE))}"><a:solidFill><a:srgbClr val="80EDD1"/></a:solidFill>`);
+    });
+  });
+
+  it('numbers: native text, 224.61 px scaled, negative letter spacing, one line', () => {
+    for (const [name, spacing] of [
+      ['9 500', -10],
+      ['1 050', -10],
+      ['175 ', -8],
+    ] as const) {
+      const obj = objectByName(xml(), name);
+      expect(obj).toContain(`<a:t>${name}</a:t>`);
+      const r = rPr(name)[0];
+      expect(r).toMatchObject({ sz: String(Math.round(224.61 * S * 100)), spc: String(Math.round(spacing * S * 100)) });
+      expect(Number(r.spc)).toBeLessThan(0);
+      expect(r.b).toBeUndefined();
+      expect(obj).not.toContain('<a:alpha ');
+      expect(tagAttrs(obj, 'a:latin')[0].typeface).toBe('SB Sans Display');
+      expect(obj).toContain(`<a:lnSpc><a:spcPts val="${Math.round(224.61 * 1.1 * S * 100)}"/></a:lnSpc>`);
+      expect(tagAttrs(obj, 'a:bodyPr')[0].wrap).toBe('none');
+    }
+  });
+
+  it('Cyrillic runs are ru-RU; the 0.9-opacity labels carry alpha 90 000', () => {
+    for (const name of ['заявок  от стартапов', 'стартапов прошли буткемп', 'стартапов стали финалистами']) {
+      const obj = objectByName(xml(), name);
+      expect(rPr(name)[0]).toMatchObject({ lang: 'ru-RU', sz: String(Math.round(60.04 * S * 100)), spc: String(Math.round(-0.03 * 60.04 * S * 100)) });
+      expect(obj).toContain('<a:srgbClr val="FFFFFF"><a:alpha val="90000"/></a:srgbClr>');
+      expect(obj).toContain(`<a:t>${name}</a:t>`);
+      expect(tagAttrs(obj, 'a:bodyPr')[0].wrap).toBe('square');
+    }
+    const title = 'Sber500 в цифрах: 2018 - 2026 гг.';
+    expect(rPr(title)[0]).toMatchObject({ lang: 'ru-RU', sz: String(Math.round(95.1126 * S * 100)) });
+    expect(objectByName(xml(), title)).toContain('<a:srgbClr val="0E0E0E"/>');
+  });
+
+  it('title: right-aligned auto-width box keeps its right edge (width slack grows to the left)', () => {
+    const obj = objectByName(xml(), 'Sber500 в цифрах: 2018 - 2026 гг.');
+    expect(tagAttrs(obj, 'a:pPr')[0].algn).toBe('r');
+    expect(tagAttrs(obj, 'a:bodyPr')[0].wrap).toBe('none');
+    const off = tagAttrs(obj, 'a:off')[0];
+    const ext = tagAttrs(obj, 'a:ext')[0];
+    expect(Math.abs(Number(off.x) + Number(ext.cx) - emu(1731 + 1532))).toBeLessThanOrEqual(2);
+    expect(Math.abs(Number(ext.cx) - emu(1532 * (1 + CONFIG.text.widthSlackPercent / 100)))).toBeLessThanOrEqual(2);
+  });
+
+  it('needs one font: SB Sans Display (Regular) for all 7 runs', () => {
+    expect(get('startup-summit-wide').result.fonts).toEqual([
+      { family: 'SB Sans Display', style: 'Regular', face: 'SB Sans Display', bold: false, italic: false, overridden: false, runs: 7 },
+    ]);
   });
 });

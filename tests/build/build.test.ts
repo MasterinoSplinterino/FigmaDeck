@@ -67,6 +67,60 @@ describe('options', () => {
     expect(result.fonts.find((f) => f.style === 'Semibold' && f.family === 'SB Sans Display')).toMatchObject({ overridden: true, italic: true });
   });
 
+  it('fontNaming: full writes "SB Sans Display Bold" without b="1"; ribbi writes "SB Sans Display" + b="1"', async () => {
+    const full = await build(loadFixture('diploma'), { fontNaming: 'full' });
+    const ribbi = await build(loadFixture('diploma'), { fontNaming: 'ribbi' });
+    const bold = (pkg: typeof full.pkg) => objectByName(slideXml(pkg, 1), 'Иван Петров'); // SB Sans Display / Bold
+
+    expect(tagAttrs(bold(full.pkg), 'a:latin').map((a) => a.typeface)).toEqual(['SB Sans Display Bold', 'SB Sans Display Bold']);
+    expect(tagAttrs(bold(full.pkg), 'a:rPr')[0].b).toBeUndefined();
+    expect(tagAttrs(bold(full.pkg), 'a:endParaRPr')[0].b).toBeUndefined();
+    expect(full.result.fonts.find((f) => f.family === 'SB Sans Display' && f.style === 'Bold')).toMatchObject({
+      face: 'SB Sans Display Bold',
+      bold: false,
+      overridden: false,
+    });
+
+    expect(tagAttrs(bold(ribbi.pkg), 'a:latin').map((a) => a.typeface)).toEqual(['SB Sans Display', 'SB Sans Display']);
+    expect(tagAttrs(bold(ribbi.pkg), 'a:rPr')[0].b).toBe('1');
+    expect(tagAttrs(bold(ribbi.pkg), 'a:endParaRPr')[0].b).toBe('1');
+    expect(ribbi.result.fonts.find((f) => f.family === 'SB Sans Display' && f.style === 'Bold')).toMatchObject({ face: 'SB Sans Display', bold: true });
+
+    // Italic stays an attribute and non-RIBBI weights keep their full name under both rules.
+    for (const { pkg } of [full, ribbi]) {
+      const job = objectByName(slideXml(pkg, 1), 'Должность');
+      expect(tagAttrs(job, 'a:rPr')[1]).toMatchObject({ i: '1' });
+      expect(tagAttrs(job, 'a:latin')[1].typeface).toBe('SB Sans Text');
+      expect(tagAttrs(objectByName(slideXml(pkg, 1), 'Взрывной рост'), 'a:latin')[0].typeface).toBe('SB Sans Display Semibold');
+    }
+  });
+
+  it('fontNaming defaults to ribbi (unknown values too)', async () => {
+    const dflt = await build(loadFixture('diploma'));
+    const ribbi = await build(loadFixture('diploma'), { fontNaming: 'ribbi' });
+    const odd = await build(loadFixture('diploma'), { fontNaming: 'bogus' as unknown as 'ribbi' });
+    expect(slideXml(dflt.pkg, 1)).toBe(slideXml(ribbi.pkg, 1));
+    expect(slideXml(odd.pkg, 1)).toBe(slideXml(ribbi.pkg, 1));
+    expect(dflt.result.fonts).toEqual(ribbi.result.fonts);
+  });
+
+  it('fontOverrides win under both naming rules', async () => {
+    const fontOverrides = { 'SB Sans Display::Bold': { face: 'SB Sans Display Heavy', bold: true, italic: false } };
+    for (const fontNaming of ['ribbi', 'full'] as const) {
+      const { pkg, result } = await build(loadFixture('diploma'), { fontNaming, fontOverrides });
+      const obj = objectByName(slideXml(pkg, 1), 'Иван Петров');
+      expect(tagAttrs(obj, 'a:latin')[0].typeface).toBe('SB Sans Display Heavy');
+      expect(tagAttrs(obj, 'a:rPr')[0].b).toBe('1');
+      expect(result.fonts.find((f) => f.family === 'SB Sans Display' && f.style === 'Bold')).toMatchObject({
+        face: 'SB Sans Display Heavy',
+        bold: true,
+        overridden: true,
+      });
+      // Fonts without an override still follow the naming rule.
+      expect(tagAttrs(objectByName(slideXml(pkg, 1), 'Взрывной рост'), 'a:latin')[0].typeface).toBe('SB Sans Display Semibold');
+    }
+  });
+
   it('widthSlackPercent widens auto-width text boxes', async () => {
     const el = text('T', tf(100, 100, 200, 20), [para([run('abc')])]);
     const a = await build(one([el]), { widthSlackPercent: 0 });

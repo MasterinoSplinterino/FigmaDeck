@@ -1,7 +1,8 @@
 /**
  * IR → PPTX builder (Node + browser): pptxgenjs writes the package skeleton, post/ patches the OOXML.
  *
- *   layout (one slide size, per-slide scale) → pptxgenjs objects named `fd:<n>` + manifest
+ *   layout (one slide size — the first slide's or `options.slideSize` — per-slide scale + centering)
+ *   → pptxgenjs objects named `fd:<n>` + manifest
  *   → pres.write() → postProcess(manifest) → .pptx bytes
  */
 import PptxGenJS from 'pptxgenjs';
@@ -47,18 +48,51 @@ function yieldToEventLoop(): Promise<void> {
   return new Promise((resolve) => (g.setTimeout ? g.setTimeout(resolve, 0) : resolve()));
 }
 
+/** Percent with one decimal, e.g. `80.8%`. */
+function percent(scale: number): string {
+  return `${(scale * 100).toFixed(1)}%`;
+}
+
+/** Inches with up to three decimals, e.g. `34.575`. */
+function inches(pt: number): string {
+  return String(Number((pt / CONFIG.units.pxPerInch).toFixed(3)));
+}
+
+/** Offsets (pt) below this count as "no letterbox". */
+const LETTERBOX_EPSILON_PT = 0.01;
+
+/**
+ * `slide-scaled` entries:
+ * - fixed slide size (`BuildOptions.slideSize`): `info` for every slide whose scale ≠ 1;
+ * - otherwise: `warning` for slides whose size differs from the first one (fitted into its size),
+ *   `info` for slides scaled into PowerPoint's 1″…56″ range.
+ */
 function layoutReport(deck: Deck, layout: DeckLayout): ReportEntry[] {
   const first = deck.slides[0];
   const entries: ReportEntry[] = [];
   deck.slides.forEach((s: Slide, i) => {
     const p = layout.placements[i];
     const scaled = Math.abs(p.scale - 1) > 1e-9;
+    const base = { code: 'slide-scaled', slideId: s.id, slideName: s.name };
+    if (layout.fixed) {
+      if (!scaled) return;
+      const letterboxed = p.offsetX > LETTERBOX_EPSILON_PT || p.offsetY > LETTERBOX_EPSILON_PT;
+      const size = `${inches(layout.widthPt)}×${inches(layout.heightPt)} in`;
+      entries.push({
+        ...base,
+        level: 'info',
+        message:
+          `Slide (${s.width}×${s.height} px) scaled to ${percent(p.scale)} to fit the ${size} slide size` +
+          (letterboxed ? ' and centered; the margins show the slide background.' : '.') +
+          ' Font sizes and spacing were scaled too.',
+      });
+      return;
+    }
     if (!p.sizeDiffers && !scaled) return;
-    const pct = `${(p.scale * 100).toFixed(1)}%`;
     const message = p.sizeDiffers
-      ? `Slide is ${s.width}×${s.height} px but the presentation uses the first slide's size (${first.width}×${first.height} px); it was scaled to ${pct} and centered.`
-      : `Slide scaled to ${pct} to fit PowerPoint's slide size limits (1–${CONFIG.slide.maxInches} in per side); font sizes and spacing were scaled too.`;
-    entries.push({ level: p.sizeDiffers ? 'warning' : 'info', code: 'slide-scaled', slideId: s.id, slideName: s.name, message });
+      ? `Slide is ${s.width}×${s.height} px but the presentation uses the first slide's size (${first.width}×${first.height} px); it was scaled to ${percent(p.scale)} and centered.`
+      : `Slide scaled to ${percent(p.scale)} to fit PowerPoint's slide size limits (1–${CONFIG.slide.maxInches} in per side); font sizes and spacing were scaled too.`;
+    entries.push({ ...base, level: p.sizeDiffers ? 'warning' : 'info', message });
   });
   return entries;
 }
@@ -72,7 +106,7 @@ function toBytes(out: unknown): Uint8Array {
 export const buildPptx: BuildPptx = async (deck, options, onProgress) => {
   if (!deck.slides || deck.slides.length === 0) throw new Error('buildPptx: the deck has no slides');
   const progress = (p: BuildProgress) => onProgress?.(p);
-  const layout = computeDeckLayout(deck.slides);
+  const layout = computeDeckLayout(deck.slides, options.slideSize);
   const meta = resolveMeta(deck, options);
 
   const pres = new PptxGenJS();
@@ -87,7 +121,7 @@ export const buildPptx: BuildPptx = async (deck, options, onProgress) => {
   const state: DeckState = {
     deck,
     options,
-    fonts: new FontTracker(options.fontOverrides ?? {}),
+    fonts: new FontTracker(options.fontOverrides ?? {}, options.fontNaming),
     report: layoutReport(deck, layout),
     stats,
     slideNumbers: new Map(deck.slides.map((s, i) => [s.id, i + 1] as const)),

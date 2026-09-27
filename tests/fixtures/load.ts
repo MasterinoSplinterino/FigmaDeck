@@ -8,7 +8,7 @@ import { CONFIG } from '../../src/config';
 import { deserializeDeck } from '../../src/ir/serialize';
 import type { Deck } from '../../src/ir/types';
 
-export const FIXTURE_NAMES = ['diploma', 'kitchen-sink', 'wide-5k', 'mixed-sizes', 'tiny'] as const;
+export const FIXTURE_NAMES = ['diploma', 'kitchen-sink', 'wide-5k', 'mixed-sizes', 'tiny', 'startup-summit-wide'] as const;
 export type FixtureName = (typeof FIXTURE_NAMES)[number];
 
 /** Default export settings with a fixed timestamp. Returns a fresh object on every call. */

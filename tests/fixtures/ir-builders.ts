@@ -6,6 +6,7 @@ import { PNG } from 'pngjs';
 import type {
   Asset,
   Color,
+  Crop,
   Deck,
   Element,
   GroupElement,
@@ -32,6 +33,27 @@ export function rgb(hex: string, a = 1): Color {
     b: parseInt(h.slice(4, 6), 16) / 255,
     a,
   };
+}
+
+/** Color from Figma's 0..1 channels (values as reported by the Plugin API). */
+export function rgbf(r: number, g: number, b: number, a = 1): Color {
+  return { r, g, b, a };
+}
+
+/**
+ * Crop of an IMAGE fill with `scaleMode: 'FILL'` (cover): the `imageW × imageH` image is scaled by
+ * max(boxW / imageW, boxH / imageH), centered, and the overflow is cut equally on both sides.
+ * Fractions below `epsilon` are written as 0 (like the extractor's CONFIG.extract.cropEpsilon).
+ */
+export function coverCrop(imageW: number, imageH: number, boxW: number, boxH: number, epsilon = 1e-4): Crop {
+  const s = Math.max(boxW / imageW, boxH / imageH);
+  const side = (visible: number) => {
+    const cut = (1 - visible) / 2;
+    return Math.abs(cut) < epsilon ? 0 : cut;
+  };
+  const lr = side(boxW / (imageW * s));
+  const tb = side(boxH / (imageH * s));
+  return { left: lr, top: tb, right: lr, bottom: tb };
 }
 
 export function tf(x: number, y: number, w: number, h: number, rotation = 0, flipH = false, flipV = false): Transform {

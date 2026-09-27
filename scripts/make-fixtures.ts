@@ -8,6 +8,9 @@
  * wide-5k       4992×1536 frame larger than PowerPoint's 56″ limit
  * mixed-sizes   1920×1080 + 1080×1080 + 3840×2160 in one deck
  * tiny          48×48    frame smaller than the 1″ minimum
+ * startup-summit-wide  4992×1536  a real production frame ("Startup Summit — 2026", measured through the
+ *               Figma Plugin API, docs/figma-api-notes.md): image-fill background, right-aligned title,
+ *               three gradient cards with inner shadow + inside stroke and native Cyrillic text
  */
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
@@ -16,12 +19,14 @@ import type { Deck, LinearGradientFill, Matrix } from '../src/ir/types';
 import { serializeDeck } from '../src/ir/serialize';
 import {
   LS,
+  coverCrop,
   deck,
   group,
   image,
   para,
   pngAsset,
   rgb,
+  rgbf,
   run,
   segmentDistance,
   shape,
@@ -423,12 +428,148 @@ function tiny(): Deck {
   ]);
 }
 
+// ─── startup-summit-wide ─────────────────────────────────────────────────────
+
+/** Intrinsic size of the production background image (the fixture embeds a 10× smaller PNG). */
+const SUMMIT_IMAGE_W = 4096;
+const SUMMIT_IMAGE_H = 1260;
+
+/** Light background with soft green / mint glows (stand-in for the production photo), 410×126. */
+function summitBackgroundPixel(x: number, y: number): Rgba {
+  let c: [number, number, number] = [242, 245, 243];
+  const glows: Array<[number, number, number, [number, number, number], number]> = [
+    // cx, cy, radius (px of the 410×126 bitmap), color, strength
+    [30, 112, 75, [33, 160, 56], 0.55],
+    [388, 14, 85, [66, 225, 180], 0.45],
+    [205, 150, 95, [160, 230, 200], 0.3],
+  ];
+  for (const [cx, cy, r, color, strength] of glows) {
+    const a = strength * Math.exp(-((Math.hypot(x - cx, y - cy) / r) ** 2));
+    c = [c[0] + (color[0] - c[0]) * a, c[1] + (color[1] - c[1]) * a, c[2] + (color[2] - c[2]) * a];
+  }
+  return [Math.round(c[0]), Math.round(c[1]), Math.round(c[2]), 255];
+}
+
+/**
+ * Reproduction of a real 4992×1536 frame, values as reported by the Figma Plugin API:
+ * - RECTANGLE with an IMAGE fill (FILL, identity imageTransform, no filters) covering the frame;
+ * - WIDTH_AND_HEIGHT title, right-aligned, SB Sans Display Regular 95.1126 px / 103 %;
+ * - three auto-layout card FRAMEs 728.738×845.857: LINEAR gradient fill, SOLID INSIDE stroke 3.2533,
+ *   cornerRadius 81.3324, one INNER_SHADOW (radius 130.13, offset 0, spread 0) → background shape
+ *   (`~bg:<id>`) + two native texts each (224.61 px number, 60.04 px label with layer opacity 0.9).
+ */
+function startupSummitWide(): Deck {
+  const W = 4992;
+  const H = 1536;
+  const bg = {
+    ...pngAsset('summit-bg', 'image-fill', 410, 126, summitBackgroundPixel, false),
+    displayWidth: W,
+    displayHeight: H,
+  };
+  const sbDisplay = { fontFamily: 'SB Sans Display', fontStyle: 'Regular', fontWeight: 400 };
+  const white = rgbf(1, 1, 1);
+  const mint = rgbf(0.502, 0.929, 0.82);
+  const cardGradient: LinearGradientFill = {
+    type: 'linear-gradient',
+    stops: [
+      { position: 0, color: rgbf(0.1294, 0.6235, 0.4275) },
+      { position: 1, color: rgbf(0.1713, 0.274, 0.1935) },
+    ],
+    gradientTransform: [
+      [9.3e-8, 1.3925371, -6.43e-8],
+      [-0.5323763, -1.09e-14, 0.8677087],
+    ],
+  };
+  const CARD_W = 728.738;
+  const CARD_H = 845.857;
+  const cards = [
+    // n: node id of the card frame (its texts are n + 1, n + 2)
+    { n: 3150, x: 1345, y: 380, value: '9 500', spacing: -10, label: 'заявок  от стартапов' },
+    { n: 3160, x: 2133, y: 380.43, value: '1 050', spacing: -10, label: 'стартапов прошли буткемп' },
+    { n: 3170, x: 2921, y: 380.43, value: '175 ', spacing: -8, label: 'стартапов стали финалистами' },
+  ];
+
+  const cardGroups = cards.map((c, i) => {
+    const name = `Card ${i + 1}`;
+    const background = shape(name, 'roundRect', tf(c.x, c.y, CARD_W, CARD_H), {
+      id: `~bg:2087:${c.n}`,
+      cornerRadius: 81.3324,
+      fill: cardGradient,
+      stroke: stroke({ color: mint, weight: 3.2533, align: 'inside' }),
+      shadow: { type: 'inner', color: mint, offsetX: 0, offsetY: 0, blur: 130.13, spread: 0 },
+    });
+    const value = text(
+      c.value,
+      tf(c.x + 81.33, c.y + 93, 566.07, 247),
+      [
+        para([
+          run(c.value, {
+            ...sbDisplay,
+            fontSize: 224.61,
+            letterSpacing: { unit: 'PIXELS', value: c.spacing },
+            lineHeight: { unit: 'PERCENT', value: 110 },
+            color: white,
+          }),
+        ]),
+      ],
+      { id: `2087:${c.n + 1}`, autoResize: 'HEIGHT' },
+    );
+    const label = text(
+      c.label,
+      tf(c.x + 81.33, c.y + 377, 566.07, 196.38),
+      [
+        para([
+          run(c.label, {
+            ...sbDisplay,
+            fontSize: 60.04,
+            letterSpacing: { unit: 'PERCENT', value: -3 },
+            lineHeight: { unit: 'PERCENT', value: 118 },
+            color: white,
+          }),
+        ]),
+      ],
+      { id: `2087:${c.n + 2}`, autoResize: 'NONE', opacity: 0.9 },
+    );
+    // The card frame's box (the helper's union would carry float noise from x + w).
+    return { ...group(name, [background, value, label]), id: `2087:${c.n}`, transform: tf(c.x, c.y, CARD_W, CARD_H) };
+  });
+
+  const titleText = 'Sber500 в цифрах: 2018 - 2026 гг.';
+  const elements = [
+    image('Background', bg.id, tf(0, 0, W, H), { id: '2087:3141', crop: coverCrop(SUMMIT_IMAGE_W, SUMMIT_IMAGE_H, W, H) }),
+    text(
+      titleText,
+      tf(1731, 169, 1532, 67),
+      [
+        para(
+          [
+            run(titleText, {
+              ...sbDisplay,
+              fontSize: 95.1126,
+              lineHeight: { unit: 'PERCENT', value: 103 },
+              letterSpacing: { unit: 'PERCENT', value: 0 },
+              color: rgbf(0.053, 0.053, 0.053),
+            }),
+          ],
+          { align: 'right' },
+        ),
+      ],
+      { id: '2087:3142', autoResize: 'WIDTH_AND_HEIGHT' },
+    ),
+    ...cardGroups,
+  ];
+  const d = deck('Startup Summit — 2026', [slide('2087:3140', 'Sber500 в цифрах', W, H, elements, { background: { type: 'solid', color: rgb('FFFFFF') } })], [bg]);
+  d.meta = { ...d.meta, sourceFile: 'Startup Summit — 2026' };
+  return d;
+}
+
 export const FIXTURES: Record<string, () => Deck> = {
   diploma,
   'kitchen-sink': kitchenSink,
   'wide-5k': wide5k,
   'mixed-sizes': mixedSizes,
   tiny,
+  'startup-summit-wide': startupSummitWide,
 };
 
 function main(): void {
