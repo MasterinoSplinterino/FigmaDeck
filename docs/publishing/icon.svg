@@ -1,21 +1,12 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
   <title>Ewento Slides</title>
   <defs>
-    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#8373FF"/>
-      <stop offset="1" stop-color="#4B33E6"/>
-    </linearGradient>
-    <!-- Cuts a gap into the slide around the arrow so the two shapes stay apart at 16–24 px. -->
-    <mask id="cut" maskUnits="userSpaceOnUse" x="0" y="0" width="128" height="128">
-      <rect width="128" height="128" fill="#fff"/>
-      <path d="M70 68 L107 31 M84 30 H108 V54" fill="none" stroke="#000" stroke-width="22" stroke-linecap="round" stroke-linejoin="round"/>
-    </mask>
+    <linearGradient id="eg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#8373FF"/><stop offset="1" stop-color="#4B33E6"/></linearGradient>
+    <symbol id="e" viewBox="-0.4 37 124.5 132.7"><path d="M 121.949219 112.433594 L 27.597656 112.433594 C 29.316406 122.746094 33.871094 130.910156 41.261719 136.925781 C 48.820312 142.765625 58.015625 145.6875 68.84375 145.6875 C 82.25 145.6875 94.535156 140.707031 105.707031 130.738281 L 118.597656 149.296875 C 104.332031 162.875 87.492188 169.664062 68.070312 169.664062 C 48.820312 169.664062 32.667969 163.390625 19.605469 150.84375 C 6.542969 138.128906 0.0117188 122.402344 0.0117188 103.667969 C -0.332031 85.453125 6.027344 69.8125 19.089844 56.75 C 32.152344 43.519531 47.617188 37.074219 65.492188 37.417969 C 82.164062 37.417969 96.082031 43.003906 107.253906 54.171875 C 118.425781 65.171875 124.011719 78.921875 124.011719 95.417969 C 124.011719 100.402344 123.324219 106.074219 121.949219 112.433594 Z M 28.113281 91.296875 L 96.941406 91.296875 C 96.769531 81.84375 93.589844 74.367188 87.40625 68.867188 C 81.21875 63.195312 73.570312 60.359375 64.460938 60.359375 C 55.523438 60.359375 47.703125 63.195312 41.003906 68.867188 C 34.472656 74.367188 30.175781 81.84375 28.113281 91.296875 Z M 28.113281 91.296875 "/></symbol>
   </defs>
-  <rect width="128" height="128" rx="28" fill="url(#bg)"/>
-  <g mask="url(#cut)">
-    <rect x="16" y="42" width="80" height="60" rx="10" fill="#fff"/>
-    <rect x="27" y="67" width="24" height="9" rx="4.5" fill="#5B45F0"/>
-    <rect x="27" y="81" width="16" height="9" rx="4.5" fill="#C4BAFF"/>
-  </g>
-  <path d="M70 68 L107 31 M84 30 H108 V54" fill="none" stroke="#FFC14D" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"/>
+  <rect width="128" height="128" rx="28" fill="#141419"/>
+  <rect x="30" y="22" width="76" height="54" rx="9" fill="#fff" fill-opacity="0.22"/>
+  <rect x="24" y="29" width="82" height="58" rx="9" fill="#fff" fill-opacity="0.45"/>
+  <rect x="17" y="37" width="90" height="64" rx="10" fill="#fff"/>
+  <use href="#e" x="43" y="45" width="44" height="47" fill="url(#eg)"/>
 </svg>
