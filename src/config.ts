@@ -451,6 +451,11 @@ export const CONFIG = {
     outDir: 'tests/visual/out',
   },
 
+  /** Office limits (Open XML SDK data): sizes, blur radii and dash lengths are signed 32-bit integers. */
+  ooxml: {
+    maxInt32: 2147483647,
+  },
+
   /** Metadata written to docProps (never the PptxGenJS defaults). */
   meta: {
     application: 'FigmaDeck',

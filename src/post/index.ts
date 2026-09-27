@@ -91,7 +91,7 @@ function partRank(name: string): number {
 /**
  * Write the final ZIP: parts only (pptxgenjs also writes folder entries, which are not OPC parts),
  * `[Content_Types].xml` first, XML deflated, already-compressed media stored, a fixed entry date, and the
- * last-line "PptxGenJS" scrub of every XML part.
+ * last-line "PptxGenJS" scrub of docProps (the only parts where pptxgenjs writes its name).
  */
 async function repack(zip: JSZip, parts: ReadonlyArray<string>, date: Date): Promise<Uint8Array> {
   const out = new JSZip();
@@ -100,7 +100,9 @@ async function repack(zip: JSZip, parts: ReadonlyArray<string>, date: Date): Pro
   for (const name of ordered) {
     const file = zip.files[name];
     if (/\.(xml|rels)$/i.test(name)) {
-      out.file(name, scrubGeneratorName(await file.async('string')), { createFolders: false, date: validDate, compression: 'DEFLATE' });
+      // pptxgenjs only writes its name into docProps; never rewrite user text / links elsewhere.
+      const text = await file.async('string');
+      out.file(name, name.startsWith('docProps/') ? scrubGeneratorName(text) : text, { createFolders: false, date: validDate, compression: 'DEFLATE' });
     } else {
       const compression = STORED_EXTENSIONS.test(name) ? 'STORE' : 'DEFLATE';
       out.file(name, await file.async('uint8array'), { createFolders: false, date: validDate, compression });

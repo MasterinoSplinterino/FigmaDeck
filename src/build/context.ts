@@ -2,6 +2,7 @@
  * Per-slide emission context: geometry conversion (px → EMU with the slide's scale and offset),
  * object naming, hyperlink table, manifest, report and counters.
  */
+import { CONFIG } from '../config';
 import type PptxGenJS from 'pptxgenjs';
 import type { Deck, Hyperlink, Rect, ReportEntry, ReportLevel, Slide, Transform } from '../ir/types';
 import type { BuildOptions } from './api';
@@ -84,11 +85,15 @@ export class SlideContext {
     // Round the far edges, not the sizes, so adjacent objects stay adjacent.
     const x2 = ptToEmu(this.placement.offsetX + (rx + rw) * s);
     const y2 = ptToEmu(this.placement.offsetY + (ry + rh) * s);
-    return { x, y, w: Math.max(0, x2 - x), h: Math.max(0, y2 - y) };
+    // Office caps ext cx/cy at Int32 (ISO allows more; PowerPoint does not).
+    const max = CONFIG.ooxml.maxInt32;
+    return { x, y, w: Math.min(max, Math.max(0, x2 - x)), h: Math.min(max, Math.max(0, y2 - y)) };
   }
 
   transformEmu(t: Transform): EmuTransform {
-    return { ...this.rectEmu(t), rotation: finite(t.rotation), flipH: !!t.flipH, flipV: !!t.flipV };
+    // pptxgenjs subtracts 360 only once: normalize to [0, 360) for hand-made IR.
+    const rotation = ((finite(t.rotation) % 360) + 360) % 360;
+    return { ...this.rectEmu(t), rotation, flipH: !!t.flipH, flipV: !!t.flipV };
   }
 
   /** Next unique object name `fd:<n>`. */

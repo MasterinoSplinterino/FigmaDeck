@@ -5,6 +5,7 @@
  * bounds), so members keep their slide coordinates.
  */
 import type { EmuRect, ManifestGroup } from '../build/manifest';
+import { CONFIG } from '../config';
 import type { HyperlinkRef } from './objects';
 
 export interface NamedObject {
@@ -16,8 +17,8 @@ export interface NamedObject {
 export function groupShapeXml(id: number, name: string, bounds: EmuRect, membersXml: string, link?: HyperlinkRef | null): string {
   const x = Math.round(bounds.x);
   const y = Math.round(bounds.y);
-  const cx = Math.max(1, Math.round(bounds.w));
-  const cy = Math.max(1, Math.round(bounds.h));
+  const cx = Math.min(CONFIG.ooxml.maxInt32, Math.max(1, Math.round(bounds.w)));
+  const cy = Math.min(CONFIG.ooxml.maxInt32, Math.max(1, Math.round(bounds.h)));
   const hlink = link ? `<a:hlinkClick r:id="${link.rId}"${link.action ? ` action="${link.action}"` : ''}/>` : '';
   const cNvPr = hlink ? `<p:cNvPr id="${id}" name="${name}">${hlink}</p:cNvPr>` : `<p:cNvPr id="${id}" name="${name}"/>`;
   return (

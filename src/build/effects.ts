@@ -27,8 +27,8 @@ export function shadowGeometry(shadow: Shadow, scale: number, opacity: number): 
   const offset = Math.hypot(shadow.offsetX, shadow.offsetY);
   const deg = offset > 0 ? (Math.atan2(shadow.offsetY, shadow.offsetX) * 180) / Math.PI : 0;
   return {
-    blurRad: Math.max(0, ptToEmu(Math.max(0, shadow.blur) * CONFIG.shadow.blurFactor * scale)),
-    dist: Math.max(0, ptToEmu(offset * scale)),
+    blurRad: Math.min(CONFIG.ooxml.maxInt32, Math.max(0, ptToEmu(Math.max(0, shadow.blur) * CONFIG.shadow.blurFactor * scale))),
+    dist: Math.min(CONFIG.ooxml.maxInt32, Math.max(0, ptToEmu(offset * scale))),
     dir: degreesToOoxmlAngle(deg),
     alpha: effectiveAlpha(shadow.color, opacity),
   };

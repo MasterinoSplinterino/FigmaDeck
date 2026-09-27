@@ -43,8 +43,9 @@ export function custDashXml(dash: ReadonlyArray<number> | null | undefined, weig
   const pattern = values.length % 2 === 1 ? [...values, ...values] : values;
   let ds = '';
   for (let i = 0; i < pattern.length; i += 2) {
-    const d = Math.max(1, Math.round((pattern[i] / weight) * 100000));
-    const sp = Math.max(1, Math.round((pattern[i + 1] / weight) * 100000));
+    // Office stores d / sp as Int32 (hairline strokes with long dashes would overflow).
+    const d = clamp(Math.round((pattern[i] / weight) * 100000), 1, CONFIG.ooxml.maxInt32);
+    const sp = clamp(Math.round((pattern[i + 1] / weight) * 100000), 1, CONFIG.ooxml.maxInt32);
     ds += `<a:ds d="${d}" sp="${sp}"/>`;
   }
   return `<a:custDash>${ds}</a:custDash>`;

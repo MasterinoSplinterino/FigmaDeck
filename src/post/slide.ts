@@ -122,7 +122,8 @@ export function patchSlide(input: SlidePatchInput): SlidePatchResult {
   for (const o of manifest.objects) names.set(o.name, o.layerName);
   for (const g of manifest.groups) names.set(g.name, g.layerName);
   xml = renameObjects(xml, names);
-  xml = xml.replace(/<p:cSld\b[^>]*>/, `<p:cSld name="${escapeXml(manifest.name)}">`);
+  // Function replacer: `$&`, `$'`, `` $` `` in slide names must not be interpreted by replace().
+  xml = xml.replace(/<p:cSld\b[^>]*>/, () => `<p:cSld name="${escapeXml(manifest.name)}">`);
 
   return { xml, relsXml: rels.toXml(), warnings };
 }
