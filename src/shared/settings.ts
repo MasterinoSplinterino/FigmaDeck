@@ -32,7 +32,15 @@ export interface ExportSettings {
   mode: ExportMode;
   /** Raster export scale. */
   rasterScale: 1 | 2 | 3;
-  /** Re-encode opaque photos / backgrounds as JPEG. */
+  /**
+   * Image compression (TinyPNG-like), applied in the UI before building:
+   * `off`      — bitmaps kept exactly as Figma exported them;
+   * `balanced` — opaque photos/backgrounds → JPEG (jpegQuality), PNGs with transparency → ≤256-colour
+   *              palette with dithering, only when the result is visually lossless (quality gate);
+   * `strong`   — lower JPEG quality and a looser quality gate (smaller files, small visible loss).
+   */
+  compression: 'off' | 'balanced' | 'strong';
+  /** Re-encode opaque photos / backgrounds as JPEG (derived from `compression` !== 'off'; kept for compatibility). */
   jpeg: boolean;
   /** 0.5..1 */
   jpegQuality: number;
@@ -75,7 +83,8 @@ export interface ExportSettings {
 export const DEFAULT_SETTINGS: ExportSettings = {
   mode: 'editable',
   rasterScale: CONFIG.raster.defaultScale,
-  jpeg: false,
+  compression: 'balanced',
+  jpeg: true,
   jpegQuality: CONFIG.raster.jpegQuality,
   textCase: 'cap',
   widthSlackPercent: CONFIG.text.widthSlackPercent,
@@ -108,7 +117,8 @@ export function normalizeSettings(raw: unknown): ExportSettings {
   if (!['frame', 'custom'].includes(s.slideSizeMode)) s.slideSizeMode = DEFAULT_SETTINGS.slideSizeMode;
   if (!(s.slideWidthIn >= 1 && s.slideWidthIn <= 56)) s.slideWidthIn = DEFAULT_SETTINGS.slideWidthIn;
   if (!(s.slideHeightIn >= 1 && s.slideHeightIn <= 56)) s.slideHeightIn = DEFAULT_SETTINGS.slideHeightIn;
-  s.jpeg = !!s.jpeg;
+  if (!['off', 'balanced', 'strong'].includes(s.compression)) s.compression = DEFAULT_SETTINGS.compression;
+  s.jpeg = s.compression !== 'off';
   s.svgVectors = !!s.svgVectors;
   s.preserveGroups = !!s.preserveGroups;
   s.nativeGradients = !!s.nativeGradients;
