@@ -43,3 +43,24 @@ uniformly into the first slide's size and centered (report entry `slide-scaled`)
 | Line spacing | `<a:spcPts>` absolute (e.g. 2310 for 21 pt × 110 %) | same |
 | Letter spacing | `spc` in 1/100 pt (e.g. −15) | same |
 | Hyperlinks | `mailto:` via `hlinkClick` | same (+ jumps to exported slides) |
+
+## 3. PowerPoint compatibility findings (verified by bisection in PowerPoint 365, Windows)
+
+A FigmaDeck export that passed XSD validation was refused by PowerPoint ("PowerPoint can't read
+<file>"). Variants of the same file, each changing one factor, were opened by the user:
+
+| Variant | Opens |
+|---|---|
+| ZIP repacked without compression, our XML | no |
+| our DEFLATE ZIP, pptxgenjs `presentation.xml` / `[Content_Types].xml` / docProps | yes |
+| our file with ZIP "version needed" 1.0 → 2.0 | no |
+| only `docProps/core.xml`, `docProps/app.xml` or `[Content_Types].xml` reverted | no |
+| only `ppt/presentation.xml` reverted | **yes** |
+| pptxgenjs child order + portrait `notesSz` 6858000×9144000 | **yes** |
+| XSD child order (`notesMasterIdLst` before `sldIdLst`) + pptxgenjs `notesSz` | no |
+
+Conclusion: in pptxgenjs packages PowerPoint requires `<p:sldIdLst>` to stay **before**
+`<p:notesMasterIdLst>` (pptxgenjs's order), although the ECMA-376 XSD sequence is the opposite.
+FigmaDeck keeps pptxgenjs's order (`src/post/package.ts`, regression test
+`tests/build/ooxml-regressions.test.ts`); the XSD test normalizes only that order in its copy.
+Changing `notesSz`, DEFLATE compression, docProps and content types are all fine.

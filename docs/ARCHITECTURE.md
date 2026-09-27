@@ -42,7 +42,9 @@ TypeScript projects enforce the boundaries: `tsconfig.main.json` (Figma typings,
   a 4992 px frame exported 1:1 = 69″ makes PowerPoint refuse the file — see reference-analysis.md).
   Frames outside the range get one uniform deck scale `s` (≤ 4032 px / longest side, ≥ 72 px /
   shortest side) applied by the builder to positions, sizes, font sizes, letter/line spacing,
-  strokes, radii and shadows. `notesSz` is written as a normal portrait page.
+  strokes, radii and shadows. `notesSz` is written as a normal portrait page; the order of
+  `<p:sldIdLst>` before `<p:notesMasterIdLst>` is kept as pptxgenjs writes it (PowerPoint refuses the
+  XSD order in these packages — see reference-analysis.md §3).
 * One presentation has one slide size: the first slide defines it; other slides of a different size
   are scaled uniformly to fit and centered (report entry `slide-scaled`).
 

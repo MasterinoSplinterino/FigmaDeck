@@ -45,15 +45,10 @@ export function patchAppXml(xml: string, meta: PackageMeta): string {
 /** ppt/presentation.xml: a normal portrait notes page instead of the swapped slide size. */
 export function patchPresentationXml(xml: string): string {
   const notesSz = `<p:notesSz cx="${CONFIG.pptx.notesWidthEmu}" cy="${CONFIG.pptx.notesHeightEmu}"/>`;
-  let out = xml.replace(/<p:notesSz\b[^>]*\/>/, () => notesSz);
-  // Schema order is sldMasterIdLst, notesMasterIdLst, handoutMasterIdLst, sldIdLst; pptxgenjs writes
-  // notesMasterIdLst after sldIdLst (XSD-invalid, tolerated by PowerPoint). Move it into place.
-  const notes = /<p:notesMasterIdLst>[\s\S]*?<\/p:notesMasterIdLst>/.exec(out);
-  if (notes && out.indexOf('</p:sldMasterIdLst>') >= 0 && out.indexOf('<p:sldIdLst') >= 0 && out.indexOf('<p:sldIdLst') < notes.index) {
-    out = out.slice(0, notes.index) + out.slice(notes.index + notes[0].length);
-    out = out.replace('</p:sldMasterIdLst>', () => '</p:sldMasterIdLst>' + notes[0]);
-  }
-  return out;
+  // Do NOT reorder <p:notesMasterIdLst> / <p:sldIdLst> into XSD order: verified with PowerPoint 365
+  // (Windows) that pptxgenjs packages with notesMasterIdLst moved before sldIdLst are refused with
+  // "PowerPoint can't read <file>", while pptxgenjs's own order opens fine.
+  return xml.replace(/<p:notesSz\b[^>]*\/>/, () => notesSz);
 }
 
 const DEFAULT_TYPES: Record<string, string> = {

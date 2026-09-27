@@ -131,11 +131,14 @@ describe('OOXML regressions', () => {
     for (const p of pkg.parts.filter((x) => x.startsWith('docProps/'))) expect(pkg.text(p)).not.toContain('PptxGenJS');
   });
 
-  it('writes <p:presentation> children in schema order', async () => {
+  it('keeps pptxgenjs order of <p:sldIdLst> / <p:notesMasterIdLst> (PowerPoint refuses the XSD order)', async () => {
+    // Verified by bisection in PowerPoint 365: moving notesMasterIdLst before sldIdLst makes
+    // PowerPoint report "can't read" for pptxgenjs packages. Keep pptxgenjs's order.
     const pres = (await build(baseDeck([text('2:7', 'x')]))).text('ppt/presentation.xml');
-    const order = ['<p:sldMasterIdLst', '<p:notesMasterIdLst', '<p:sldIdLst', '<p:sldSz', '<p:notesSz'].map((t) => pres.indexOf(t));
+    const order = ['<p:sldMasterIdLst', '<p:sldIdLst', '<p:notesMasterIdLst', '<p:sldSz', '<p:notesSz'].map((t) => pres.indexOf(t));
     expect(order.every((i) => i >= 0)).toBe(true);
     expect([...order].sort((a, b) => a - b)).toEqual(order);
+    expect(pres).toContain(`<p:notesSz cx="6858000" cy="9144000"/>`);
   });
 });
 
@@ -170,7 +173,14 @@ describe.skipIf(!canValidate)('XSD validation (ISO/IEC 29500-4 Transitional)', (
       const parts = pkg.parts.filter((p) => /^ppt\/(slides\/slide\d+|presentation)\.xml$/.test(p));
       const files = parts.map((p, i) => {
         const f = join(dir, `${i}-${p.replace(/\//g, '_')}`);
-        writeFileSync(f, pkg.text(p));
+        let xml = pkg.text(p);
+        if (p === 'ppt/presentation.xml') {
+          // Intentional deviation (see test above): PowerPoint needs pptxgenjs's order, the XSD wants
+          // notesMasterIdLst first. Validate everything else by normalizing the order in this copy.
+          const notes = /<p:notesMasterIdLst>[\s\S]*?<\/p:notesMasterIdLst>/.exec(xml);
+          if (notes) xml = xml.replace(notes[0], '').replace('</p:sldMasterIdLst>', () => '</p:sldMasterIdLst>' + notes[0]);
+        }
+        writeFileSync(f, xml);
         return f;
       });
       let output = '';
