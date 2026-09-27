@@ -4,6 +4,14 @@
  *
  * Environment-neutral: imported by the Figma main thread, the UI iframe and Node tests.
  */
+
+/**
+ * The product name users see (plugin window title, headers, report, file metadata, fallback file
+ * name) — read it as CONFIG.meta.productName. Change it together with manifest.json "name":
+ * `node scripts/rename.mjs "New Name"` (Figma does not allow "Figma" in Community plugin names).
+ */
+const PRODUCT_NAME = 'FigmaDeck';
+
 export const CONFIG = {
   /** Unit system. 1 Figma px == 1 pt (slide inches = px / 72). */
   units: {
@@ -235,7 +243,21 @@ export const CONFIG = {
     /** Max length (characters) of a downloaded file's base name. */
     maxFileNameLength: 120,
     /** Base name used when the deck title is empty. */
-    fallbackFileName: 'FigmaDeck',
+    fallbackFileName: PRODUCT_NAME,
+    /**
+     * The UI shows "Couldn't connect" with a retry button when main's `init` has not arrived this long
+     * (ms) after `ui-ready`.
+     */
+    bootTimeoutMs: 15000,
+    /** Settings → Fonts stops its spinner when main's `fonts` has not arrived this long (ms) after the request. */
+    fontsTimeoutMs: 30000,
+    /**
+     * Sidebar thumbnails still pending stop their loading shimmer when no thumbnail at all has arrived
+     * for this long (ms): main renders them one by one and skips frames it cannot export.
+     */
+    thumbnailStallMs: 20000,
+    /** Error texts shown in toasts are cut to their first line and at most this many characters. */
+    errorMessageMaxChars: 200,
     /** Max layers listed per slide in the report dialog before "and N more" (the text export lists all). */
     reportMaxItemsPerSlide: 50,
   },
@@ -464,11 +486,16 @@ export const CONFIG = {
     maxInt32: 2147483647,
   },
 
-  /** Metadata written to docProps (never the PptxGenJS defaults). */
+  /** Product identity and metadata written to docProps / PDF info (never the PptxGenJS defaults). */
   meta: {
-    application: 'FigmaDeck',
-    defaultAuthor: 'FigmaDeck',
+    /** User-visible product name (see PRODUCT_NAME above). */
+    productName: PRODUCT_NAME,
+    application: PRODUCT_NAME,
+    defaultAuthor: PRODUCT_NAME,
     defaultCompany: '',
+    /** Settings → About: support page (https://…) and e-mail. Each is shown only when non-empty. */
+    supportUrl: '' as string,
+    supportEmail: '' as string,
   },
 } as const;
 
