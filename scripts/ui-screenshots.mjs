@@ -1,17 +1,22 @@
 // Renders the plugin UI standalone in headless Chromium and saves screenshots of its main states:
-//   docs/screenshots/{empty,deck,drag,export-menu,settings,settings-fonts,progress,report,report-details,
-//                     report-pdf,settings-slide-size,preview-failed}[-light][-ru].png
+//   docs/screenshots/{empty,deck,drag,export-menu,settings,settings-compression,settings-fonts,progress,
+//                     progress-images,report,report-details,report-pdf,settings-slide-size,preview-failed}
+//                     [-light][-ru].png
 //
-// The UI is bundled exactly like scripts/build.mjs does (same esbuild options, Node-only modules
-// stubbed, JS + CSS inlined into src/ui/index.html). `parent.postMessage` is stubbed (at top level
-// `parent === window`) and main-thread messages are injected as window 'message' events. The report
-// scene runs the real export pipeline (images → buildPptx in the browser) on IR fixtures and checks
-// the downloaded .pptx; the vector PDF scene merges synthetic per-frame PDFs (the same photo in every
-// frame, made with pdf-lib here) and checks that the duplicate image was stored once.
+// The UI is bundled with the options of scripts/build.mjs (imported from it: same esbuild options,
+// Node-only modules stubbed, the compression worker injected, JS + CSS inlined into
+// src/ui/index.html). `parent.postMessage` is stubbed (at top level `parent === window`) and
+// main-thread messages are injected as window 'message' events. The report scene runs the real
+// export pipeline (images → buildPptx in the browser) on IR fixtures plus a sample PNG, checks that
+// image compression ran in the Web Worker (the main thread keeps painting meanwhile) and that the
+// sample was stored as a smaller palette PNG in the downloaded .pptx; the vector PDF scene merges
+// synthetic per-frame PDFs (the same photo in every frame, made with pdf-lib here) and checks that
+// the duplicate image was stored once. The settings scene checks the image compression control.
 //
 // Usage: npm run ui:screenshots -- [--theme dark|light] [--lang en|ru] [--out docs/screenshots] [--only deck,settings]
 //   --only  save just these scenes (all scenes still run, so the interaction checks always happen)
 import * as esbuild from 'esbuild';
+import JSZip from 'jszip';
 import { existsSync, readdirSync } from 'node:fs';
 import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -20,6 +25,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import { PDFDocument, PDFName, PDFRawStream, StandardFonts } from 'pdf-lib';
 import { PNG } from 'pngjs';
 import { chromium } from 'playwright-core';
+import { renderUiHtml, uiBuildOptions } from './build.mjs';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -34,41 +40,11 @@ const suffix = `${theme === 'light' ? '-light' : ''}${lang === 'ru' ? '-ru' : ''
 const only = arg('only', '') ? new Set(arg('only', '').split(',').map((x) => x.trim()).filter(Boolean)) : null;
 const WINDOW = { width: 1000, height: 640 };
 
-// ─── Bundle (mirrors uiOptions in scripts/build.mjs) ─────────────────────────
-
-const nodeOnly = ['fs', 'https', 'http', 'path', 'os', 'stream', 'image-size', 'node:fs', 'node:https', 'node:path'];
-const emptyNodeModules = {
-  name: 'empty-node-modules',
-  setup(build) {
-    const filter = new RegExp(`^(${nodeOnly.map((m) => m.replace(/[.*+?^${}()|[\]\\/]/g, '\\$&')).join('|')})$`);
-    build.onResolve({ filter }, (args) => ({ path: args.path, namespace: 'empty-node' }));
-    build.onLoad({ filter: /.*/, namespace: 'empty-node' }, () => ({ contents: 'export default {};', loader: 'js' }));
-  },
-};
+// ─── Bundle (the options of scripts/build.mjs, not minified) ─────────────────
 
 async function buildUiHtml() {
-  const result = await esbuild.build({
-    entryPoints: [resolve(root, 'src/ui/main.tsx')],
-    outdir: resolve(root, 'dist/ui-tmp'),
-    bundle: true,
-    write: false,
-    format: 'iife',
-    target: 'es2020',
-    platform: 'browser',
-    jsx: 'automatic',
-    jsxImportSource: 'preact',
-    minify: false,
-    logLevel: 'warning',
-    loader: { '.svg': 'text' },
-    define: { 'process.env.NODE_ENV': JSON.stringify('production'), global: 'globalThis' },
-    plugins: [emptyNodeModules],
-  });
-  const js = result.outputFiles.find((f) => f.path.endsWith('.js'))?.text ?? '';
-  const css = result.outputFiles.find((f) => f.path.endsWith('.css'))?.text ?? '';
-  const template = await readFile(resolve(root, 'src/ui/index.html'), 'utf8');
-  return template
-    .replace('<!-- INLINE_CSS -->', () => `<style>${css.replace(/<\/style/gi, '<\\/style')}</style>`)
-    .replace('<!-- INLINE_JS -->', () => `<script>${js.replace(/<\/script/gi, '<\\/script')}</script>`);
+  const result = await esbuild.build(uiBuildOptions({ minify: false, logLevel: 'warning' }));
+  return renderUiHtml(result);
 }
 
 function findChromium() {
@@ -105,6 +81,7 @@ const LED_SLIDES = [
 const SETTINGS = {
   mode: 'editable',
   rasterScale: 2,
+  compression: 'balanced',
   jpeg: true,
   jpegQuality: 0.85,
   textCase: 'cap',
@@ -331,6 +308,68 @@ function noisePng(width, height, seed) {
   return PNG.sync.write(p, { colorType: 2 });
 }
 
+/**
+ * Sample for the image compression check: a soft semi-transparent card (diagonal gradient under a
+ * radial alpha falloff, like a blurred Figma layer) with two antialiased discs. Thousands of colours,
+ * so it takes the lossy palette path; about 1–3 s of work in the worker.
+ */
+const SAMPLE = { width: 1200, height: 750 };
+function samplePng(w, h) {
+  const p = new PNG({ width: w, height: h });
+  const out = p.data;
+  const cx = w / 2;
+  const cy = h / 2;
+  const r = Math.min(w, h) * 0.6;
+  const discs = [
+    { x: 0.3, y: 0.4, r: 0.12, c: [250, 250, 255] },
+    { x: 0.62, y: 0.58, r: 0.09, c: [255, 200, 60] },
+  ];
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      const t = (x + y) / (w + h);
+      const d = Math.min(1, Math.hypot(x - cx, y - cy) / r);
+      let a = (1 - d * d) ** 1.5;
+      let cr = 40 + 180 * t;
+      let cg = 60 + 60 * (1 - t);
+      let cb = 200 - 90 * t;
+      for (const s of discs) {
+        let cov = 0;
+        for (let k = 0; k < 16; k++) if (Math.hypot(x + ((k & 3) + 0.5) / 4 - s.x * w, y + ((k >> 2) + 0.5) / 4 - s.y * h) < s.r * h) cov++;
+        const sa = cov / 16;
+        if (sa === 0) continue;
+        const na = sa + a * (1 - sa);
+        cr = (s.c[0] * sa + cr * a * (1 - sa)) / na;
+        cg = (s.c[1] * sa + cg * a * (1 - sa)) / na;
+        cb = (s.c[2] * sa + cb * a * (1 - sa)) / na;
+        a = na;
+      }
+      const A = Math.round(255 * a);
+      const i = (y * w + x) * 4;
+      if (A === 0) {
+        out.fill(0, i, i + 4);
+        continue;
+      }
+      out[i] = Math.round(cr);
+      out[i + 1] = Math.round(cg);
+      out[i + 2] = Math.round(cb);
+      out[i + 3] = A;
+    }
+  }
+  return PNG.sync.write(p);
+}
+
+/** PNG media of a .pptx with their IHDR (size, colour type). */
+async function pptxPngs(bytes) {
+  const zip = await JSZip.loadAsync(bytes);
+  const out = [];
+  for (const name of Object.keys(zip.files).filter((n) => /^ppt\/media\/.*\.png$/i.test(n))) {
+    const data = await zip.file(name).async('uint8array');
+    const dv = new DataView(data.buffer, data.byteOffset, data.byteLength);
+    out.push({ name, bytes: data.length, width: dv.getUint32(16), height: dv.getUint32(20), colorType: data[25] });
+  }
+  return out;
+}
+
 /** Per-frame PDFs like Figma's: the same background photo embedded in each, plus a title. */
 async function framePdfs(slides) {
   const photo = noisePng(320, 180, 20260927);
@@ -429,6 +468,25 @@ try {
   await inject(page, { type: 'fonts', fonts: FONTS });
   await page.waitForSelector('.font-row');
   await shot(page, 'settings');
+
+  // 3a. Image compression control: three levels, the JPEG quality slider is disabled when Off.
+  const levelCard = (v) => page.locator(`.compression-list .mode-card[data-value="${v}"]`);
+  if ((await levelCard('balanced').getAttribute('aria-checked')) !== 'true') throw new Error('Balanced compression is not selected by default');
+  await levelCard('strong').click();
+  await levelCard('off').click();
+  const qualitySlider = page.locator('.row', { has: page.locator('.slider') }).filter({ has: page.locator('.row-label', { hasText: /JPEG/ }) }).locator('input[type=range]');
+  if (!(await qualitySlider.isDisabled())) throw new Error('JPEG quality slider is enabled while compression is Off');
+  await page.waitForTimeout(600); // debounced save-settings
+  const offSave = (await page.evaluate(() => window.__sent.filter((m) => m && m.type === 'save-settings'))).pop();
+  if (offSave?.settings.compression !== 'off' || offSave.settings.jpeg !== false) throw new Error(`Compression Off not saved: ${JSON.stringify(offSave?.settings)}`);
+  await levelCard('balanced').click();
+  if (await qualitySlider.isDisabled()) throw new Error('JPEG quality slider stays disabled');
+  await page.waitForTimeout(600);
+  const balancedSave = (await page.evaluate(() => window.__sent.filter((m) => m && m.type === 'save-settings'))).pop();
+  if (balancedSave?.settings.compression !== 'balanced' || balancedSave.settings.jpeg !== true) throw new Error(`Balanced compression not saved: ${JSON.stringify(balancedSave?.settings)}`);
+  await page.evaluate(() => document.querySelector('.compression-list').closest('.section').scrollIntoView({ block: 'start' }));
+  await shot(page, 'settings-compression');
+  console.log('compression control checks passed (levels, slider disabled when Off, save-settings)');
   await page.evaluate(() => document.querySelector('.font-mapping').closest('.section').scrollIntoView({ block: 'start' }));
   await shot(page, 'settings-fonts');
   await page.keyboard.press('Escape');
@@ -444,8 +502,42 @@ try {
   await page.waitForSelector('.progress-dialog');
   await shot(page, 'progress');
 
-  // 5. Finish the run with IR fixtures → images → buildPptx (in the browser) → download → report
-  const downloadPromise = page.waitForEvent('download', { timeout: 60000 });
+  // 5. Finish the run with IR fixtures + the sample PNG → images (compression worker) → buildPptx (in
+  //    the browser) → download → report
+  const sample = samplePng(SAMPLE.width, SAMPLE.height);
+  const assets = {};
+  for (const [id, a] of Object.entries(fx.assets)) {
+    assets[id] = a;
+    if (id === 'play-svg') assets.sample = { id: 'sample', mime: 'image/png', role: 'raster', data: sample.toString('base64'), width: SAMPLE.width, height: SAMPLE.height, hasAlpha: true };
+  }
+  fx.slides[0].elements.push({
+    type: 'image',
+    id: '9:sample',
+    name: 'Glass card',
+    transform: { x: 1180, y: 560, w: SAMPLE.width / 2, h: SAMPLE.height / 2, rotation: 0, flipH: false, flipV: false },
+    opacity: 1,
+    assetId: 'sample',
+    svgAssetId: null,
+    crop: null,
+    geometry: 'rect',
+    cornerRadius: 0,
+    rasterized: { reasons: ['blur'] },
+  });
+  // Main-thread responsiveness while images are compressed: longest gap between animation frames.
+  await page.evaluate(() => {
+    const f = (window.__frames = { maxGap: 0, last: 0, frames: 0, on: true });
+    const tick = (time) => {
+      const phase = document.querySelector('.progress-phase')?.textContent ?? '';
+      if (/Compressing images|Сжатие изображений/.test(phase)) {
+        if (f.last) f.maxGap = Math.max(f.maxGap, time - f.last);
+        f.last = time;
+        f.frames++;
+      } else f.last = 0;
+      if (f.on) requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
+  });
+  const downloadPromise = page.waitForEvent('download', { timeout: 120000 });
   await page.evaluate(
     ({ slides, assets }) => {
       const decoded = Object.values(assets).map((a) => ({ ...a, data: window.__b64(a.data) }));
@@ -453,7 +545,7 @@ try {
         window.__inject({ type: 'export-slide', index, total: slides.length, slide, assets: index === 0 ? decoded : [] });
       });
     },
-    { slides: fx.slides, assets: fx.assets },
+    { slides: fx.slides, assets },
   );
   const ids = fx.slides.map((s) => s.id);
   const names = fx.slides.map((s) => s.name);
@@ -462,6 +554,12 @@ try {
     meta: { title: 'Startup Summit - 2026', author: 'Anna Petrova', company: 'Startup Summit', sourceFile: 'Startup Summit - 2026' },
     report: demoReport(ids, names),
   });
+  // "Compressing images i of N" with the sample's size while the worker works on it.
+  const sampleSize = new RegExp(`200 × ${SAMPLE.height} px`);
+  await page
+    .waitForFunction((src) => new RegExp(src).test(document.querySelector('.progress-detail')?.textContent ?? ''), sampleSize.source, { timeout: 30000 })
+    .then(() => shot(page, 'progress-images'))
+    .catch(() => console.warn('warning: the images phase passed before it could be captured (progress-images not saved)'));
   const download = await downloadPromise.catch(async (e) => {
     const state = await page.evaluate(() => `${document.querySelector('.toasts')?.textContent} | ${document.querySelector('.progress-dialog')?.textContent}`);
     throw new Error(`No download (${state}): ${e.message}`);
@@ -472,6 +570,24 @@ try {
   if (pptx[0] !== 0x50 || pptx[1] !== 0x4b) throw new Error('Downloaded file is not a ZIP package');
   console.log(`downloaded ${download.suggestedFilename()} (${pptx.length} bytes)`);
   await page.waitForSelector('.report-dialog');
+  const frames = await page.evaluate(() => {
+    window.__frames.on = false;
+    return window.__frames;
+  });
+  const imageStats = await page.evaluate(() => {
+    const el = document.querySelector('.report-images');
+    return el ? { thread: el.dataset.thread, before: Number(el.dataset.bytesBefore), after: Number(el.dataset.bytesAfter), methods: JSON.parse(el.dataset.methods), text: el.textContent } : null;
+  });
+  if (!imageStats) throw new Error('The report has no image compression summary');
+  console.log(`image compression: ${imageStats.thread === 'worker' ? 'Web Worker' : imageStats.thread} path — ${imageStats.text}`);
+  console.log(`main thread while compressing: ${frames.frames} frames, longest gap ${Math.round(frames.maxGap)} ms`);
+  if (imageStats.thread !== 'worker') throw new Error(`Image compression did not run in the Web Worker (thread: ${imageStats.thread})`);
+  if (!(imageStats.after < imageStats.before) || !(imageStats.methods['palette-lossy'] >= 1)) throw new Error(`Images were not compressed: ${JSON.stringify(imageStats)}`);
+  if (frames.frames > 0 && frames.maxGap > 800) throw new Error(`The main thread stalled for ${Math.round(frames.maxGap)} ms while compressing`);
+  const media = await pptxPngs(pptx);
+  const packed = media.find((m) => m.width === SAMPLE.width && m.height === SAMPLE.height);
+  if (!packed || packed.colorType !== 3 || packed.bytes >= sample.length) throw new Error(`Sample PNG not stored as a smaller palette PNG: ${JSON.stringify(packed)} (original ${sample.length} bytes)`);
+  console.log(`sample PNG ${SAMPLE.width}×${SAMPLE.height}: ${sample.length} → ${packed.bytes} bytes (palette PNG, −${Math.round((1 - packed.bytes / sample.length) * 100)}%) in ${packed.name}`);
   await shot(page, 'report');
   await page.evaluate(() => {
     const body = document.querySelector('.report-body');

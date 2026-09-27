@@ -1,14 +1,14 @@
 /**
- * Settings drawer: mode of the editable PowerPoint target, images, text, shapes & layers, slide size,
- * metadata, fonts (naming rule + mapping). Every change is applied immediately (App persists it with a
- * debounced `save-settings`).
+ * Settings drawer: mode of the editable PowerPoint target, images (scale, compression level, JPEG
+ * quality…), text, shapes & layers, slide size, metadata, fonts (naming rule + mapping). Every change
+ * is applied immediately (App persists it with a debounced `save-settings`).
  */
 import type { JSX } from 'preact';
 import { useEffect, useRef } from 'preact/hooks';
 import { CONFIG } from '../../config';
 import type { FontInfo } from '../../shared/messages';
 import type { ExportSettings } from '../../shared/settings';
-import { formatNumber, t, tp, type MessageKey } from '../i18n';
+import { formatNumber, formatPercent, t, tp, type MessageKey } from '../i18n';
 import { editableMode } from '../options';
 import type { FrameSize } from '../slide-size';
 import { Row, Section, Segmented, Slider, Switch } from './controls';
@@ -17,29 +17,46 @@ import { IconClose, IconReset } from './icons';
 import { SlideSizeSettings } from './SlideSizeSettings';
 
 type EditableMode = 'editable' | 'exact';
+type Compression = ExportSettings['compression'];
+
+interface Choice<T extends string> {
+  value: T;
+  label: MessageKey;
+  hint: MessageKey;
+}
 
 /** Modes of the "PowerPoint — editable" target (the image targets always bake whole slides). */
-const MODES: ReadonlyArray<{ value: EditableMode; label: MessageKey; hint: MessageKey }> = [
+const MODES: ReadonlyArray<Choice<EditableMode>> = [
   { value: 'editable', label: 'settings.mode.editable', hint: 'settings.mode.editableHint' },
   { value: 'exact', label: 'settings.mode.exact', hint: 'settings.mode.exactHint' },
 ];
 
-function ModePicker(props: { value: EditableMode; onChange: (mode: EditableMode) => void }): JSX.Element {
+/** Image compression levels (src/ui/images.ts). */
+const COMPRESSION: ReadonlyArray<Choice<Compression>> = [
+  { value: 'off', label: 'settings.compression.off', hint: 'settings.compression.offHint' },
+  { value: 'balanced', label: 'settings.compression.balanced', hint: 'settings.compression.balancedHint' },
+  { value: 'strong', label: 'settings.compression.strong', hint: 'settings.compression.strongHint' },
+];
+
+/** Radio cards: a label and a one-line explanation per choice. */
+function ChoiceCards<T extends string>(props: { choices: ReadonlyArray<Choice<T>>; value: T; label: string; onChange: (value: T) => void; compact?: boolean; class?: string }): JSX.Element {
+  const hintVars = { q: formatPercent(CONFIG.ui.imageStrongJpegQuality, undefined, 0) };
   return (
-    <div class="mode-list" role="radiogroup" aria-label={t('settings.section.mode')}>
-      {MODES.map((m) => (
+    <div class={['mode-list', props.compact ? 'compact' : '', props.class ?? ''].filter(Boolean).join(' ')} role="radiogroup" aria-label={props.label}>
+      {props.choices.map((m) => (
         <button
           type="button"
           key={m.value}
           role="radio"
           aria-checked={props.value === m.value}
           class={props.value === m.value ? 'mode-card active' : 'mode-card'}
+          data-value={m.value}
           onClick={() => props.onChange(m.value)}
         >
           <span class="mode-radio" aria-hidden="true" />
           <span class="mode-text">
             <span class="mode-label">{t(m.label)}</span>
-            <span class="mode-hint">{t(m.hint)}</span>
+            <span class="mode-hint">{t(m.hint, hintVars)}</span>
           </span>
         </button>
       ))}
@@ -108,7 +125,7 @@ export function SettingsPanel(props: SettingsPanelProps): JSX.Element {
 
         <div class="drawer-body">
           <Section title={t('settings.section.mode')}>
-            <ModePicker value={mode} onChange={(next) => set({ mode: next })} />
+            <ChoiceCards choices={MODES} value={mode} label={t('settings.section.mode')} onChange={(next) => set({ mode: next })} />
             <div class="row-hint">{t('settings.modeNote')}</div>
           </Section>
 
@@ -125,10 +142,17 @@ export function SettingsPanel(props: SettingsPanelProps): JSX.Element {
                 onChange={(rasterScale) => set({ rasterScale })}
               />
             </Row>
-            <Row label={t('settings.jpeg')} hint={t('settings.jpegHint')}>
-              <Switch checked={s.jpeg} label={t('settings.jpeg')} onChange={(jpeg) => set({ jpeg })} />
+            <Row label={t('settings.compression')} hint={t('settings.compressionHint')} stacked>
+              <ChoiceCards
+                compact
+                class="compression-list"
+                choices={COMPRESSION}
+                value={s.compression}
+                label={t('settings.compression')}
+                onChange={(compression) => set({ compression })}
+              />
             </Row>
-            <Row label={t('settings.jpegQuality')} hint={t('settings.jpegQualityHint')}>
+            <Row label={t('settings.jpegQuality')} hint={t('settings.jpegQualityHint')} inactive={s.compression === 'off'}>
               <Slider
                 value={s.jpegQuality}
                 min={CONFIG.ui.jpegQualityMin}
@@ -136,6 +160,7 @@ export function SettingsPanel(props: SettingsPanelProps): JSX.Element {
                 step={CONFIG.ui.jpegQualityStep}
                 label={t('settings.jpegQuality')}
                 format={(v) => `${Math.round(v * 100)}%`}
+                disabled={s.compression === 'off'}
                 onChange={(jpegQuality) => set({ jpegQuality })}
               />
             </Row>

@@ -199,6 +199,35 @@ export const CONFIG = {
     imageReencodeJpegQuality: 0.92,
     /** Transparency scan reads the bitmap in bands of about this many pixels (bounds peak memory). */
     imageAlphaScanBandPx: 4000000,
+    /**
+     * Image compression (ExportSettings.compression, src/ui/images.ts → src/compress in a Web Worker).
+     * `strong` caps the JPEG quality at this value (0..1): quality = min(jpegQuality, this).
+     */
+    imageStrongJpegQuality: 0.75,
+    /**
+     * A bitmap that may become JPEG (opaque photo / background / raster) with more than this many
+     * distinct colours skips the palette and lossless attempts: on Deck exports and synthetic slides
+     * (photos, gradients) the JPEG was 3–40× smaller than the best palette PNG, and the palette search
+     * costs ~1–2 s per megapixel. Flat graphics (≤ this many colours) still try them all: there the
+     * palette PNG was ~5× smaller than the JPEG. Same limit as CONFIG.compress.flatMaxColors.
+     */
+    imagePaletteMaxColorsWithJpeg: 4096,
+    /**
+     * The lossless re-encode (after a successful lossy palette) is skipped when the palette PNG is at
+     * most this share of the original bytes: on Deck PNGs the lossless re-encode was always ≥ 1.8× the
+     * palette PNG (Figma's own PNGs shrink only 5–45 % losslessly), and it costs ~0.5–1 s per megapixel.
+     */
+    imageLosslessSkipRatio: 0.5,
+    /**
+     * Bitmaps with more pixels than this get no palette / lossless attempt (a 30 MP bitmap takes
+     * 12–30 s and several hundred MB); the exact palette (≤ 256 colours) and JPEG still apply.
+     */
+    imageCompressMaxPixels: 25000000,
+    /**
+     * The compression worker must post its "ready" message within this time (ms) after it is created;
+     * otherwise the next way to start it is tried (blob URL → data URL), then the main thread.
+     */
+    compressWorkerStartTimeoutMs: 8000,
     /** After "Cancel", the overlay waits this long (ms) for main to confirm before closing anyway. */
     cancelTimeoutMs: 10000,
     /** Object URLs of downloads are revoked after this delay (ms), once the browser has picked the file up. */

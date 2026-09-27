@@ -13,7 +13,7 @@ export type ProgressPhase =
   | 'extract'
   /** main: exporting PDF pages (vector PDF). */
   | 'pdf'
-  /** UI: downscaling / JPEG-encoding images. */
+  /** UI: compressing images (downscale, JPEG / palette / lossless candidates). */
   | 'images'
   /** UI: builder adding slides. */
   | 'build'
@@ -43,6 +43,10 @@ export interface ProgressState {
   /** Raster export jobs finished / planned in the current slide. */
   jobsDone?: number;
   jobsTotal?: number;
+  /** 'images' phase: size (px) of the bitmap in progress. */
+  image?: { width: number; height: number };
+  /** 'images' phase: compression runs on the main thread (no Web Worker): the UI may pause. */
+  mainThread?: boolean;
   /** "Cancel" was pressed; waiting for the pipeline to stop. */
   cancelling?: boolean;
 }
@@ -113,9 +117,16 @@ export function phaseLabel(p: ProgressState): string {
 
 /**
  * Secondary line of the overlay, localized from the numeric fields when main sent them:
- * "Title — rasterizing 3 of 12" / "Title — 1 240 layers"; otherwise main's text (`detail`).
+ * "Title — rasterizing 3 of 12" / "Title — 1 240 layers"; while compressing images the bitmap size
+ * ("1,920 × 1,080 px", + a note when there is no worker); otherwise main's text (`detail`).
  */
 export function progressDetail(p: ProgressState): string | undefined {
+  if (p.phase === 'images' && (p.image || p.mainThread)) {
+    const parts: string[] = [];
+    if (p.image) parts.push(t('progress.imageSize', { w: formatNumber(p.image.width), h: formatNumber(p.image.height) }));
+    if (p.mainThread) parts.push(t('progress.mainThread'));
+    return parts.join(' · ');
+  }
   let part: string;
   if (p.jobsTotal !== undefined && p.jobsTotal > 0 && p.jobsDone !== undefined) {
     part = t('progress.jobs', { done: formatNumber(Math.min(p.jobsDone, p.jobsTotal)), total: formatNumber(p.jobsTotal) });

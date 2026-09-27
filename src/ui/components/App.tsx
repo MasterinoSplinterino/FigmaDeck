@@ -9,6 +9,7 @@ import { CONFIG } from '../../config';
 import type { MainToUi } from '../../shared/messages';
 import { DEFAULT_SETTINGS, type ExportFormat, type ExportSettings } from '../../shared/settings';
 import { ObjectUrlCache, listen, send } from '../bridge';
+import { createCompressor } from '../compressor';
 import { copyText, downloadBytes } from '../download';
 import { Exporter, type ExporterEvent } from '../exporter';
 import { t, tp } from '../i18n';
@@ -86,6 +87,9 @@ export function App(): JSX.Element {
   const settingsDirty = useRef(false);
 
   // ─── Export pipeline ───────────────────────────────────────────────────────
+  /** One compression worker for the session (started on the first export that compresses an image). */
+  const compressor = useMemo(() => createCompressor(), []);
+  useEffect(() => () => compressor.dispose(), [compressor]);
   const onExportEvent = useRef<(e: ExporterEvent) => void>(() => undefined);
   onExportEvent.current = (e: ExporterEvent) => {
     switch (e.type) {
@@ -112,7 +116,7 @@ export function App(): JSX.Element {
         {
           send,
           buildPptx,
-          processAssets: (assets, options, hooks) => processAssets(assets, options, hooks),
+          processAssets: (assets, options, hooks) => processAssets(assets, options, hooks, undefined, compressor),
           mergePdfs,
           imageDeckToPdf,
           download: downloadBytes,

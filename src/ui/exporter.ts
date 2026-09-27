@@ -9,7 +9,8 @@
  *
  * Cancel: while main is working, `cancel-export` is sent and the run ends when main confirms
  * (`export-cancelled`, or after CONFIG.ui.cancelTimeoutMs); during UI-side phases the pipeline stops
- * at the next checkpoint (between images / slides / pages).
+ * at the next checkpoint (between images / slides / pages), and a running image compression job is
+ * aborted right away (the run's AbortSignal terminates the compression worker).
  *
  * All side effects are injected (`ExporterDeps`) so the whole flow runs in Node tests.
  */
@@ -65,6 +66,8 @@ interface Run {
   /** main has finished; the UI is building the file. */
   local: boolean;
   cancelTimer: unknown;
+  /** Aborted by cancel(): stops a running image compression job. */
+  abort: AbortController;
 }
 
 /** Thrown at checkpoints after "Cancel" during UI-side phases. */
@@ -140,6 +143,7 @@ export class Exporter {
       cancelled: false,
       local: false,
       cancelTimer: null,
+      abort: new AbortController(),
     };
     this.emit({ type: 'progress', progress: this.run.progress });
     this.deps.send({ type: 'start-export', format, settings: effective });
@@ -150,6 +154,7 @@ export class Exporter {
     const run = this.run;
     if (!run || run.cancelled) return;
     run.cancelled = true;
+    run.abort.abort();
     this.progress(run, { ...run.progress, cancelling: true });
     if (run.local) return; // the local pipeline stops at its next checkpoint
     this.deps.send({ type: 'cancel-export' });
@@ -263,12 +268,19 @@ export class Exporter {
 
   private async processImages(run: Run): Promise<ImageStats> {
     const s = run.settings;
+    const imageTarget = run.format === 'pptx-image' || run.format === 'pdf-image';
     return this.deps.processAssets(
       run.assets,
-      { rasterScale: s.rasterScale, jpeg: s.jpeg, jpegQuality: s.jpegQuality },
+      { rasterScale: s.rasterScale, compression: s.compression, jpegQuality: s.jpegQuality, imageTarget },
       {
         isCancelled: () => run.cancelled,
-        onProgress: (done, total) => this.progress(run, { format: run.format, phase: 'images', done, total, cancelling: run.cancelled }),
+        signal: run.abort.signal,
+        onProgress: (done, total, current) => {
+          const p: ProgressState = { format: run.format, phase: 'images', done, total, cancelling: run.cancelled };
+          if (current) p.image = { width: current.width, height: current.height };
+          if (current?.thread === 'main') p.mainThread = true;
+          this.progress(run, p);
+        },
       },
     );
   }

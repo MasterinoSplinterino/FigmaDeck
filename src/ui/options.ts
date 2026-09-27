@@ -30,8 +30,9 @@ export function buildOptionsFromSettings(settings: ExportSettings, deckTitle: st
 
 /**
  * Settings sent with `start-export` for a format:
- * - the image targets (PowerPoint / PDF — images) force the "Image only" extraction mode and JPEG
- *   compression (one baked picture per slide / page, at `jpegQuality`);
+ * - the image targets (PowerPoint / PDF — images) force the "Image only" extraction mode and image
+ *   compression (one baked JPEG per slide / page at `jpegQuality`; compression `off` counts as
+ *   `balanced` there, `strong` keeps its lower JPEG quality);
  * - "PowerPoint — editable" (and the IR dump that mirrors it) uses the Editable / Exact look choice;
  *   an "Image only" mode persisted by an older version counts as Editable there.
  */
@@ -39,6 +40,7 @@ export function settingsForFormat(format: ExportFormat, settings: ExportSettings
   const s = normalizeSettings({ ...settings, fontOverrides: { ...settings.fontOverrides } });
   if (format === 'pptx-image' || format === 'pdf-image') {
     s.mode = 'image';
+    if (s.compression === 'off') s.compression = 'balanced';
     s.jpeg = true;
   } else if (format === 'pptx' || format === 'ir-json') {
     s.mode = editableMode(s.mode);

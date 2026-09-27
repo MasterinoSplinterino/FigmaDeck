@@ -1,23 +1,42 @@
 /**
- * UI-side image optimization before the PPTX / PDF is built (browser only at runtime; the planning
- * helpers are pure and the codec is injectable, so the module is testable in Node).
+ * UI-side image compression before the PPTX / image PDF is built (browser only at runtime; the
+ * planning and selection logic is pure and the codec / compressor are injectable, so the module is
+ * testable in Node).
  *
- * For assets with role `image-fill`, `background` or `raster` (PNG / JPEG only):
+ * Assets with role `image-fill`, `background`, `raster` or `vector-fallback` (PNG / JPEG; never SVG
+ * or GIF):
  * - image fills larger than displayWidth/Height × rasterScale × CONFIG.raster.maxImageOversample are
- *   downscaled (aspect kept);
- * - with `jpeg` on, opaque bitmaps (alpha scanned unless `hasAlpha === false`) are encoded as JPEG,
- *   kept only when ≤ CONFIG.raster.jpegMinSavingRatio × the PNG size.
- * Vector fallbacks, SVGs and GIFs are never touched. Crops are fractions, so they stay valid.
+ *   downscaled first (aspect kept; crops are fractions, so they stay valid);
+ * - compression `off`: bytes kept as exported; a downscaled bitmap is re-encoded in its own format
+ *   (PNG losslessly, JPEG at CONFIG.ui.imageReencodeJpegQuality);
+ * - `balanced` / `strong` (TinyPNG-like), for PNG originals — candidates, smallest acceptable kept:
+ *     (a) ≤ 256 colours → exact palette PNG (lossless);
+ *     (b) opaque image-fill / background / raster → JPEG at `jpegQualityFor(options)` (canvas);
+ *     (c) lossy palette PNG behind the level's quality gate (src/compress, `maxBytes` = best so far);
+ *     (d) lossless PNG re-encode.
+ *   (a), (c), (d) run in the compression worker (src/ui/compress-job.ts has the skipping rules). JPEG
+ *   is never used for transparent bitmaps nor vector fallbacks, and must be ≤
+ *   CONFIG.raster.jpegMinSavingRatio × the best PNG (PNG keeps edges and text sharp). Nothing larger
+ *   than the original bytes is ever kept. JPEG originals are re-encoded only when downscaled.
+ * - Image-only targets (pptx-image / pdf-image): the slide pictures (`background`) go straight to
+ *   JPEG when opaque (a transparent frame gets the PNG candidates).
  */
+import { hasTransparency, type CompressLevel, type RgbaPixels } from '../compress';
 import { CONFIG } from '../config';
 import type { Asset, AssetMime, AssetRole } from '../ir/types';
-import type { ImageStats } from './report';
+import type { ExportSettings } from '../shared/settings';
+import { CompressCancelledError, inThreadCompressor, type CompressMethod, type PixelCompressor, type PixelResult } from './compress-job';
+import type { AssetStat, ImageStats } from './report';
+
+export type Compression = ExportSettings['compression'];
 
 export interface ImageOptions {
   rasterScale: 1 | 2 | 3;
-  jpeg: boolean;
-  /** 0..1 */
+  compression: Compression;
+  /** 0..1 (`strong` caps it at CONFIG.ui.imageStrongJpegQuality). */
   jpegQuality: number;
+  /** Image-only targets (pptx-image / pdf-image): opaque slide pictures go straight to JPEG. */
+  imageTarget?: boolean;
 }
 
 export interface AssetPlan {
@@ -25,18 +44,26 @@ export interface AssetPlan {
   width: number;
   height: number;
   downscale: boolean;
-  /** Try a JPEG candidate (dropped when the bitmap turns out to be transparent). */
-  tryJpeg: boolean;
-  /** Scan the pixels for transparency before trying JPEG. */
-  scanAlpha: boolean;
+  /**
+   * `resample`: only re-encode the downscaled bitmap in its own format (compression off, JPEG
+   * originals); `compress`: the full candidate search.
+   */
+  kind: 'resample' | 'compress';
 }
 
-const PROCESSABLE_ROLES: ReadonlySet<AssetRole> = new Set<AssetRole>(['image-fill', 'background', 'raster']);
+const PROCESSABLE_ROLES: ReadonlySet<AssetRole> = new Set<AssetRole>(['image-fill', 'background', 'raster', 'vector-fallback']);
+/** Roles that may become JPEG (when opaque). Vector fallbacks stay PNG. */
+const JPEG_ROLES: ReadonlySet<AssetRole> = new Set<AssetRole>(['image-fill', 'background', 'raster']);
 
-type RasterMime = 'image/png' | 'image/jpeg';
+export type RasterMime = 'image/png' | 'image/jpeg';
 
 function isRasterMime(mime: AssetMime): mime is RasterMime {
   return mime === 'image/png' || mime === 'image/jpeg';
+}
+
+/** JPEG quality of a compression level (strong: capped at CONFIG.ui.imageStrongJpegQuality). */
+export function jpegQualityFor(options: Pick<ImageOptions, 'compression' | 'jpegQuality'>): number {
+  return options.compression === 'strong' ? Math.min(options.jpegQuality, CONFIG.ui.imageStrongJpegQuality) : options.jpegQuality;
 }
 
 /**
@@ -63,42 +90,103 @@ export function planAsset(asset: Asset, options: ImageOptions): AssetPlan | null
   if (!PROCESSABLE_ROLES.has(asset.role) || !isRasterMime(asset.mime)) return null;
   if (!(asset.width > 0 && asset.height > 0) || asset.data.byteLength === 0) return null;
   const target = downscaleTarget(asset, options.rasterScale);
-  const isJpeg = asset.mime === 'image/jpeg';
-  // JPEG → JPEG only pays off together with a downscale (otherwise just generation loss).
-  const tryJpeg = options.jpeg && !isJpeg;
-  if (!target && !tryJpeg) return null;
-  return {
-    width: target?.width ?? asset.width,
-    height: target?.height ?? asset.height,
-    downscale: target !== null,
-    tryJpeg,
-    scanAlpha: tryJpeg && asset.hasAlpha !== false,
-  };
+  // Compression off, or a JPEG original (JPEG → JPEG is generation loss): only a downscale is worth it.
+  if (options.compression === 'off' || asset.mime === 'image/jpeg') {
+    return target ? { ...target, downscale: true, kind: 'resample' } : null;
+  }
+  return { width: target?.width ?? asset.width, height: target?.height ?? asset.height, downscale: target !== null, kind: 'compress' };
 }
 
-/** True when any pixel of an RGBA buffer is not fully opaque. */
-export function rgbaHasTransparency(rgba: ArrayLike<number>): boolean {
-  for (let i = 3; i < rgba.length; i += 4) if (rgba[i] !== 255) return true;
-  return false;
-}
+// ─── Selection ───────────────────────────────────────────────────────────────
 
-export type EncodingChoice = 'original' | 'resampled' | 'jpeg';
+export interface CandidateSize {
+  method: Exclude<CompressMethod, 'original'>;
+  bytes: number;
+}
 
 /**
- * Pick the encoding to keep:
- * - reference = the resampled bitmap in the original format when downscaled, else the original bytes;
- * - JPEG wins only when ≤ jpegMinSavingRatio × reference;
+ * Pick the encoding to keep (pure):
+ * - the smallest PNG candidate (palette / lossless) competes with the JPEG;
+ * - JPEG wins only when ≤ `ratio` × the best PNG (the original counts when it is a PNG);
  * - a result that is not smaller than the original bytes is discarded (keep the original).
  */
-export function chooseEncoding(originalBytes: number, resampledBytes: number | null, jpegBytes: number | null, ratio: number = CONFIG.raster.jpegMinSavingRatio): EncodingChoice {
-  let choice: EncodingChoice = resampledBytes !== null ? 'resampled' : 'original';
-  let size = resampledBytes ?? originalBytes;
-  if (jpegBytes !== null && jpegBytes <= ratio * size) {
-    choice = 'jpeg';
-    size = jpegBytes;
+export function pickEncoding(original: { bytes: number; mime: RasterMime }, candidates: readonly CandidateSize[], ratio: number = CONFIG.raster.jpegMinSavingRatio): CompressMethod {
+  let png: CandidateSize | null = null;
+  let jpeg: CandidateSize | null = null;
+  for (const c of candidates) {
+    if (c.method === 'jpeg') {
+      if (!jpeg || c.bytes < jpeg.bytes) jpeg = c;
+    } else if (!png || c.bytes < png.bytes) png = c;
   }
-  if (choice !== 'original' && size >= originalBytes) return 'original';
-  return choice;
+  const pngReference = Math.min(png?.bytes ?? Infinity, original.mime === 'image/png' ? original.bytes : Infinity);
+  const best = jpeg && jpeg.bytes <= ratio * pngReference ? jpeg : png;
+  return best && best.bytes < original.bytes ? best.method : 'original';
+}
+
+/** A decoded (possibly downscaled) bitmap and what it was exported as. */
+export interface BitmapInput {
+  /** Straight RGBA. Transferred to the worker by the pixel job: detached afterwards. */
+  rgba: RgbaPixels;
+  width: number;
+  height: number;
+  role: AssetRole;
+  original: { bytes: number; mime: RasterMime };
+}
+
+export interface SelectDeps {
+  compressor: PixelCompressor;
+  /** JPEG of the bitmap (canvas). Called at most once, before the pixel job. */
+  encodeJpeg: (quality: number) => Promise<Uint8Array>;
+  /** The bitmap source (canvas) is no longer needed: called before the (slow) pixel job. */
+  release?: () => void;
+  signal?: AbortSignal;
+}
+
+export interface Selection {
+  method: CompressMethod;
+  /** New bytes, or null to keep the original. */
+  bytes: Uint8Array | null;
+  mime: RasterMime;
+  transparent: boolean;
+  /** The pixel job's report (null when none ran). */
+  job: PixelResult | null;
+}
+
+/**
+ * Choose the encoding of one PNG bitmap (see the module comment): JPEG candidate on the canvas first
+ * (it bounds the PNG search via `maxBytes`), then one pixel job, then `pickEncoding`.
+ */
+export async function selectEncoding(input: BitmapInput, options: ImageOptions, deps: SelectDeps): Promise<Selection> {
+  const transparent = hasTransparency(input.rgba);
+  const keep = (job: PixelResult | null): Selection => ({ method: 'original', bytes: null, mime: input.original.mime, transparent, job });
+  if (options.compression === 'off') {
+    deps.release?.();
+    return keep(null);
+  }
+  const level: CompressLevel = options.compression;
+  const jpeg = JPEG_ROLES.has(input.role) && !transparent ? await deps.encodeJpeg(jpegQualityFor(options)) : null;
+  deps.release?.();
+
+  const candidates: Array<{ method: Exclude<CompressMethod, 'original'>; bytes: Uint8Array }> = [];
+  if (jpeg) candidates.push({ method: 'jpeg', bytes: jpeg });
+  let job: PixelResult | null = null;
+  const jpegOnly = !!jpeg && !!options.imageTarget && input.role === 'background';
+  if (!jpegOnly) {
+    // A PNG is useful only when smaller than the original and than JPEG / ratio (see pickEncoding).
+    const maxBytes = Math.min(input.original.bytes, jpeg ? jpeg.byteLength / CONFIG.raster.jpegMinSavingRatio : Infinity);
+    job = await deps.compressor.run(
+      { rgba: input.rgba, width: input.width, height: input.height, level, maxBytes, originalBytes: input.original.bytes, hasJpeg: jpeg !== null },
+      deps.signal,
+    );
+    if (job.method && job.bytes) candidates.push({ method: job.method, bytes: job.bytes });
+  }
+  const method = pickEncoding(
+    input.original,
+    candidates.map((c) => ({ method: c.method, bytes: c.bytes.byteLength })),
+  );
+  const chosen = candidates.find((c) => c.method === method);
+  if (!chosen) return keep(job);
+  return { method, bytes: chosen.bytes, mime: method === 'jpeg' ? 'image/jpeg' : 'image/png', transparent, job };
 }
 
 // ─── Codec ───────────────────────────────────────────────────────────────────
@@ -112,56 +200,99 @@ export interface Surface {
 export interface ImageCodec<S extends Surface = Surface> {
   /** Decode `data` and draw it at `width × height` px. */
   render(data: Uint8Array, mime: RasterMime, width: number, height: number): Promise<S>;
-  hasTransparency(surface: S): boolean;
+  /** Straight RGBA of the surface (a fresh buffer the caller owns). */
+  pixels(surface: S): RgbaPixels;
   encode(surface: S, mime: RasterMime, quality: number): Promise<Uint8Array>;
   release(surface: S): void;
 }
 
 export interface AssetResult {
   asset: Asset;
-  choice: EncodingChoice;
+  stat: AssetStat;
 }
 
-/** Process one asset according to its plan. Returns the (possibly new) asset object. */
-export async function processAsset<S extends Surface>(asset: Asset, plan: AssetPlan, options: ImageOptions, codec: ImageCodec<S>): Promise<AssetResult> {
+function now(): number {
+  return typeof performance !== 'undefined' ? performance.now() : Date.now();
+}
+
+/** Process one asset according to its plan. Returns the (possibly new) asset object and its stat. */
+export async function processAsset<S extends Surface>(
+  asset: Asset,
+  plan: AssetPlan,
+  options: ImageOptions,
+  codec: ImageCodec<S>,
+  compressor: PixelCompressor,
+  signal?: AbortSignal,
+): Promise<AssetResult> {
+  const t0 = now();
   const mime = asset.mime as RasterMime;
   const surface = await codec.render(asset.data, mime, plan.width, plan.height);
-  try {
-    let opaque: boolean | null = mime === 'image/jpeg' || asset.hasAlpha === false ? true : null;
-    if (plan.tryJpeg && opaque === null && plan.scanAlpha) opaque = !codec.hasTransparency(surface);
-
-    let resampled: Uint8Array | null = null;
-    if (plan.downscale) {
-      const q = mime === 'image/jpeg' ? (options.jpeg ? options.jpegQuality : CONFIG.ui.imageReencodeJpegQuality) : 1;
-      resampled = await codec.encode(surface, mime, q);
-    }
-    let jpeg: Uint8Array | null = null;
-    if (plan.tryJpeg && opaque === true) jpeg = await codec.encode(surface, 'image/jpeg', options.jpegQuality);
-
-    const choice = chooseEncoding(asset.data.byteLength, resampled?.byteLength ?? null, jpeg?.byteLength ?? null);
-    const hasAlpha = opaque === null ? asset.hasAlpha : !opaque;
-    if (choice === 'original') return { asset: hasAlpha === asset.hasAlpha ? asset : { ...asset, hasAlpha }, choice };
-    const data = choice === 'jpeg' ? jpeg! : resampled!;
-    return {
-      asset: {
-        ...asset,
-        data,
-        mime: choice === 'jpeg' ? 'image/jpeg' : mime,
-        width: surface.width,
-        height: surface.height,
-        hasAlpha: choice === 'jpeg' ? false : hasAlpha,
-      },
-      choice,
-    };
-  } finally {
+  let released = false;
+  const release = () => {
+    if (released) return;
+    released = true;
     codec.release(surface);
+  };
+  try {
+    let method: CompressMethod;
+    let bytes: Uint8Array | null;
+    let outMime: RasterMime = mime;
+    let hasAlpha = asset.hasAlpha;
+    let colors: number | undefined;
+    if (plan.kind === 'resample') {
+      const isJpeg = mime === 'image/jpeg';
+      const quality = isJpeg ? (options.compression === 'off' ? CONFIG.ui.imageReencodeJpegQuality : jpegQualityFor(options)) : 1;
+      const data = await codec.encode(surface, mime, quality);
+      release();
+      method = pickEncoding({ bytes: asset.data.byteLength, mime }, [{ method: isJpeg ? 'jpeg' : 'lossless', bytes: data.byteLength }]);
+      bytes = method === 'original' ? null : data;
+    } else {
+      const selection = await selectEncoding(
+        { rgba: codec.pixels(surface), width: surface.width, height: surface.height, role: asset.role, original: { bytes: asset.data.byteLength, mime } },
+        options,
+        { compressor, encodeJpeg: (q) => codec.encode(surface, 'image/jpeg', q), release, signal },
+      );
+      ({ method, bytes } = selection);
+      outMime = selection.mime;
+      hasAlpha = selection.transparent;
+      colors = selection.job?.colors;
+    }
+    let next: Asset;
+    if (!bytes) next = hasAlpha === asset.hasAlpha ? asset : { ...asset, hasAlpha };
+    else next = { ...asset, data: bytes, mime: outMime, width: surface.width, height: surface.height, hasAlpha: outMime === 'image/jpeg' ? false : hasAlpha };
+    const stat: AssetStat = {
+      id: asset.id,
+      role: asset.role,
+      method,
+      bytesBefore: asset.data.byteLength,
+      bytesAfter: next.data.byteLength,
+      ms: now() - t0,
+      width: next.width,
+      height: next.height,
+      downscaled: plan.downscale && bytes !== null,
+    };
+    if (colors !== undefined) stat.colors = colors;
+    return { asset: next, stat };
+  } finally {
+    release();
   }
 }
 
+/** Where the images phase is (the overlay shows "Compressing images i of N" + the bitmap size). */
+export interface ImageProgress {
+  width: number;
+  height: number;
+  /** Where pixel jobs run; null until the first one started. */
+  thread: 'worker' | 'main' | null;
+}
+
 export interface ProcessHooks {
-  onProgress?: (done: number, total: number) => void;
+  /** Before each asset (`done` = assets finished, `current` = the one starting) and once at the end. */
+  onProgress?: (done: number, total: number, current?: ImageProgress) => void;
   /** Checked before each asset; when true, processing stops with `ImagesCancelledError`. */
   isCancelled?: () => boolean;
+  /** Aborts a running pixel job too (the worker is terminated). */
+  signal?: AbortSignal;
   /** Called between assets (default: a macrotask yield so the UI can repaint). */
   yieldFn?: () => Promise<void>;
   /** A single asset failed (it is kept as it was). */
@@ -177,43 +308,82 @@ export class ImagesCancelledError extends Error {
 
 const macrotask = () => new Promise<void>((resolve) => setTimeout(resolve, 0));
 
+export function emptyImageStats(compression: Compression): ImageStats {
+  return {
+    compression,
+    examined: 0,
+    downscaled: 0,
+    failed: 0,
+    methods: { original: 0, jpeg: 0, 'palette-exact': 0, 'palette-lossy': 0, lossless: 0 },
+    bytesBefore: 0,
+    bytesAfter: 0,
+    ms: 0,
+    thread: null,
+    items: [],
+  };
+}
+
 /**
- * Optimize every eligible asset in place (`assets[id]` is replaced by a new object), sequentially,
- * with progress and a yield between assets. A failing asset is left unchanged.
+ * Compress every eligible asset in place (`assets[id]` is replaced by a new object), sequentially,
+ * with progress and a yield between assets. A failing asset is left unchanged. `compressor` runs the
+ * pixel jobs (default: on this thread; the app passes the worker client).
  */
 export async function processAssets<S extends Surface>(
   assets: Record<string, Asset>,
   options: ImageOptions,
   hooks: ProcessHooks = {},
   codec?: ImageCodec<S>,
+  compressor?: PixelCompressor,
 ): Promise<ImageStats> {
+  const t0 = now();
   const jobs: Array<{ id: string; plan: AssetPlan }> = [];
   for (const [id, asset] of Object.entries(assets)) {
     const plan = planAsset(asset, options);
     if (plan) jobs.push({ id, plan });
   }
-  const stats: ImageStats = { examined: jobs.length, downscaled: 0, jpeg: 0, bytesBefore: 0, bytesAfter: 0 };
+  const stats = emptyImageStats(options.compression);
+  stats.examined = jobs.length;
   if (jobs.length === 0) return stats;
   const backend = (codec ?? (createCanvasCodec() as unknown as ImageCodec<S>)) as ImageCodec<S>;
   const pause = hooks.yieldFn ?? macrotask;
-  hooks.onProgress?.(0, jobs.length);
+  const runner = compressor ?? inThreadCompressor(pause);
+  const cancelled = () => !!hooks.isCancelled?.() || !!hooks.signal?.aborted;
   for (let i = 0; i < jobs.length; i++) {
-    if (hooks.isCancelled?.()) throw new ImagesCancelledError();
+    if (cancelled()) throw new ImagesCancelledError();
     const { id, plan } = jobs[i];
+    hooks.onProgress?.(i, jobs.length, { width: plan.width, height: plan.height, thread: runner.thread });
     const before = assets[id];
-    stats.bytesBefore += before.data.byteLength;
     try {
-      const { asset, choice } = await processAsset(before, plan, options, backend);
+      const { asset, stat } = await processAsset(before, plan, options, backend, runner, hooks.signal);
       assets[id] = asset;
-      if (choice !== 'original' && plan.downscale) stats.downscaled++;
-      if (choice === 'jpeg') stats.jpeg++;
+      stats.items.push(stat);
     } catch (e) {
+      if (e instanceof CompressCancelledError || e instanceof ImagesCancelledError || cancelled()) throw new ImagesCancelledError();
       hooks.onError?.(before, e);
+      stats.failed++;
+      stats.items.push({
+        id,
+        role: before.role,
+        method: 'original',
+        bytesBefore: before.data.byteLength,
+        bytesAfter: before.data.byteLength,
+        ms: 0,
+        width: before.width,
+        height: before.height,
+        downscaled: false,
+        failed: true,
+      });
     }
-    stats.bytesAfter += assets[id].data.byteLength;
-    hooks.onProgress?.(i + 1, jobs.length);
+    const stat = stats.items[stats.items.length - 1];
+    stats.bytesBefore += stat.bytesBefore;
+    stats.bytesAfter += stat.bytesAfter;
+    stats.methods[stat.method]++;
+    if (stat.downscaled) stats.downscaled++;
     await pause();
   }
+  hooks.onProgress?.(jobs.length, jobs.length);
+  stats.thread = runner.thread;
+  stats.ms = now() - t0;
   return stats;
 }
 
@@ -285,13 +455,8 @@ export function createCanvasCodec(): ImageCodec<CanvasSurface> {
         bitmap.close();
       }
     },
-    hasTransparency(s) {
-      const rows = Math.max(1, Math.floor(CONFIG.ui.imageAlphaScanBandPx / Math.max(1, s.width)));
-      for (let y = 0; y < s.height; y += rows) {
-        const h = Math.min(rows, s.height - y);
-        if (rgbaHasTransparency(s.ctx.getImageData(0, y, s.width, h).data)) return true;
-      }
-      return false;
+    pixels(s) {
+      return s.ctx.getImageData(0, 0, s.width, s.height).data;
     },
     encode(s, mime, quality) {
       return canvasToBytes(s.canvas, mime, quality);

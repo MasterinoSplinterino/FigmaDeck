@@ -1271,6 +1271,12 @@ p {
   padding: 7px 10px 8px;
 }
 
+/* Image compression levels: the cards fill the stacked row. */
+.row.stacked .row-control > .compression-list {
+  flex: 1;
+  padding-top: 0;
+}
+
 /* Slide size */
 .preset-grid {
   display: grid;
@@ -1432,6 +1438,11 @@ p {
 
 .slider.disabled {
   opacity: 0.45;
+}
+
+/* An inactive row already dims its control. */
+.row.inactive .slider.disabled {
+  opacity: 1;
 }
 
 .slider input[type='range'] {
@@ -1737,6 +1748,10 @@ p {
   margin-top: 6px;
   font-size: 11px;
   color: var(--c-text-secondary);
+}
+
+.report-note.warn-text {
+  color: var(--c-text-warning);
 }
 
 .report-block {

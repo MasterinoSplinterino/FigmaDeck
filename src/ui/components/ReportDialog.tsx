@@ -6,7 +6,18 @@ import type { ComponentChildren, JSX } from 'preact';
 import { useMemo } from 'preact/hooks';
 import { CONFIG } from '../../config';
 import { formatBytes, formatDuration, reasonLabel, t, tp } from '../i18n';
-import { FORMAT_LABEL, buildReportModel, dedupeText, entryText, reasonHistogram, showsRasterSection, type ExportOutcome, type SlideGroup } from '../report';
+import {
+  FORMAT_LABEL,
+  buildReportModel,
+  dedupeText,
+  entryText,
+  imagesSummary,
+  imagesThreadNote,
+  reasonHistogram,
+  showsRasterSection,
+  type ExportOutcome,
+  type SlideGroup,
+} from '../report';
 import { Modal } from './controls';
 import { IconCheckCircle, IconCopy, IconDownload, IconInfo, IconWarning } from './icons';
 
@@ -39,7 +50,8 @@ export function ReportDialog(props: { outcome: ExportOutcome; onClose: () => voi
   const o = props.outcome;
   const model = useMemo(() => buildReportModel(o.entries, o.fonts, o.slideIds), [o]);
   const histogram = useMemo(() => reasonHistogram(model), [model]);
-  const optimized = o.images ? o.images.downscaled + o.images.jpeg : 0;
+  const images = imagesSummary(o.images);
+  const threadNote = imagesThreadNote(o.images);
   const dedupe = dedupeText(o.pdfDedupe);
   const limit = CONFIG.ui.reportMaxItemsPerSlide;
 
@@ -67,11 +79,19 @@ export function ReportDialog(props: { outcome: ExportOutcome; onClose: () => voi
             </>
           ) : null}
         </div>
-        {optimized > 0 && o.images ? (
-          <div class="report-note">
-            {t('report.imagesOptimized')}: {optimized} · {formatBytes(o.images.bytesBefore)} → {formatBytes(o.images.bytesAfter)}
+        {images && o.images ? (
+          // data-* attributes: read by scripts/ui-screenshots.mjs (which compression path ran).
+          <div
+            class="report-note report-images"
+            data-thread={o.images.thread ?? 'none'}
+            data-bytes-before={o.images.bytesBefore}
+            data-bytes-after={o.images.bytesAfter}
+            data-methods={JSON.stringify(o.images.methods)}
+          >
+            {images}
           </div>
         ) : null}
+        {threadNote ? <div class="report-note warn-text">{threadNote}</div> : null}
         {dedupe ? <div class="report-note">{dedupe}</div> : null}
 
         {o.format === 'pptx' ? (

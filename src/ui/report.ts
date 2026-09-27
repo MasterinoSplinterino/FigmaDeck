@@ -3,9 +3,10 @@
  * plain-text version for "Copy report".
  */
 import type { BuildResult, FontReportItem } from '../build/api';
-import type { RasterReason, ReportEntry } from '../ir/types';
-import type { ExportFormat } from '../shared/settings';
-import { codeLabel, formatBytes, formatDuration, formatNumber, reasonLabel, t, tp, type MessageKey } from './i18n';
+import type { AssetRole, RasterReason, ReportEntry } from '../ir/types';
+import type { ExportFormat, ExportSettings } from '../shared/settings';
+import type { CompressMethod } from './compress-job';
+import { codeLabel, formatBytes, formatDuration, formatNumber, formatPercent, reasonLabel, t, tp, type Lang, type MessageKey } from './i18n';
 import type { DedupeStats } from './pdf';
 
 /** Every RasterReason, checked at compile time (a new reason in ir/types.ts must be added here). */
@@ -37,14 +38,81 @@ const REASONS_SET = {
 
 export const RASTER_REASONS = Object.keys(REASONS_SET) as RasterReason[];
 
-export interface ImageStats {
-  /** Assets looked at (image fills, backgrounds, rasters). */
-  examined: number;
-  downscaled: number;
-  /** Re-encoded as JPEG. */
-  jpeg: number;
+/** One compressed asset (src/ui/images.ts). */
+export interface AssetStat {
+  id: string;
+  role: AssetRole;
+  /** What the asset ended up as (`original` = bytes kept as exported). */
+  method: CompressMethod;
   bytesBefore: number;
   bytesAfter: number;
+  ms: number;
+  /** Size of the kept bitmap (px). */
+  width: number;
+  height: number;
+  /** A downscaled bitmap was kept. */
+  downscaled: boolean;
+  /** Distinct colours counted by the pixel job (up to its limit). */
+  colors?: number;
+  /** Processing failed; the asset was kept as it was. */
+  failed?: boolean;
+}
+
+export interface ImageStats {
+  compression: ExportSettings['compression'];
+  /** Assets looked at (image fills, backgrounds, rasters, vector fallbacks). */
+  examined: number;
+  /** Kept at a smaller size (oversized image fills). */
+  downscaled: number;
+  failed: number;
+  /** Assets per outcome. */
+  methods: Record<CompressMethod, number>;
+  bytesBefore: number;
+  bytesAfter: number;
+  /** Time of the whole images phase. */
+  ms: number;
+  /** Where the pixel jobs ran (`main` = no Web Worker could be started); null when none ran. */
+  thread: 'worker' | 'main' | null;
+  items: AssetStat[];
+}
+
+/** Order of the methods in the summary line. */
+const METHOD_ORDER: readonly CompressMethod[] = ['palette-lossy', 'palette-exact', 'jpeg', 'lossless', 'original'];
+
+const METHOD_KEY: Readonly<Record<CompressMethod, MessageKey>> = {
+  'palette-lossy': 'report.method.palette-lossy',
+  'palette-exact': 'report.method.palette-exact',
+  jpeg: 'report.method.jpeg',
+  lossless: 'report.method.lossless',
+  original: 'report.method.original',
+};
+
+/** "−71%" (U+2212), "+4%" or "0%": the size change of the images. */
+export function sizeChangeText(before: number, after: number, lang?: Lang): string {
+  if (!(before > 0)) return formatPercent(0, lang, 0);
+  const change = (after - before) / before;
+  const text = formatPercent(Math.abs(change), lang, 0);
+  if (Math.round(Math.abs(change) * 100) === 0) return text;
+  return `${change < 0 ? '\u2212' : '+'}${text}`;
+}
+
+/**
+ * "Images: 12 · 12.4 MB → 3.1 MB (−75%) · 3 palette, 2 exact palette, 4 JPEG, 1 lossless, 2 unchanged",
+ * or null when no image was looked at.
+ */
+export function imagesSummary(stats: ImageStats | null, lang?: Lang): string | null {
+  if (!stats || stats.examined === 0) return null;
+  const head = t('report.imagesLine', { n: formatNumber(stats.examined, lang), before: formatBytes(stats.bytesBefore, lang), after: formatBytes(stats.bytesAfter, lang), pct: sizeChangeText(stats.bytesBefore, stats.bytesAfter, lang) }, lang);
+  const parts = METHOD_ORDER.filter((m) => stats.methods[m] > 0).map((m) => t(METHOD_KEY[m], { n: formatNumber(stats.methods[m], lang) }, lang));
+  if (stats.downscaled > 0) parts.push(t('report.imagesDownscaled', { n: formatNumber(stats.downscaled, lang) }, lang));
+  if (stats.failed > 0) parts.push(t('report.imagesFailed', { n: formatNumber(stats.failed, lang) }, lang));
+  if (stats.compression === 'off') parts.push(t('report.imagesCompressionOff', undefined, lang));
+  return parts.length > 0 ? `${head} · ${parts.join(', ')}` : head;
+}
+
+/** Note shown when the pixel compression ran without a Web Worker, else null. */
+export function imagesThreadNote(stats: ImageStats | null, lang?: Lang): string | null {
+  return stats?.thread === 'main' ? t('report.imagesMainThread', undefined, lang) : null;
 }
 
 /** Everything the report dialog needs about a finished export. */
@@ -191,9 +259,10 @@ export function reportToText(outcome: ExportOutcome, model: ReportModel): string
     lines.push(`${t('report.images')}: ${outcome.stats.images}`);
     lines.push(`${t('report.groups')}: ${outcome.stats.groups}`);
   }
-  if (outcome.images && (outcome.images.downscaled > 0 || outcome.images.jpeg > 0)) {
-    lines.push(`${t('report.imagesOptimized')}: ${outcome.images.downscaled + outcome.images.jpeg}`);
-  }
+  const images = imagesSummary(outcome.images);
+  if (images) lines.push(images);
+  const threadNote = imagesThreadNote(outcome.images);
+  if (threadNote) lines.push(threadNote);
   const dedupe = dedupeText(outcome.pdfDedupe);
   if (dedupe) lines.push(dedupe);
 
