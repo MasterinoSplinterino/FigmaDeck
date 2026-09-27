@@ -2,7 +2,21 @@ import { beforeAll, describe, expect, it } from 'vitest';
 import type { FontReportItem } from '../../src/build/api';
 import type { ReportEntry } from '../../src/ir/types';
 import { setLang } from '../../src/ui/i18n';
-import { RASTER_REASONS, buildReportModel, dedupeText, entryText, fontFaceText, reasonHistogram, reportToText, type ExportOutcome } from '../../src/ui/report';
+import { emptyImageStats } from '../../src/ui/images';
+import {
+  RASTER_REASONS,
+  buildReportModel,
+  dedupeText,
+  entryText,
+  fontFaceText,
+  imagesSummary,
+  imagesThreadNote,
+  reasonHistogram,
+  reportToText,
+  sizeChangeText,
+  type ExportOutcome,
+  type ImageStats,
+} from '../../src/ui/report';
 
 const e = (o: Partial<ReportEntry> & Pick<ReportEntry, 'level' | 'code' | 'slideId'>): ReportEntry => ({
   slideName: `Slide ${o.slideId}`,
@@ -113,7 +127,15 @@ describe('reportToText', () => {
     stats: { slides: 3, texts: 10, shapes: 4, images: 5, groups: 1 },
     fonts: FONTS,
     entries: ENTRIES,
-    images: { examined: 3, downscaled: 1, jpeg: 1, bytesBefore: 1000, bytesAfter: 400 },
+    images: {
+      ...emptyImageStats('balanced'),
+      examined: 4,
+      downscaled: 1,
+      methods: { original: 1, jpeg: 1, 'palette-exact': 0, 'palette-lossy': 2, lossless: 0 },
+      bytesBefore: 1000,
+      bytesAfter: 290,
+      thread: 'worker',
+    },
     pdfDedupe: null,
   };
 
@@ -125,7 +147,8 @@ describe('reportToText', () => {
     expect(text).toContain('File size: 2 KB');
     expect(text).toContain('Time: 3.4 s');
     expect(text).toContain('Text boxes: 10');
-    expect(text).toContain('Images optimized: 2');
+    expect(text).toContain('Images: 4 · 1,000 B → 290 B (\u221271%) · 2 palette, 1 JPEG, 1 unchanged, 1 downscaled');
+    expect(text).not.toContain('background worker');
     expect(text).toContain('## Fonts');
     expect(text).toContain('Fonts are not embedded');
     expect(text).toContain('- Inter · Black → Inter Heavy [custom mapping]');
@@ -177,6 +200,57 @@ describe('reportToText', () => {
       expect(text).toContain('Отчёт об экспорте FigmaDeck');
       expect(text).toContain('Градиент, Размытие');
       expect(text).toContain('2 слоя вне слайда');
+    } finally {
+      setLang('en');
+    }
+  });
+});
+
+describe('image compression summary', () => {
+  const stats = (o: Partial<ImageStats>): ImageStats => ({ ...emptyImageStats('balanced'), ...o });
+  const MB = 1024 * 1024;
+
+  it('totals, size change and the methods used', () => {
+    const s = stats({
+      examined: 12,
+      methods: { original: 1, jpeg: 4, 'palette-exact': 2, 'palette-lossy': 3, lossless: 2 },
+      bytesBefore: 12.4 * MB,
+      bytesAfter: 3.1 * MB,
+      thread: 'worker',
+    });
+    expect(imagesSummary(s)).toBe('Images: 12 · 12.4 MB → 3.1 MB (\u221275%) · 3 palette, 2 exact palette, 4 JPEG, 2 lossless, 1 unchanged');
+    expect(imagesThreadNote(s)).toBeNull();
+  });
+
+  it('compression off, failures, nothing looked at', () => {
+    const off = stats({ compression: 'off', examined: 2, downscaled: 2, methods: { original: 0, jpeg: 1, 'palette-exact': 0, 'palette-lossy': 0, lossless: 1 }, bytesBefore: 2000, bytesAfter: 1000 });
+    expect(imagesSummary(off)).toBe('Images: 2 · 2 KB → 1,000 B (\u221250%) · 1 JPEG, 1 lossless, 2 downscaled, compression off');
+    const failed = stats({ examined: 1, failed: 1, methods: { original: 1, jpeg: 0, 'palette-exact': 0, 'palette-lossy': 0, lossless: 0 }, bytesBefore: 500, bytesAfter: 500 });
+    expect(imagesSummary(failed)).toBe('Images: 1 · 500 B → 500 B (0%) · 1 unchanged, 1 failed');
+    expect(imagesSummary(stats({}))).toBeNull();
+    expect(imagesSummary(null)).toBeNull();
+  });
+
+  it('main-thread note (no Web Worker)', () => {
+    const s = stats({ examined: 1, methods: { original: 0, jpeg: 0, 'palette-exact': 1, 'palette-lossy': 0, lossless: 0 }, bytesBefore: 100, bytesAfter: 50, thread: 'main' });
+    expect(imagesThreadNote(s)).toContain('without a background worker');
+    const outcome = { format: 'pptx', fileName: 'a.pptx', mime: 'x', data: new Uint8Array(1), durationMs: 1, slideCount: 1, slideIds: [], stats: null, fonts: [], entries: [], images: s, pdfDedupe: null } satisfies ExportOutcome;
+    expect(reportToText(outcome, buildReportModel([], [], []))).toContain('without a background worker');
+  });
+
+  it('sizeChangeText', () => {
+    expect(sizeChangeText(1000, 290)).toBe('\u221271%');
+    expect(sizeChangeText(1000, 1040)).toBe('+4%');
+    expect(sizeChangeText(1000, 1000)).toBe('0%');
+    expect(sizeChangeText(0, 0)).toBe('0%');
+  });
+
+  it('localizes to Russian', () => {
+    setLang('ru');
+    try {
+      const s = stats({ examined: 5, methods: { original: 0, jpeg: 1, 'palette-exact': 3, 'palette-lossy': 1, lossless: 0 }, bytesBefore: 322 * 1024, bytesAfter: 148 * 1024, thread: 'main' });
+      expect(imagesSummary(s)).toBe('Картинки: 5 · 322 КБ → 148 КБ (\u221254\u00a0%) · палитра: 1, точная палитра: 3, JPEG: 1');
+      expect(imagesThreadNote(s)).toContain('без фонового потока');
     } finally {
       setLang('en');
     }

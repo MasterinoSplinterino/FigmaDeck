@@ -53,7 +53,7 @@ describe('labels', () => {
   it('shows the item in progress, 1-based and clamped', () => {
     expect(phaseLabel(p({ phase: 'extract', done: 0, total: 6 }))).toBe('Extracting slide 1 of 6');
     expect(phaseLabel(p({ phase: 'extract', done: 6, total: 6 }))).toBe('Extracting slide 6 of 6');
-    expect(phaseLabel(p({ phase: 'images', done: 2, total: 9 }))).toBe('Optimizing images 3 of 9');
+    expect(phaseLabel(p({ phase: 'images', done: 2, total: 9 }))).toBe('Compressing images 3 of 9');
     expect(phaseLabel(p({ phase: 'pdf', done: 1, total: 3 }))).toBe('Exporting page 2 of 3');
     expect(phaseLabel(p({ phase: 'package' }))).toBe('Building PPTX');
     expect(phaseLabel(p({ phase: 'merge' }))).toBe('Merging PDF');
@@ -75,6 +75,19 @@ describe('labels', () => {
     try {
       expect(progressDetail(p({ slideName: 'Программа', layers: 3 }))).toBe('Программа — 3 слоя');
       expect(progressDetail(p({ slideName: 'Программа', layers: 5, jobsDone: 2, jobsTotal: 7 }))).toBe('Программа — растеризация 2 из 7');
+    } finally {
+      setLang('en');
+    }
+  });
+
+  it('images phase: bitmap size, and a note when compressing without a worker', () => {
+    expect(progressDetail(p({ phase: 'images', done: 1, total: 4, image: { width: 1920, height: 1080 } }))).toBe('1,920 × 1,080 px');
+    expect(progressDetail(p({ phase: 'images', image: { width: 64, height: 64 }, mainThread: true }))).toBe('64 × 64 px · no background worker, the window may pause');
+    expect(progressDetail(p({ phase: 'images', done: 4, total: 4 }))).toBeUndefined();
+    setLang('ru');
+    try {
+      expect(phaseLabel(p({ phase: 'images', done: 0, total: 3 }))).toBe('Сжатие изображений 1 из 3');
+      expect(progressDetail(p({ phase: 'images', image: { width: 1920, height: 1080 }, mainThread: true }))).toBe('1\u00a0920 × 1\u00a0080 px · без фонового потока, окно может подвисать');
     } finally {
       setLang('en');
     }

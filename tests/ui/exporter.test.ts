@@ -9,7 +9,7 @@ import type { MainToUi, UiToMain } from '../../src/shared/messages';
 import { DEFAULT_SETTINGS, type ExportFormat, type ExportSettings } from '../../src/shared/settings';
 import { Exporter, type ExporterDeps, type ExporterEvent } from '../../src/ui/exporter';
 import { setLang } from '../../src/ui/i18n';
-import type { ProcessHooks } from '../../src/ui/images';
+import { emptyImageStats, type ProcessHooks } from '../../src/ui/images';
 import { PPTX_MIME } from '../../src/ui/options';
 import { imageDeckToPdf, mergePdfs } from '../../src/ui/pdf';
 import type { ImageStats } from '../../src/ui/report';
@@ -18,7 +18,7 @@ import { loadFixture } from '../fixtures/load';
 beforeAll(() => setLang('en'));
 
 const noYield = () => Promise.resolve();
-const STATS: ImageStats = { examined: 0, downscaled: 0, jpeg: 0, bytesBefore: 0, bytesAfter: 0 };
+const STATS: ImageStats = emptyImageStats('balanced');
 
 interface Harness {
   exporter: Exporter;
@@ -92,7 +92,8 @@ describe('Exporter: PPTX', () => {
     const deck = loadFixture('kitchen-sink');
     const processAssets = vi.fn(async (assets: Record<string, Asset>, _o: unknown, hooks: ProcessHooks) => {
       const n = Object.keys(assets).length;
-      hooks.onProgress?.(0, n);
+      hooks.onProgress?.(0, n, { width: 400, height: 300, thread: null });
+      hooks.onProgress?.(1, n, { width: 96, height: 96, thread: 'worker' });
       hooks.onProgress?.(n, n);
       return { ...STATS, examined: n };
     });
@@ -121,8 +122,19 @@ describe('Exporter: PPTX', () => {
     expect(o.entries[0]).toEqual(EXTRACT_REPORT[0]);
     expect(o.durationMs).toBeGreaterThan(0);
     expect(o.images?.examined).toBe(Object.keys(deck.assets).length);
-    expect(processAssets).toHaveBeenCalledWith(expect.any(Object), { rasterScale: 3, jpeg: true, jpegQuality: DEFAULT_SETTINGS.jpegQuality }, expect.any(Object));
+    expect(processAssets).toHaveBeenCalledWith(
+      expect.any(Object),
+      { rasterScale: 3, compression: 'balanced', jpegQuality: DEFAULT_SETTINGS.jpegQuality, imageTarget: false },
+      expect.objectContaining({ signal: expect.any(AbortSignal) }),
+    );
     expect(h.exporter.busy).toBe(false);
+    // "Compressing images i of N" + the bitmap size in the overlay.
+    const imageSteps = h.events.flatMap((e) => (e.type === 'progress' && e.progress.phase === 'images' ? [e.progress] : []));
+    expect(imageSteps.map((p) => [p.done, p.image?.width ?? null, !!p.mainThread])).toEqual([
+      [0, 400, false],
+      [1, 96, false],
+      [imageSteps[2].total, null, false],
+    ]);
 
     // Metadata: deck title from the UI, author from the settings.
     const zip = await JSZip.loadAsync(o.data);
@@ -311,9 +323,9 @@ describe('Exporter: PDF', () => {
     const deck = loadFixture('diploma');
     const processAssets = vi.fn(async () => ({ ...STATS }));
     const h = harness({ processAssets });
-    h.exporter.start('pdf-image', settings({ jpeg: false, jpegQuality: 0.7, rasterScale: 1 }), 'Diploma');
+    h.exporter.start('pdf-image', settings({ compression: 'off', jpeg: false, jpegQuality: 0.7, rasterScale: 1 }), 'Diploma');
     const sent = h.sent[0];
-    expect(sent.type === 'start-export' && [sent.settings.mode, sent.settings.jpeg]).toEqual(['image', true]);
+    expect(sent.type === 'start-export' && [sent.settings.mode, sent.settings.jpeg, sent.settings.compression]).toEqual(['image', true, 'balanced']);
     h.feed(...extractedMessages(deck, [], 'pdf-image'));
     const done = await h.settled();
     expect(done.type).toBe('done');
@@ -321,7 +333,7 @@ describe('Exporter: PDF', () => {
     const doc = await PDFDocument.load(h.downloads[0].data);
     expect(doc.getPageCount()).toBe(deck.slides.length);
     // Baked JPEG pages at the JPEG quality of the settings.
-    expect(processAssets).toHaveBeenCalledWith(expect.any(Object), { rasterScale: 1, jpeg: true, jpegQuality: 0.7 }, expect.any(Object));
+    expect(processAssets).toHaveBeenCalledWith(expect.any(Object), { rasterScale: 1, compression: 'balanced', jpegQuality: 0.7, imageTarget: true }, expect.any(Object));
     // 1 px = 1 pt.
     expect(doc.getPages().map((p) => [p.getWidth(), p.getHeight()])).toEqual(deck.slides.map((sl) => [sl.width, sl.height]));
   });
@@ -392,6 +404,28 @@ describe('Exporter: cancel', () => {
     expect(await h.settled()).toEqual({ type: 'cancelled' });
     expect(h.sent.map((m) => m.type)).toEqual(['start-export']);
     expect(build).not.toHaveBeenCalled();
+  });
+
+  it('during image compression: the AbortSignal fires at once and the main-thread note is shown', async () => {
+    const seen: { hooks: ProcessHooks | null } = { hooks: null };
+    const h = harness({
+      processAssets: (_assets, _o, hooks) =>
+        new Promise((_resolve, reject) => {
+          seen.hooks = hooks;
+          hooks.onProgress?.(0, 2, { width: 1920, height: 1080, thread: 'main' });
+          hooks.signal?.addEventListener('abort', () => reject(Object.assign(new Error('Image compression cancelled'), { name: 'CompressCancelledError' })));
+        }),
+    });
+    h.exporter.start('pptx', settings(), 'x');
+    h.feed(...extractedMessages(loadFixture('kitchen-sink')));
+    await vi.waitFor(() => expect(seen.hooks).not.toBeNull());
+    const last = h.events.filter((e) => e.type === 'progress').pop();
+    expect(last?.type === 'progress' && last.progress).toMatchObject({ phase: 'images', image: { width: 1920, height: 1080 }, mainThread: true });
+    expect(seen.hooks!.signal!.aborted).toBe(false);
+    h.exporter.cancel();
+    expect(seen.hooks!.signal!.aborted).toBe(true);
+    expect(await h.settled()).toEqual({ type: 'cancelled' });
+    expect(h.sent.map((m) => m.type)).toEqual(['start-export']);
   });
 
   it('during the build: the progress callback aborts buildPptx', async () => {

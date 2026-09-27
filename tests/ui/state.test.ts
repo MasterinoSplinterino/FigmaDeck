@@ -68,6 +68,10 @@ describe('deckReducer', () => {
     s = deckReducer(s, { type: 'settings', patch: { jpeg: true, jpegQuality: 0.7 } });
     expect(s.settings.jpeg).toBe(true);
     expect(s.settings.jpegQuality).toBe(0.7);
+    s = deckReducer(s, { type: 'settings', patch: { compression: 'off' } });
+    expect([s.settings.compression, s.settings.jpeg]).toEqual(['off', false]); // legacy flag derived
+    s = deckReducer(s, { type: 'settings', patch: { compression: 'strong' } });
+    expect([s.settings.compression, s.settings.jpeg]).toEqual(['strong', true]);
     s = deckReducer(s, { type: 'settings', patch: { widthSlackPercent: 500 } });
     expect(s.settings.widthSlackPercent).toBe(DEFAULT_SETTINGS.widthSlackPercent);
     s = deckReducer(s, { type: 'replace-settings', settings: { ...DEFAULT_SETTINGS, mode: 'exact' } });

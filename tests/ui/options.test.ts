@@ -76,12 +76,15 @@ describe('buildOptionsFromSettings', () => {
 });
 
 describe('settingsForFormat', () => {
-  it('image formats force image mode + JPEG', () => {
+  it('image formats force image mode + JPEG (compression off counts as balanced there)', () => {
     for (const f of ['pptx-image', 'pdf-image'] as const) {
-      const s = settingsForFormat(f, settings({ mode: 'editable', jpeg: false }));
+      const s = settingsForFormat(f, settings({ mode: 'editable', compression: 'off', jpeg: false }));
       expect(s.mode).toBe('image');
       expect(s.jpeg).toBe(true);
+      expect(s.compression).toBe('balanced');
+      expect(settingsForFormat(f, settings({ compression: 'strong' })).compression).toBe('strong');
     }
+    expect(settingsForFormat('pptx', settings({ compression: 'off' }))).toMatchObject({ compression: 'off', jpeg: false });
   });
 
   it('the editable target and the IR dump use Editable / Exact look ("Image only" → Editable)', () => {
