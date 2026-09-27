@@ -294,6 +294,9 @@ async function startExport(format: ExportFormat, rawSettings: ExportSettings): P
   try {
     const { frames, missing } = await framesForExport();
     if (frames.length === 0) throw new Error('No slides to export: add frames to the deck first.');
+    // The frames' pages are loaded now: remove what an earlier crashed run left there (this run has
+    // not created any temporary node yet).
+    for (const page of new Set(frames.map((f) => pageOf(f)))) if (page) removeLeftoversOn(page);
     post({ type: 'export-started', format, total: frames.length });
     const meta = deckMeta(s);
     if (format === 'pdf') {
@@ -415,13 +418,44 @@ async function handle(msg: UiToMain): Promise<void> {
   }
 }
 
-/** Remove temporary composite nodes a crashed / closed run may have left on the current page. */
-function removeLeftovers(): void {
+/**
+ * Handlers that read-modify-write the deck list. They run one after another (`deckQueue`): e.g.
+ * "sort by canvas" awaits one node lookup per slide and then writes the sorted list; an add / remove
+ * handled in between would otherwise be overwritten by its stale snapshot (and persisted lost).
+ * Everything else — exports above all, and `cancel-export`, which must reach a running export — is
+ * handled immediately.
+ */
+const DECK_MESSAGES = new Set<UiToMain['type']>(['add-selection', 'remove-slides', 'clear-slides', 'reorder-slides', 'sort-slides']);
+let deckQueue: Promise<void> = Promise.resolve();
+
+function enqueueDeck(task: () => Promise<void>): Promise<void> {
+  const next = deckQueue.then(task, task);
+  deckQueue = next.catch(() => undefined); // a failed handler must not block the next ones
+  return next;
+}
+
+/**
+ * Remove temporary composite nodes a crashed / closed run may have left behind. Clones land on the page
+ * that was current during that run, so the current page and the pages of the deck frames are scanned.
+ * Only loaded pages can be searched (`dynamic-page`): a page that is not loaded throws and is skipped
+ * here — nothing is loaded just for the cleanup — and is scanned when an export loads it.
+ */
+async function removeLeftovers(): Promise<void> {
+  const pages = new Map<string, PageNode>([[figma.currentPage.id, figma.currentPage]]);
+  for (const id of deckIds) {
+    const node = await resolveSlide(id);
+    const page = node ? pageOf(node) : null;
+    if (page) pages.set(page.id, page);
+  }
+  for (const page of pages.values()) removeLeftoversOn(page);
+}
+
+function removeLeftoversOn(page: PageNode): void {
   try {
-    const leftovers = figma.currentPage.findAllWithCriteria({ pluginData: { keys: [CONFIG.extract.tempPluginDataKey] } });
+    const leftovers = page.findAllWithCriteria({ pluginData: { keys: [CONFIG.extract.tempPluginDataKey] } });
     for (const n of leftovers) if (!n.removed) n.remove();
   } catch {
-    // Best effort.
+    // Best effort (e.g. a page that is not loaded).
   }
 }
 
@@ -434,12 +468,13 @@ figma.showUI(__html__, {
   title: 'FigmaDeck',
 });
 
-removeLeftovers();
+removeLeftovers().catch(() => undefined);
 
 figma.ui.onmessage = (raw: unknown) => {
   const msg = raw as UiToMain;
   if (!msg || typeof msg !== 'object' || typeof (msg as { type?: unknown }).type !== 'string') return;
-  handle(msg).catch((e) => {
+  const done = DECK_MESSAGES.has(msg.type) ? enqueueDeck(() => handle(msg)) : handle(msg);
+  done.catch((e) => {
     if (msg.type === 'start-export') post({ type: 'export-error', message: errorMessage(e) });
     else toast(errorMessage(e), true);
   });

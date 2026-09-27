@@ -21,8 +21,10 @@
  *      `detachInstance` returns a NEW node, which replaces the tracked one), auto layout switched off
  *      (`layoutMode = 'NONE'` keeps the size and every child position — verified) BEFORE any child is
  *      removed, so nothing reflows;
- *   3. children off the kept paths removed; target / ancestor paints stripped (opacity is kept: it
- *      belongs to the content); texts hidden with `opacity = 0` (`visible = false` would reflow);
+ *   3. children off the kept paths removed; target / ancestor paints and the paints of every container
+ *      a kept path only passes through stripped (their own paint is a separate element; opacity, clip
+ *      and radii are kept: they belong to the content); texts hidden with `opacity = 0`
+ *      (`visible = false` would reflow);
  *   4. exported (contents only: the page position is irrelevant), removed in `finally`. The region is
  *      mapped from the clone's coordinates back through the ORIGINAL ancestor's absolute transform.
  * Every temporary node is tracked in `TempNodes` so a cancel / error / plugin close removes it too.
@@ -399,15 +401,27 @@ function removeOrHide(ctx: RasterContext, node: SceneNode): void {
   }
 }
 
-/** Keep only the subtrees on `paths` (top-down, see module comment). Returns the (maybe replaced) node. */
+/**
+ * Keep only the subtrees on `paths` (top-down, see module comment). Returns the (maybe replaced) node.
+ *
+ * Containers the kept paths merely pass through (below the cloned root, not the end of a kept path)
+ * lose their own fills / strokes / effects: their own paint is a separate element of the slide (native
+ * background / stroke or its own composite), so leaving it in would paint it a second time — over the
+ * container's other children. Their `clipsContent`, corner radii and opacity stay: the clip shapes the
+ * kept content, and the opacity belongs to it (a composite picture gets only the opacity ABOVE the
+ * cloned root; everything from the root down is baked into the bitmap exactly once). The root itself
+ * is handled by `stripAncestor` / `target`.
+ */
 function prune(
   ctx: RasterContext,
   node: SceneNode,
   paths: readonly (readonly number[])[],
   onReplace: ((next: SceneNode) => void) | null,
+  isRoot = true,
 ): SceneNode {
   if (paths.some((p) => p.length === 0)) return node; // whole subtree kept
   const n = makeEditable(ctx, node, onReplace);
+  if (!isRoot) stripPaint(n, { fills: false, strokes: false, effects: false });
   const kids = [...childrenOf(n)];
   const keptIndices = new Set(paths.map((p) => p[0]));
   for (let i = kids.length - 1; i >= 0; i--) if (!keptIndices.has(i)) removeOrHide(ctx, kids[i]);
@@ -416,7 +430,7 @@ function prune(
     if (!child) continue;
     const sub = paths.filter((p) => p[0] === i).map((p) => p.slice(1));
     // A detached child replaces itself in the parent; nothing to track (only the root is tracked).
-    prune(ctx, child, sub, null);
+    prune(ctx, child, sub, null, false);
   }
   return n;
 }

@@ -10,10 +10,11 @@
  * - render bounds `null` (or fully outside the clip) → skipped, one 'outside-clip' report entry for
  *   the top-most skipped node;
  * - rasters exported in place are placed at their (clipped) render bounds and never cropped again;
- * - cut by a RECTANGULAR clipping frame, NATIVE elements are clipped by hand: image fills cropped
- *   (`srcRect`), plain rectangles intersected, everything else rasterized ('clip') in place;
- * - cut only by the slide edge: pictures cropped, plain rectangles intersected, the rest kept native
- *   (PowerPoint itself clips at the slide edge);
+ * - cut by a RECTANGULAR clipping frame, NATIVE elements are clipped by hand: plain image fills cropped
+ *   (`srcRect`), plain rectangles intersected, everything else — including pictures with an ellipse /
+ *   rounded geometry or a shadow, which a crop would redraw on the cut box — rasterized ('clip') in place;
+ * - cut only by the slide edge: plain pictures cropped, plain rectangles intersected, the rest (shaped
+ *   or shadowed pictures included) kept native and whole (PowerPoint itself clips at the slide edge);
  * - reaching into a ROUNDED corner of a clipping frame: temporary composite with that frame (cropped
  *   to the clips above the frame, which the clone at the page root escapes).
  */
@@ -24,6 +25,7 @@ import type {
   Matrix,
   RasterReason,
   Rect,
+  Shadow,
   ShapeElement,
   SolidFill,
   TextElement,
@@ -52,6 +54,7 @@ import {
   type ClipTest,
   type RoundedClip,
 } from './clip';
+import { analyzeEffects } from './effects';
 import type { FigmaEnv } from './figma-env';
 import {
   IDENTITY,
@@ -144,6 +147,16 @@ interface WalkState {
 }
 
 type Meta = { id: string; name: string; node: SceneNode };
+
+/** Slide-root effects drawn with the slide background (see `SlideWalker.rootEffects`). */
+interface RootEffects {
+  /** A native inner shadow for the background shape. */
+  shadow: Shadow | null;
+  /** Reasons for a background composite WITH the effects (empty = none needed). */
+  composite: RasterReason[];
+}
+
+const NO_ROOT_EFFECTS: RootEffects = { shadow: null, composite: [] };
 
 const pushUnique = (list: RasterReason[], ...reasons: RasterReason[]) => {
   for (const r of reasons) if (!list.includes(r)) list.push(r);
@@ -314,11 +327,59 @@ export class SlideWalker {
     const root = ctx.frame;
     const state0: WalkState = { opacity: 1, clip: initialClip(ctx.slideRect) };
     const background = slideBackground(root, this.mixed);
-    const own = this.planOwnPaint(root, state0, true, background !== null);
+    const own = this.planOwnPaint(root, state0, true, background !== null, this.rootEffects(root));
     const clip = clipsContentOf(root) ? pushClip(state0.clip, ctx.slideRect, this.roundedClipOf(root, 1, ctx.slideRect), true) : state0.clip;
     const childState: WalkState = { opacity: opacityOf(root), clip };
     const children = await this.planRootChildren(root, childState);
     return { plans: [...own.below, ...children, ...own.above], background };
+  }
+
+  /**
+   * Effects of the slide root, which never rasterizes as a whole (its content stays editable):
+   * - DROP_SHADOW lies outside the slide, BACKGROUND_BLUR blurs what is behind the frame (not part of
+   *   the slide): ignored, one info entry each;
+   * - INNER_SHADOW, LAYER_BLUR, noise / texture / … paint over the root's fill: drawn with the slide
+   *   background — a native inner shadow on the background shape when that is possible, otherwise a
+   *   background composite with the effects (the first element). LAYER_BLUR also blurs the layers on
+   *   the slide in Figma, which stay sharp here (warning). Without a fill there is no background to
+   *   carry them (the effect then works on the layers' pixels): dropped, with a warning.
+   */
+  private rootEffects(root: SceneNode): RootEffects {
+    const { report } = this.ctx;
+    const fx: RootEffects = { shadow: null, composite: [] };
+    const visible = effectsOf(root).filter((e) => {
+      if ((e as { visible?: boolean }).visible === false) return false;
+      if (e.type === 'DROP_SHADOW' || e.type === 'INNER_SHADOW') return e.color.a > 0;
+      if (e.type === 'LAYER_BLUR' || e.type === 'BACKGROUND_BLUR') return e.radius > 0;
+      return true;
+    });
+    if (visible.length === 0) return fx;
+    const ref = nodeRef(root);
+    const types = new Set(visible.map((e) => e.type));
+    if (types.has('DROP_SHADOW')) {
+      report.info('root-effect-ignored', `The drop shadow of the slide frame "${root.name}" lies outside the slide and was ignored.`, ref);
+    }
+    if (types.has('BACKGROUND_BLUR')) {
+      report.info('root-effect-ignored', `The background blur of the slide frame "${root.name}" only blurs what lies behind the slide and was ignored.`, ref);
+    }
+    const kept = visible.filter((e) => e.type !== 'DROP_SHADOW' && e.type !== 'BACKGROUND_BLUR');
+    if (kept.length === 0) return fx;
+    const names = [...new Set(kept.map((e) => e.type.toLowerCase().replace(/_/g, ' ')))].join(', ');
+    if (visiblePaints(fillsOf(root, this.mixed)).length === 0) {
+      report.warning('root-effect-dropped', `The slide frame "${root.name}" has no fill to carry its effects (${names}); they were dropped.`, ref);
+      return fx;
+    }
+    if (types.has('LAYER_BLUR')) {
+      report.warning(
+        'root-effect-dropped',
+        `The layer blur of the slide frame "${root.name}" is applied to the slide background only; the layers on the slide stay sharp.`,
+        ref,
+      );
+    }
+    const analysis = analyzeEffects(kept);
+    if (analysis.reasons.length === 0 && analysis.shadow) fx.shadow = analysis.shadow;
+    else fx.composite = analysis.reasons.length > 0 ? analysis.reasons : ['effects'];
+    return fx;
   }
 
   /** Root children; masks become composites of the masked range (root keeps its editable content). */
@@ -552,7 +613,13 @@ export class SlideWalker {
    * children only when the frame clips its content (with "Clip content" off the children cover the
    * stroke), so the stroke goes to `above` for clipping frames and right after the fill otherwise.
    */
-  private planOwnPaint(node: SceneNode, state: WalkState, isRoot: boolean, fillIsSlideBackground: boolean): { below: Plan[]; above: Plan[] } {
+  private planOwnPaint(
+    node: SceneNode,
+    state: WalkState,
+    isRoot: boolean,
+    fillIsSlideBackground: boolean,
+    rootFx: RootEffects = NO_ROOT_EFFECTS,
+  ): { below: Plan[]; above: Plan[] } {
     const { ctx } = this;
     const below: Plan[] = [];
     const above: Plan[] = [];
@@ -567,9 +634,15 @@ export class SlideWalker {
       : { outside: false, innerPartial: false, slidePartial: false, rounded: null };
     if (ct.outside) return { below, above };
 
-    const bg = fillIsSlideBackground
-      ? null
-      : classifyShape(node, this.mixed, ctx.settings, rel, { frameBackground: true, ignoreStrokes: true, ignoreEffects: isRoot });
+    // Root effects drawn with the background (rootEffects) need a background element even when the
+    // fill itself is the slide background.
+    const fxInBg = rootFx.shadow !== null || rootFx.composite.length > 0;
+    const bg =
+      fillIsSlideBackground && !fxInBg
+        ? null
+        : classifyShape(node, this.mixed, ctx.settings, rel, { frameBackground: true, ignoreStrokes: true, ignoreEffects: isRoot });
+    // A composite of the background keeps the node's effects — for the root only those it draws there.
+    const bgEffects = !isRoot || fxInBg;
     const strokes = analyzeStrokes(node, this.mixed);
     const radius = uniformRadiusOf(node, this.mixed);
     const skewed = decompose(rel, width, height).skewed;
@@ -583,22 +656,26 @@ export class SlideWalker {
 
     // Background (fills + shadow).
     let bgShape: ShapeElement | null = null;
-    if (bg && bg.kind === 'native') {
+    if (bg && bg.kind === 'native' && rootFx.composite.length === 0) {
       bgShape = this.shapeElement(`~bg:${node.id}`, node.name, bg, opacity, bg.fill, null);
-    } else if (bg && bg.kind === 'image') {
+      if (rootFx.shadow) bgShape.shadow = rootFx.shadow; // the root's inner shadow, native
+    } else if (bg && bg.kind === 'image' && !fxInBg) {
       below.push(
         ...this.planImageLayer(
           node,
           bg,
           state,
           ct,
-          (reasons) => ownPaintComposite({ fills: true, strokes: false, effects: !isRoot }, reasons, 'bg'),
+          (reasons) => ownPaintComposite({ fills: true, strokes: false, effects: bgEffects }, reasons, 'bg'),
           `~bg:${node.id}`,
           false,
         ),
       );
-    } else if (bg && bg.kind === 'raster') {
-      below.push(ownPaintComposite({ fills: true, strokes: false, effects: !isRoot }, bg.reasons, 'bg'));
+    } else if (bg && bg.kind !== 'none') {
+      // Raster fill, or root effects that cannot go on a native background.
+      const reasons = bg.kind === 'raster' ? [...bg.reasons] : [];
+      pushUnique(reasons, ...(rootFx.composite.length > 0 ? rootFx.composite : fxInBg ? ['effects' as const] : []));
+      below.push(ownPaintComposite({ fills: true, strokes: false, effects: bgEffects }, reasons, 'bg'));
     }
 
     // Stroke.
@@ -630,7 +707,7 @@ export class SlideWalker {
     if (bgShape && bg) {
       below.unshift(
         this.clipNativeShape(bgShape, node, state, ct, () =>
-          ownPaintComposite({ fills: true, strokes: !strokeAbove && bgShape!.stroke !== null, effects: !isRoot }, ['clip'], 'bg'),
+          ownPaintComposite({ fills: true, strokes: !strokeAbove && bgShape!.stroke !== null, effects: bgEffects }, ['clip'], 'bg'),
         ),
       );
     }
@@ -801,20 +878,32 @@ export class SlideWalker {
     if (!paint.imageHash) pushUnique(reasons, 'image-format');
     if (paint.scaleMode === 'FIT' && d.geometry === 'ellipse') pushUnique(reasons, 'image-fill-mode');
 
-    // Rounded clip: native only for an image exactly covering the rounded frame (card images).
+    // Rounded clip: native only for an image exactly covering the rounded frame (card images), and only
+    // when nothing of it paints outside its box (the frame cuts an outer shadow / outer stroke there).
     let geometry = d.geometry;
     let radius = d.radius;
     if (ct.rounded) {
       const rc = ct.rounded;
       const cover = this.coversRoundedFrame(node, rc);
       const uniform = rc.radii.every((r) => Math.abs(r - rc.radii[0]) < 1e-6);
-      if (cover && uniform && geometry !== 'ellipse') {
+      const paintsOutside = d.shadow?.type === 'outer' || (strokes.kind === 'native' && strokes.stroke.align !== 'inside');
+      if (cover && uniform && geometry !== 'ellipse' && !paintsOutside) {
         geometry = 'roundRect';
         radius = clean(Math.max(radius, rc.radii[0]));
       } else pushUnique(reasons, 'clip');
     }
     const rotatedCut = ct.innerPartial && d.transform.rotation !== 0;
     if (rotatedCut || (ct.innerPartial && strokes.kind === 'native')) pushUnique(reasons, 'clip');
+    // An outer shadow reaching past a clipping frame is cut there by Figma; natively it would not be.
+    if (ct.innerPartial && d.shadow?.type === 'outer') pushUnique(reasons, 'clip');
+    // A crop redraws the ellipse / rounded corners / shadow on the CROPPED box: a picture that keeps its
+    // shape (or shadow) and is cut by a clipping frame is rasterized; one cut only by the slide edge
+    // stays whole (PowerPoint clips at the slide edge itself). FIT pictures (sub-box) are checked in the job.
+    const fit = paint.scaleMode === 'FIT';
+    const keepsShape = (!fit && geometry !== 'rect') || d.shadow !== null;
+    const cutByFrame = (t: Transform) =>
+      ct.innerPartial && state.clip.inner !== null && t.rotation === 0 && !containsRect(state.clip.inner, t);
+    if (keepsShape && !fit && cutByFrame(d.transform)) pushUnique(reasons, 'clip');
     if (reasons.length > 0) return [fallback(reasons)];
 
     const opacityLayer = state.opacity * opacityOf(node);
@@ -838,8 +927,27 @@ export class SlideWalker {
           }
         : null;
 
+    // Reserved now so a read failure is reported in walk order.
+    const readSlot = ctx.report.reserve();
     const job = planJob(`image ${node.name}`, async () => {
-      const info = await this.loadImage(hash);
+      let info: ImageInfo | null;
+      try {
+        info = await this.loadImage(hash);
+      } catch (e) {
+        // Unreadable bytes cost this layer its original image, not the whole export: Figma's own
+        // render of the layer (raster fallback) is used instead.
+        if (isCancelledError(e)) throw e;
+        const message = e instanceof Error ? e.message : String(e);
+        readSlot.fill(
+          ctx.report.entry(
+            'warning',
+            'image-unreadable',
+            `The image of "${node.name}" could not be read (${message}); the layer was rasterized instead.`,
+            nodeRef(node),
+          ),
+        );
+        info = null;
+      }
       const fallbackPlan = (r: RasterReason[]) => fallback(r);
       if (!info || !info.assetId) return this.runFallback(fallbackPlan(['image-format']));
       const placement = computeImageCrop(paint.scaleMode, width, height, info.width, info.height, paint.imageTransform);
@@ -854,14 +962,16 @@ export class SlideWalker {
       ctx.assets.noteDisplaySize(info.assetId, placement.displayWidth, placement.displayHeight);
       let transform = subRectTransform(d.transform, placement.box);
       let crop = placement.crop;
-      if (clipRect) {
+      if (clipRect && keepsShape) {
+        // Never cropped (see above); a FIT sub-box with a shadow cut by a clipping frame is rasterized.
+        if (cutByFrame(transform)) return this.runFallback(fallbackPlan(['clip']));
+      } else if (clipRect) {
         const cropped = cropPictureToRect(transform, crop, clipRect);
         if (cropped) {
           transform = cropped.transform;
           crop = cropped.crop;
         } else if (transform.rotation === 0) return []; // nothing visible
       }
-      const fit = paint.scaleMode === 'FIT';
       const el: ImageElement = {
         type: 'image',
         id: meta.id,
@@ -900,32 +1010,39 @@ export class SlideWalker {
     return rectsEqual(local, { x: 0, y: 0, w: rc.width, h: rc.height });
   }
 
+  /**
+   * Bytes + size of a Figma image (shared across slides). Rejects when the bytes cannot be read — for
+   * the first caller only: the cache keeps `null` (never a rejected promise), so later layers with the
+   * same image fall back without trying again.
+   */
   private loadImage(hash: string): Promise<ImageInfo | null> {
     const { ctx } = this;
-    let p = ctx.images.get(hash);
-    if (!p) {
-      p = (async (): Promise<ImageInfo | null> => {
-        const image = ctx.env.getImageByHash(hash);
-        if (!image) return null;
-        const [bytes, size] = await Promise.all([image.getBytesAsync(), image.getSizeAsync()]);
-        const mime = sniffImageMime(bytes);
-        if (!mime) return { assetId: null, width: size.width, height: size.height };
-        const png = mime === 'image/png' ? readPngInfo(bytes) : null;
-        const assetId = ctx.assets.add(
-          {
-            mime,
-            role: 'image-fill',
-            data: bytes,
-            width: size.width,
-            height: size.height,
-            hasAlpha: mime === 'image/png' ? (png?.hasAlpha ?? true) : mime === 'image/gif',
-          },
-          `hash:${hash}`,
-        );
-        return { assetId, width: size.width, height: size.height };
-      })();
-      ctx.images.set(hash, p);
-    }
+    const cached = ctx.images.get(hash);
+    if (cached) return cached;
+    const p = (async (): Promise<ImageInfo | null> => {
+      const image = ctx.env.getImageByHash(hash);
+      if (!image) return null;
+      const [bytes, size] = await Promise.all([image.getBytesAsync(), image.getSizeAsync()]);
+      const mime = sniffImageMime(bytes);
+      if (!mime) return { assetId: null, width: size.width, height: size.height };
+      const png = mime === 'image/png' ? readPngInfo(bytes) : null;
+      const assetId = ctx.assets.add(
+        {
+          mime,
+          role: 'image-fill',
+          data: bytes,
+          width: size.width,
+          height: size.height,
+          hasAlpha: mime === 'image/png' ? (png?.hasAlpha ?? true) : mime === 'image/gif',
+        },
+        `hash:${hash}`,
+      );
+      return { assetId, width: size.width, height: size.height };
+    })();
+    ctx.images.set(
+      hash,
+      p.catch(() => null),
+    );
     return p;
   }
 
@@ -1014,10 +1131,14 @@ export function intersectShape(el: ShapeElement, inter: Rect): ShapeElement {
   let fill = el.fill;
   if (fill && fill.type === 'linear-gradient' && t.w > 0 && t.h > 0) {
     // Old normalized coords u = (x − ox)/ow; new box x = nx + u'·nw → u = (nx − ox)/ow + u'·nw/ow.
+    // A flipped box runs its local axis the other way (u = (ox + ow − x)/ow), so the offset is measured
+    // from the far edge: u = (ox + ow − nx − nw)/ow + u'·nw/ow. (Plain rects are unrotated.)
     const g = fill.gradientTransform;
+    const offX = t.flipH ? (t.x + t.w - inter.x - inter.w) / t.w : (inter.x - t.x) / t.w;
+    const offY = t.flipV ? (t.y + t.h - inter.y - inter.h) / t.h : (inter.y - t.y) / t.h;
     const s: Matrix = [
-      [inter.w / t.w, 0, (inter.x - t.x) / t.w],
-      [0, inter.h / t.h, (inter.y - t.y) / t.h],
+      [inter.w / t.w, 0, offX],
+      [0, inter.h / t.h, offY],
     ];
     fill = { ...fill, gradientTransform: multiply(g, s) };
   }

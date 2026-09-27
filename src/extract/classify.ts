@@ -322,17 +322,46 @@ export function containerRasterReasons(node: SceneNode, mixed: symbol, slideInve
     if (!hasFill) pushUnique(reasons, 'effects');
   }
   if (opacityOf(node) < 1 && kids.length > 0) {
-    const rects = kids.map((k) => slideRenderBounds(slideInverse, k)).filter((r): r is Rect => r !== null);
-    if (hasOwnPaint(node, mixed)) {
-      const { width, height } = sizeOf(node);
-      rects.push(transformedBoxBounds(multiply(slideInverse, absoluteTransformOf(node)), width, height));
-    }
+    // The opacity is multiplied into every painting piece (PowerPoint groups have no opacity); Figma
+    // composites the container first. Different as soon as two pieces overlap — at ANY depth.
+    const rects = paintingPieces(node, mixed, slideInverse);
+    if (hasOwnPaint(node, mixed)) rects.push(ownBox(node, slideInverse));
     if (rects.length >= 2 && anyOverlap(rects)) pushUnique(reasons, 'group-opacity');
   }
   if (clipsContentOf(node) && kids.length > 0 && !isAxisAlignedClip(node, slideInverse) && childrenOverflow(node, kids)) {
     pushUnique(reasons, 'clip');
   }
   return reasons;
+}
+
+/** Box of a node in slide px (axis-aligned bounds of its transformed box). */
+function ownBox(node: SceneNode, slideInverse: Matrix): Rect {
+  const { width, height } = sizeOf(node);
+  return transformedBoxBounds(multiply(slideInverse, absoluteTransformOf(node)), width, height);
+}
+
+/**
+ * Slide-px boxes of the pieces the walk turns the descendants of `node` into, each of which gets the
+ * container's opacity separately: leaves (render bounds), containers that become ONE picture (render
+ * bounds: rasterized as a whole or icon-like) and, for containers that are walked, their own paint
+ * (fill / stroke box) plus their descendants' pieces.
+ */
+function paintingPieces(node: SceneNode, mixed: symbol, slideInverse: Matrix): Rect[] {
+  const out: Rect[] = [];
+  const visit = (parent: SceneNode) => {
+    for (const kid of visibleChildren(parent)) {
+      const walked = isContainer(kid) && !isIconLike(kid, mixed) && containerRasterReasons(kid, mixed, slideInverse).length === 0;
+      if (!walked) {
+        const r = slideRenderBounds(slideInverse, kid);
+        if (r) out.push(r);
+        continue;
+      }
+      if (hasOwnPaint(kid, mixed)) out.push(ownBox(kid, slideInverse));
+      visit(kid);
+    }
+  };
+  visit(node);
+  return out;
 }
 
 /** The frame's box is axis-aligned in slide space (rotation a multiple of 90°, no skew). */
