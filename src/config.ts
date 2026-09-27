@@ -181,6 +181,15 @@ export const CONFIG = {
     widthSlackStep: 0.5,
     /** Custom slide size inputs: step (inches). Limits come from CONFIG.slide. */
     slideSizeStepIn: 0.001,
+    /** Custom slide size inputs: step (centimeters). */
+    slideSizeStepCm: 0.01,
+    /**
+     * Frame vs slide aspect ratios that differ by more than this share (0.001 = 0.1 %) show the
+     * letterbox warning in the "Slide size" settings.
+     */
+    slideRatioTolerance: 0.001,
+    /** A preset is shown as selected when both sides are within this many inches of it. */
+    slidePresetToleranceIn: 0.0006,
     /**
      * UI-side image optimization: an image-fill is only downscaled when the target side is at most this
      * share of the current side (skips re-encoding for marginal gains).
@@ -200,6 +209,22 @@ export const CONFIG = {
     fallbackFileName: 'FigmaDeck',
     /** Max layers listed per slide in the report dialog before "and N more" (the text export lists all). */
     reportMaxItemsPerSlide: 50,
+  },
+
+  /** PDF assembly in the UI (src/ui/pdf.ts). */
+  pdf: {
+    /**
+     * Max page side (pt) of the image PDF. 14400 pt = 200″ is the PDF user-unit limit most viewers
+     * enforce (Acrobat refuses larger pages); bigger frames are scaled down uniformly.
+     */
+    maxPageSidePt: 14400,
+    /**
+     * Vector PDF: store byte-identical resources (images, fonts, ICC profiles…) that Figma embeds once
+     * per frame only once in the merged file.
+     */
+    dedupeResources: true,
+    /** Dedupe passes (a pass can make objects that reference merged resources identical in turn). */
+    dedupeMaxPasses: 8,
   },
 
   export: {
@@ -242,6 +267,20 @@ export const CONFIG = {
     progressEveryNodes: 100,
     /** …and the main thread forwards at most one progress message per this many ms. */
     progressIntervalMs: 100,
+    /**
+     * `absoluteRenderBounds` are already clipped by ancestors with `clipsContent` (docs/figma-api-notes.md).
+     * A render-bounds edge within this distance (px) of a clipping ancestor's edge counts as "cut there"
+     * when deciding whether a NATIVE element (text, shape, image fill) needs manual clipping.
+     */
+    clipEdgeTolerancePx: 0.05,
+    /**
+     * Resolve `lineHeight: AUTO` to the font's real (rounded) line height by measuring a temporary one-line
+     * text node per (font, size) when the font can be loaded; otherwise AUTO stays in the IR and the
+     * builder uses `text.autoLineHeight`.
+     */
+    measureAutoLineHeight: true,
+    /** Characters of the temporary text node used for the AUTO line-height measurement. */
+    autoLineHeightSample: 'Ag',
   },
 
   /**

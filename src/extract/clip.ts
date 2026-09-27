@@ -1,6 +1,11 @@
 /**
  * Clip state that travels down the walk.
  *
+ * Figma already clips `absoluteRenderBounds` and default exports by every ancestor with `clipsContent`
+ * (docs/figma-api-notes.md), so rasters exported in place need no crop. The state is needed for what
+ * Figma does not clip for us: NATIVE elements (text, shapes, image fills with `srcRect`) and
+ * composites, whose clone at the page root escapes the original ancestors' clips.
+ *
  * - `rect`: slide bounds ∩ every axis-aligned clipping ancestor (frames with `clipsContent`), slide px.
  * - `inner`: the same intersection WITHOUT the slide bounds (null = no clipping ancestor below the
  *   root). Content cut only by the slide edge needs no rasterization: PowerPoint clips at the slide
@@ -26,6 +31,11 @@ export interface RoundedClip {
   radii: [number, number, number, number];
   /** Effective opacity of the frame's ancestors (a composite of the frame bakes in the rest). */
   opacityAbove?: number;
+  /**
+   * Clip rect (slide px) of the frame's ancestors: a composite of the frame is a clone at the page
+   * root, clipped by the frame itself but not by them, so its picture is cropped to this rect.
+   */
+  clipAbove?: Rect;
 }
 
 export interface ClipState {

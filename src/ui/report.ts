@@ -5,7 +5,8 @@
 import type { BuildResult, FontReportItem } from '../build/api';
 import type { RasterReason, ReportEntry } from '../ir/types';
 import type { ExportFormat } from '../shared/settings';
-import { codeLabel, formatBytes, formatDuration, reasonLabel, t, tp } from './i18n';
+import { codeLabel, formatBytes, formatDuration, formatNumber, reasonLabel, t, tp, type MessageKey } from './i18n';
+import type { DedupeStats } from './pdf';
 
 /** Every RasterReason, checked at compile time (a new reason in ir/types.ts must be added here). */
 const REASONS_SET = {
@@ -29,6 +30,8 @@ const REASONS_SET = {
   clip: true,
   'group-opacity': true,
   'unsupported-node': true,
+  'unsupported-paint': true,
+  setting: true,
   'text-feature': true,
 } satisfies Record<RasterReason, true>;
 
@@ -60,6 +63,28 @@ export interface ExportOutcome {
   /** Extraction report + build report. */
   entries: ReportEntry[];
   images: ImageStats | null;
+  /** Vector PDF only: duplicate resources merged when the per-frame PDFs were combined. */
+  pdfDedupe: DedupeStats | null;
+}
+
+/** Menu / report label of an export target. */
+export const FORMAT_LABEL: Readonly<Record<ExportFormat, MessageKey>> = {
+  pptx: 'export.pptx',
+  'pptx-image': 'export.pptxImage',
+  pdf: 'export.pdf',
+  'pdf-image': 'export.pdfImage',
+  'ir-json': 'export.irJson',
+};
+
+/** Whether the report lists rasterized layers (not for Figma's own vector PDF). */
+export function showsRasterSection(format: ExportFormat): boolean {
+  return format !== 'pdf';
+}
+
+/** "Repeated images and fonts stored once: 12 objects, 8.4 MB saved", or null when nothing was merged. */
+export function dedupeText(stats: DedupeStats | null): string | null {
+  if (!stats || stats.objects === 0) return null;
+  return t('report.pdfDedupe', { n: formatNumber(stats.objects), size: formatBytes(stats.bytes) });
 }
 
 export interface RasterItem {
@@ -156,7 +181,7 @@ function slideTitle(g: SlideGroup<unknown>): string {
 /** Plain-text report for the clipboard (all items, no truncation). */
 export function reportToText(outcome: ExportOutcome, model: ReportModel): string {
   const lines: string[] = [];
-  lines.push(t('report.textHeader'), outcome.fileName, '');
+  lines.push(t('report.textHeader'), `${outcome.fileName} (${t(FORMAT_LABEL[outcome.format])})`, '');
   lines.push(`${t('report.slides')}: ${outcome.slideCount}`);
   lines.push(`${t('report.size')}: ${formatBytes(outcome.data.byteLength)}`);
   lines.push(`${t('report.duration')}: ${formatDuration(outcome.durationMs)}`);
@@ -169,6 +194,8 @@ export function reportToText(outcome: ExportOutcome, model: ReportModel): string
   if (outcome.images && (outcome.images.downscaled > 0 || outcome.images.jpeg > 0)) {
     lines.push(`${t('report.imagesOptimized')}: ${outcome.images.downscaled + outcome.images.jpeg}`);
   }
+  const dedupe = dedupeText(outcome.pdfDedupe);
+  if (dedupe) lines.push(dedupe);
 
   if (model.fonts.length > 0) {
     lines.push('', `## ${t('report.fonts')}`, t('report.fontsWarning'));
@@ -178,13 +205,15 @@ export function reportToText(outcome: ExportOutcome, model: ReportModel): string
     }
   }
 
-  lines.push('', `## ${t('report.raster')} (${model.rasterCount})`);
-  if (model.raster.length === 0) lines.push(t('report.rasterNone'));
-  for (const g of model.raster) {
-    lines.push(slideTitle(g));
-    for (const item of g.items) {
-      const reasons = item.reasons.map((r) => reasonLabel(r)).join(', ');
-      lines.push(`  - ${item.nodeName}${reasons ? ` — ${reasons}` : ''}`);
+  if (showsRasterSection(outcome.format)) {
+    lines.push('', `## ${t('report.raster')} (${model.rasterCount})`);
+    if (model.raster.length === 0) lines.push(t('report.rasterNone'));
+    for (const g of model.raster) {
+      lines.push(slideTitle(g));
+      for (const item of g.items) {
+        const reasons = item.reasons.map((r) => reasonLabel(r)).join(', ');
+        lines.push(`  - ${item.nodeName}${reasons ? ` — ${reasons}` : ''}`);
+      }
     }
   }
 

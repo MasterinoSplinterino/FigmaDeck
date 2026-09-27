@@ -4,7 +4,7 @@
  */
 import { CONFIG } from '../config';
 import type { ExportFormat } from '../shared/settings';
-import { t, type MessageKey } from './i18n';
+import { formatNumber, t, tp, type MessageKey } from './i18n';
 
 export type ProgressPhase =
   /** `start-export` sent, nothing received yet. */
@@ -32,8 +32,17 @@ export interface ProgressState {
   /** Items finished in this phase. */
   done: number;
   total: number;
-  /** Secondary line (e.g. the frame name and layer count sent by main). */
+  /** Secondary line: main's English fallback text (e.g. "Title — 120 layers") or a frame name. */
   detail?: string;
+  /** 1-based slide in progress (main's numeric progress fields; localized by `progressDetail`). */
+  slide?: number;
+  /** Name of that slide when the UI knows it. */
+  slideName?: string;
+  /** Layers visited so far in the current slide. */
+  layers?: number;
+  /** Raster export jobs finished / planned in the current slide. */
+  jobsDone?: number;
+  jobsTotal?: number;
   /** "Cancel" was pressed; waiting for the pipeline to stop. */
   cancelling?: boolean;
 }
@@ -91,11 +100,31 @@ const LABEL_KEY: Readonly<Record<ProgressPhase, MessageKey>> = {
   serialize: 'progress.serialize',
 };
 
-/** "Extracting slide 3 of 10" — `i` is the item in progress (1-based), clamped to the total. */
+/**
+ * "Extracting slide 3 of 10" — `i` is the item in progress (1-based: main's `slide` when sent,
+ * else done + 1), clamped to the total.
+ */
 export function phaseLabel(p: ProgressState): string {
   const n = Math.max(0, p.total);
-  const i = Math.min(n, Math.max(1, p.done + 1));
+  const current = p.phase === 'extract' && p.slide !== undefined ? p.slide : p.done + 1;
+  const i = Math.min(n, Math.max(1, current));
   return t(LABEL_KEY[p.phase], { i, n });
+}
+
+/**
+ * Secondary line of the overlay, localized from the numeric fields when main sent them:
+ * "Title — rasterizing 3 of 12" / "Title — 1 240 layers"; otherwise main's text (`detail`).
+ */
+export function progressDetail(p: ProgressState): string | undefined {
+  let part: string;
+  if (p.jobsTotal !== undefined && p.jobsTotal > 0 && p.jobsDone !== undefined) {
+    part = t('progress.jobs', { done: formatNumber(Math.min(p.jobsDone, p.jobsTotal)), total: formatNumber(p.jobsTotal) });
+  } else if (p.layers !== undefined) {
+    part = tp('progress.layers', p.layers);
+  } else {
+    return p.detail;
+  }
+  return p.slideName ? `${p.slideName} — ${part}` : part;
 }
 
 export function progressTitle(format: ExportFormat): string {

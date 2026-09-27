@@ -29,16 +29,26 @@ export function buildOptionsFromSettings(settings: ExportSettings, deckTitle: st
 }
 
 /**
- * Settings sent with `start-export` for a format. The image-only formats force the "Image only"
- * extraction mode and JPEG compression (one baked picture per slide / page, small files).
+ * Settings sent with `start-export` for a format:
+ * - the image targets (PowerPoint / PDF — images) force the "Image only" extraction mode and JPEG
+ *   compression (one baked picture per slide / page, at `jpegQuality`);
+ * - "PowerPoint — editable" (and the IR dump that mirrors it) uses the Editable / Exact look choice;
+ *   an "Image only" mode persisted by an older version counts as Editable there.
  */
 export function settingsForFormat(format: ExportFormat, settings: ExportSettings): ExportSettings {
   const s = normalizeSettings({ ...settings, fontOverrides: { ...settings.fontOverrides } });
   if (format === 'pptx-image' || format === 'pdf-image') {
     s.mode = 'image';
     s.jpeg = true;
+  } else if (format === 'pptx' || format === 'ir-json') {
+    s.mode = editableMode(s.mode);
   }
   return s;
+}
+
+/** Mode of the "PowerPoint — editable" target: Editable or Exact look ("Image only" → Editable). */
+export function editableMode(mode: ExportSettings['mode']): 'editable' | 'exact' {
+  return mode === 'exact' ? 'exact' : 'editable';
 }
 
 /** Formats whose file the UI builds from extracted slides (vs. Figma's own PDF pages). */

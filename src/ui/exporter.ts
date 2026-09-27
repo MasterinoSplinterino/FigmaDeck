@@ -5,7 +5,7 @@
  *     ir-json     → serializeDeck → "<title>.figmadeck.json"
  *     pptx(-image) → processAssets (images) → buildPptx → "<title>.pptx"
  *     pdf-image   → processAssets → imageDeckToPdf → "<title>.pdf"
- *   pdf: main → export-pdf-page… → export-pdf-done → mergePdfs → "<title>.pdf"
+ *   pdf: main → export-pdf-page… → export-pdf-done → mergePdfs (+ duplicate resources merged) → "<title>.pdf"
  *
  * Cancel: while main is working, `cancel-export` is sent and the run ends when main confirms
  * (`export-cancelled`, or after CONFIG.ui.cancelTimeoutMs); during UI-side phases the pipeline stops
@@ -23,7 +23,7 @@ import { fileNameFor } from './download';
 import { t } from './i18n';
 import type { ImageOptions, ProcessHooks } from './images';
 import { buildOptionsFromSettings, fileKindOf, settingsForFormat } from './options';
-import type { ImagePdfResult, PdfHooks, PdfMeta } from './pdf';
+import type { ImagePdfResult, MergeResult, PdfHooks, PdfMeta } from './pdf';
 import type { ProgressPhase, ProgressState } from './progress';
 import type { ExportOutcome, ImageStats } from './report';
 
@@ -31,7 +31,7 @@ export interface ExporterDeps {
   send: (msg: UiToMain) => void;
   buildPptx: BuildPptx;
   processAssets: (assets: Record<string, Asset>, options: ImageOptions, hooks: ProcessHooks) => Promise<ImageStats>;
-  mergePdfs: (parts: readonly Uint8Array[], meta: PdfMeta, hooks: PdfHooks) => Promise<Uint8Array>;
+  mergePdfs: (parts: readonly Uint8Array[], meta: PdfMeta, hooks: PdfHooks) => Promise<MergeResult>;
   imageDeckToPdf: (deck: Deck, meta: PdfMeta, hooks: PdfHooks) => Promise<ImagePdfResult>;
   download: (data: Uint8Array, fileName: string, mime: string) => void;
   /** Monotonic clock, ms. */
@@ -52,6 +52,8 @@ interface Run {
   settings: ExportSettings;
   /** Deck title for the file name and metadata ('' → main's meta.title). */
   title: string;
+  /** Names of the exported slides in order (localized progress: "<name> — 120 layers"). */
+  slideNames: readonly string[];
   startedAt: number;
   total: number;
   slides: Array<Slide | undefined>;
@@ -82,6 +84,29 @@ function isCancellation(e: unknown): boolean {
   return e instanceof Error && /Cancelled/.test(e.name);
 }
 
+type ProgressMsg = Extract<MainToUi, { type: 'export-progress' }>;
+
+/**
+ * Overlay state from main's `export-progress`. The numeric fields (slide, layers, jobs) are kept so the
+ * overlay can localize the detail line; `label` (English) stays as the fallback.
+ */
+function progressFromMain(run: Run, msg: ProgressMsg, phase: ProgressPhase): ProgressState {
+  const p: ProgressState = { format: run.format, phase, done: msg.done, total: msg.total, detail: msg.label, cancelling: run.cancelled };
+  const numeric = msg.layers !== undefined || msg.jobsTotal !== undefined;
+  if (msg.slide !== undefined) p.slide = msg.slide;
+  if (numeric) {
+    // Slide in progress: main's 1-based `slide`, else done + 1 (main reports the 0-based index as `done`).
+    const name = run.slideNames[(msg.slide ?? msg.done + 1) - 1];
+    if (name) p.slideName = name;
+    if (msg.layers !== undefined) p.layers = msg.layers;
+    if (msg.jobsDone !== undefined && msg.jobsTotal !== undefined) {
+      p.jobsDone = msg.jobsDone;
+      p.jobsTotal = msg.jobsTotal;
+    }
+  }
+  return p;
+}
+
 export class Exporter {
   private run: Run | null = null;
 
@@ -94,14 +119,18 @@ export class Exporter {
     return this.run !== null;
   }
 
-  /** Start an export. Returns false when one is already running. */
-  start(format: ExportFormat, settings: ExportSettings, title: string): boolean {
+  /**
+   * Start an export. Returns false when one is already running. `slideNames` = names of the slides
+   * main will export, in order (the deck without missing frames); used for the progress line only.
+   */
+  start(format: ExportFormat, settings: ExportSettings, title: string, slideNames: readonly string[] = []): boolean {
     if (this.run) return false;
     const effective = settingsForFormat(format, settings);
     this.run = {
       format,
       settings: effective,
       title: title.trim(),
+      slideNames: [...slideNames],
       startedAt: this.deps.now(),
       total: 0,
       slides: [],
@@ -145,9 +174,7 @@ export class Exporter {
         }
         return true;
       case 'export-progress':
-        if (run && !run.local && msg.phase !== 'done') {
-          this.progress(run, { format: run.format, phase: msg.phase, done: msg.done, total: msg.total, detail: msg.label, cancelling: run.cancelled });
-        }
+        if (run && !run.local && msg.phase !== 'done') this.progress(run, progressFromMain(run, msg, msg.phase));
         return true;
       case 'export-slide':
         if (run && !run.local) {
@@ -167,7 +194,8 @@ export class Exporter {
         if (run && !run.local) this.startLocal(run, () => this.finishIr(run, msg.meta, msg.report));
         return true;
       case 'export-pdf-done':
-        if (run && !run.local) this.startLocal(run, () => this.finishPdf(run, msg.meta));
+        // `report` is new in the protocol: tolerate an older main without it.
+        if (run && !run.local) this.startLocal(run, () => this.finishPdf(run, msg.meta, msg.report ?? []));
         return true;
       case 'export-cancelled':
         if (run && !run.local) this.finish(run, { type: 'cancelled' });
@@ -257,7 +285,7 @@ export class Exporter {
     if (run.format === 'ir-json') {
       this.progress(run, { format: run.format, phase: 'serialize', done: 0, total: 1 });
       const data = new TextEncoder().encode(serializeDeck(deck));
-      return { ...base, data, durationMs: this.deps.now() - run.startedAt, stats: null, fonts: [], entries: deck.report, images: null };
+      return { ...base, data, durationMs: this.deps.now() - run.startedAt, stats: null, fonts: [], entries: deck.report, images: null, pdfDedupe: null };
     }
 
     const images = await this.processImages(run);
@@ -268,7 +296,7 @@ export class Exporter {
         isCancelled: () => run.cancelled,
         onProgress: (done, total) => this.progress(run, { format: run.format, phase: 'render', done, total, cancelling: run.cancelled }),
       });
-      return { ...base, data: pdf.data, durationMs: this.deps.now() - run.startedAt, stats: null, fonts: [], entries: [...deck.report, ...pdf.report], images };
+      return { ...base, data: pdf.data, durationMs: this.deps.now() - run.startedAt, stats: null, fonts: [], entries: [...deck.report, ...pdf.report], images, pdfDedupe: null };
     }
 
     const options = buildOptionsFromSettings(run.settings, title);
@@ -289,14 +317,15 @@ export class Exporter {
       fonts: result.fonts,
       entries: [...deck.report, ...result.report],
       images,
+      pdfDedupe: null,
     };
   }
 
-  private async finishPdf(run: Run, meta: DeckMeta): Promise<ExportOutcome> {
+  private async finishPdf(run: Run, meta: DeckMeta, report: ReportEntry[]): Promise<ExportOutcome> {
     const pages = run.pdfPages.filter((p): p is Uint8Array => !!p);
     if (pages.length === 0) throw new Error(t('error.noPages'));
     const title = run.title || meta.title;
-    const data = await this.deps.mergePdfs(pages, { title, author: run.settings.author || meta.author, company: run.settings.company || meta.company }, {
+    const merged = await this.deps.mergePdfs(pages, { title, author: run.settings.author || meta.author, company: run.settings.company || meta.company }, {
       isCancelled: () => run.cancelled,
       onProgress: (done, total) => this.progress(run, { format: run.format, phase: 'merge', done, total, cancelling: run.cancelled }),
     });
@@ -305,14 +334,15 @@ export class Exporter {
       format: run.format,
       fileName,
       mime,
-      data,
+      data: merged.data,
       durationMs: this.deps.now() - run.startedAt,
       slideCount: pages.length,
       slideIds: [],
       stats: null,
       fonts: [],
-      entries: [],
+      entries: [...report],
       images: null,
+      pdfDedupe: merged.dedupe,
     };
   }
 }

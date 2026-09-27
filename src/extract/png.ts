@@ -80,22 +80,60 @@ function parseLength(value: string | undefined): number | null {
   return m ? parseFloat(m[1]) : null;
 }
 
+const SVG_ROOT = /<svg\b[^>]*>/i;
+
+function attrOf(tag: string, name: string): string | undefined {
+  const m = new RegExp(`\\s${name}\\s*=\\s*("([^"]*)"|'([^']*)')`, 'i').exec(tag);
+  return m ? (m[2] ?? m[3]) : undefined;
+}
+
+function viewBoxOf(tag: string): [number, number, number, number] | null {
+  const vb = attrOf(tag, 'viewBox');
+  if (!vb) return null;
+  const parts = vb.trim().split(/[\s,]+/).map(Number);
+  return parts.length === 4 && parts.every((p) => isFinite(p)) ? (parts as [number, number, number, number]) : null;
+}
+
 /** Size (px) of an SVG document's root element from `width`/`height`, falling back to `viewBox`. */
 export function readSvgSize(bytes: Uint8Array): { width: number; height: number } | null {
   const head = asciiPrefix(bytes, 4096);
-  const tag = /<svg\b[^>]*>/i.exec(head);
+  const tag = SVG_ROOT.exec(head);
   if (!tag) return null;
-  const attr = (name: string): string | undefined => {
-    const m = new RegExp(`\\s${name}\\s*=\\s*("([^"]*)"|'([^']*)')`, 'i').exec(tag[0]);
-    return m ? (m[2] ?? m[3]) : undefined;
-  };
-  const width = parseLength(attr('width'));
-  const height = parseLength(attr('height'));
+  const width = parseLength(attrOf(tag[0], 'width'));
+  const height = parseLength(attrOf(tag[0], 'height'));
   if (width !== null && height !== null) return { width, height };
-  const vb = attr('viewBox');
-  if (vb) {
-    const parts = vb.trim().split(/[\s,]+/).map(Number);
-    if (parts.length === 4 && parts.every((p) => isFinite(p))) return { width: parts[2], height: parts[3] };
-  }
-  return null;
+  const vb = viewBoxOf(tag[0]);
+  return vb ? { width: vb[2], height: vb[3] } : null;
+}
+
+function setAttr(tag: string, name: string, value: string): string {
+  const re = new RegExp(`(\\s${name}\\s*=\\s*)("[^"]*"|'[^']*')`, 'i');
+  if (re.test(tag)) return tag.replace(re, (_m, prefix: string) => `${prefix}"${value}"`);
+  return tag.replace(/^<svg\b/i, (open) => `${open} ${name}="${value}"`);
+}
+
+const svgNumber = (v: number): string => String(Math.round(v * 1e4) / 1e4);
+
+/**
+ * Rewrites the root element's `width` / `height` / `viewBox` size to `width × height` (px, the
+ * picture box), keeping the viewBox origin: content drawn at 1 unit = 1 px from the origin keeps its
+ * scale, the viewport just matches the PNG next to it. Returns `null` when there is no `<svg>` root.
+ * Byte-level (Latin-1 in, Latin-1 out): everything outside the root tag is copied unchanged.
+ */
+export function setSvgViewport(bytes: Uint8Array, width: number, height: number): Uint8Array | null {
+  const head = asciiPrefix(bytes, 4096);
+  const m = SVG_ROOT.exec(head);
+  if (!m) return null;
+  const [ox, oy] = viewBoxOf(m[0]) ?? [0, 0];
+  let tag = m[0];
+  tag = setAttr(tag, 'width', svgNumber(width));
+  tag = setAttr(tag, 'height', svgNumber(height));
+  tag = setAttr(tag, 'viewBox', `${svgNumber(ox)} ${svgNumber(oy)} ${svgNumber(width)} ${svgNumber(height)}`);
+  const start = m.index;
+  const end = start + m[0].length;
+  const out = new Uint8Array(bytes.length - m[0].length + tag.length);
+  out.set(bytes.subarray(0, start), 0);
+  for (let i = 0; i < tag.length; i++) out[start + i] = tag.charCodeAt(i) & 0xff;
+  out.set(bytes.subarray(end), start + tag.length);
+  return out;
 }

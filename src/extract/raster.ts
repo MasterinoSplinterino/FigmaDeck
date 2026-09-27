@@ -1,33 +1,40 @@
 /**
  * Raster exports and temporary composites.
  *
- * Plain export: `exportAsync` PNG at the raster scale (clamped so the longest side stays within
- * `CONFIG.raster.maxSidePx`), placed at `absoluteRenderBounds` — the region Figma renders by default
- * (shadows, outside strokes included). The PNG header size is checked against that region; on a
- * mismatch the node is exported again with `useAbsoluteBounds: true` and placed at
- * `absoluteBoundingBox`. Vector layers also get an SVG of the same region (dropped if its size
- * disagrees with the PNG region).
+ * Plain export (verified behaviour, docs/figma-api-notes.md): `exportAsync` PNG at the raster scale
+ * (clamped so the longest side stays within `CONFIG.raster.maxSidePx`) renders
+ * `absoluteRenderBounds` — shadows / outside strokes included and ALREADY CLIPPED by every ancestor
+ * with `clipsContent` — into a `ceil(w·s) × ceil(h·s)` bitmap. The picture is therefore placed at the
+ * render bounds' origin with size `png / s` (not `w × h`, which would stretch it by up to 1 px) and
+ * is never cropped again for those clips. If the bitmap size does not match the render bounds, the
+ * node is exported again with `useAbsoluteBounds: true` and placed at `absoluteBoundingBox`'s origin
+ * (size again `png / s`). Vector layers also get an SVG of the same region, its viewport set to the
+ * picture box so both images map 1 px = 1 unit.
  *
  * Composite: some pictures need "this node clipped like its ancestor", "these siblings only", "the
  * frame without its children" or "the frame with its native texts hidden". They are exported from a
  * temporary clone of the ancestor:
- *   1. clone → appended to the ORIGINAL's page (never left inside an auto-layout parent) with
- *      `relativeTransform = original.absoluteTransform` (page-relative = absolute);
- *   2. every container on a kept path: instances detached (children of instances cannot be removed),
- *      auto layout switched off (`layoutMode = 'NONE'` keeps children where they are) BEFORE any
- *      child is removed, so nothing reflows;
- *   3. children off the kept paths removed; target / ancestor paints stripped; texts hidden with
- *      `opacity = 0` (`visible = false` would reflow auto layout);
- *   4. exported, placed at the clone's own render bounds, removed in `finally`.
+ *   1. `env.clone` → at the root of the CURRENT page (which may not be the original's page), with
+ *      `relativeTransform = original.absoluteTransform`, so the original parent's auto layout is never
+ *      touched and the clone is clipped by nothing but itself;
+ *   2. every container on a kept path: instances detached (children of instances cannot be removed;
+ *      `detachInstance` returns a NEW node, which replaces the tracked one), auto layout switched off
+ *      (`layoutMode = 'NONE'` keeps the size and every child position — verified) BEFORE any child is
+ *      removed, so nothing reflows;
+ *   3. children off the kept paths removed; target / ancestor paints stripped (opacity is kept: it
+ *      belongs to the content); texts hidden with `opacity = 0` (`visible = false` would reflow);
+ *   4. exported (contents only: the page position is irrelevant), removed in `finally`. The region is
+ *      mapped from the clone's coordinates back through the ORIGINAL ancestor's absolute transform.
  * Every temporary node is tracked in `TempNodes` so a cancel / error / plugin close removes it too.
  */
 import { CONFIG } from '../config';
 import type { AssetRole, Matrix, RasterReason, Rect } from '../ir/types';
 import type { ExportSettings } from '../shared/settings';
 import type { AssetStore } from './assets';
-import type { FigmaEnv } from './figma-env';
-import { boundingBoxOf, childrenOf, pageOf, renderBoundsOf } from './node-props';
-import { readPngInfo, readSvgSize } from './png';
+import { isAlive, type FigmaEnv } from './figma-env';
+import { invert, multiply, transformRectBounds } from './geometry';
+import { absoluteTransformOf, boundingBoxOf, childrenOf, renderBoundsOf } from './node-props';
+import { readPngInfo, readSvgSize, setSvgViewport } from './png';
 
 // ─── Temporary nodes ────────────────────────────────────────────────────────
 
@@ -53,11 +60,15 @@ export class TempNodes {
     this.track(next);
   }
 
-  /** Remove one temporary node from the document. Never throws. */
+  /**
+   * Remove one temporary node from the document. Never throws. A removed node may stay resolvable
+   * (e.g. a COMPONENT keeps answering `getNodeByIdAsync` with `parent === null`), so "gone" means
+   * `removed` or parentless, never "not found".
+   */
   release(node: SceneNode): void {
     this.nodes.delete(node);
     try {
-      if (!node.removed) this.env.remove(node);
+      if (isAlive(node)) this.env.remove(node);
     } catch {
       // Already gone.
     }
@@ -85,8 +96,18 @@ export interface RasterContext {
 export interface ExportedPicture {
   assetId: string;
   svgAssetId: string | null;
-  /** Region the bitmap covers, ABSOLUTE canvas px. */
+  /**
+   * Box the bitmap covers, ABSOLUTE canvas px of the original's page: origin = render bounds (or
+   * bounding box) origin, size = PNG pixels / `scale`.
+   */
   region: Rect;
+  /** Export scale actually used (px of bitmap per canvas px). */
+  scale: number;
+  /**
+   * Exported with `useAbsoluteBounds` (bounding-box region): Figma's clip of the render bounds does not
+   * describe this bitmap, so the caller crops it to the clip itself.
+   */
+  absoluteBounds: boolean;
 }
 
 export interface PictureOptions {
@@ -104,9 +125,19 @@ export function exportScale(requested: number, region: Rect, maxSidePx: number =
   return Math.min(requested, maxSidePx / longest);
 }
 
+/** Figma's bitmap size for a region: `ceil(side × scale)` (float noise tolerated), at least 1 px. */
+export function expectedPixels(side: number, scale: number): number {
+  return Math.max(1, Math.ceil(side * scale - 1e-6));
+}
+
 function sizeMatches(width: number, height: number, region: Rect, scale: number): boolean {
   const tol = CONFIG.raster.boundsTolerancePx * Math.max(1, scale);
-  return Math.abs(width - region.w * scale) <= tol && Math.abs(height - region.h * scale) <= tol;
+  return Math.abs(width - expectedPixels(region.w, scale)) <= tol && Math.abs(height - expectedPixels(region.h, scale)) <= tol;
+}
+
+/** Placement box of a bitmap: the region's origin, size = bitmap px / scale (never the region's w/h). */
+export function pictureBox(origin: Rect, pixelWidth: number, pixelHeight: number, scale: number): Rect {
+  return { x: origin.x, y: origin.y, w: pixelWidth / scale, h: pixelHeight / scale };
 }
 
 function isDrawable(r: Rect | null): r is Rect {
@@ -116,7 +147,8 @@ function isDrawable(r: Rect | null): r is Rect {
 
 /**
  * Export `node` as PNG (+ optional SVG) into the asset store. Returns `null` when the node renders
- * nothing. Throws when Figma fails to export.
+ * nothing (render bounds `null`: invisible or clipped away — Figma would return a 1×1 PNG).
+ * Throws when Figma fails to export.
  */
 export async function exportPicture(ctx: RasterContext, node: SceneNode, opts: PictureOptions): Promise<ExportedPicture | null> {
   let useAbs = !!opts.useAbsoluteBounds;
@@ -128,7 +160,7 @@ export async function exportPicture(ctx: RasterContext, node: SceneNode, opts: P
   if (!info) throw new Error(`Figma did not return a PNG for "${node.name}"`);
   if (!useAbs && !sizeMatches(info.width, info.height, region, scale)) {
     // The bitmap does not cover the render bounds (Figma trims / pads in some cases):
-    // export the plain bounding box instead, whose placement is unambiguous.
+    // export the plain bounding box instead, whose origin is unambiguous.
     const box = boundingBoxOf(node);
     if (isDrawable(box)) {
       useAbs = true;
@@ -139,6 +171,8 @@ export async function exportPicture(ctx: RasterContext, node: SceneNode, opts: P
       if (!info) throw new Error(`Figma did not return a PNG for "${node.name}"`);
     }
   }
+  // Size from the bitmap, not from the region: ceil(w·s)/s ≥ w, placing it at w would squeeze it.
+  const placed = pictureBox(region, info.width, info.height, scale);
   const assetId = ctx.assets.add({
     mime: 'image/png',
     role: opts.role,
@@ -146,12 +180,12 @@ export async function exportPicture(ctx: RasterContext, node: SceneNode, opts: P
     width: info.width,
     height: info.height,
     hasAlpha: info.hasAlpha,
-    displayWidth: region.w,
-    displayHeight: region.h,
+    displayWidth: placed.w,
+    displayHeight: placed.h,
   });
   let svgAssetId: string | null = null;
-  if (opts.svg && ctx.settings.svgVectors) svgAssetId = await exportSvg(ctx, node, region, useAbs);
-  return { assetId, svgAssetId, region };
+  if (opts.svg && ctx.settings.svgVectors) svgAssetId = await exportSvg(ctx, node, placed, useAbs);
+  return { assetId, svgAssetId, region: placed, scale, absoluteBounds: useAbs };
 }
 
 function pngSettings(scale: number, useAbsoluteBounds: boolean): ExportSettingsImage {
@@ -159,8 +193,12 @@ function pngSettings(scale: number, useAbsoluteBounds: boolean): ExportSettingsI
   return useAbsoluteBounds ? { ...s, useAbsoluteBounds: true } : s;
 }
 
-/** SVG of the same region, or null when it is too big / its size disagrees / Figma fails. */
-async function exportSvg(ctx: RasterContext, node: SceneNode, region: Rect, useAbs: boolean): Promise<string | null> {
+/**
+ * SVG of the same region, or null when it is too big / its size disagrees / Figma fails.
+ * Figma writes `width/height/viewBox = ceil(w) × ceil(h)` (1 unit = 1 px from the region origin); the
+ * viewport is rewritten to the picture box so the SVG maps exactly like the PNG it replaces.
+ */
+async function exportSvg(ctx: RasterContext, node: SceneNode, box: Rect, useAbs: boolean): Promise<string | null> {
   const settings: ExportSettingsSVG = {
     format: 'SVG',
     svgOutlineText: CONFIG.extract.svgOutlineText,
@@ -177,8 +215,9 @@ async function exportSvg(ctx: RasterContext, node: SceneNode, region: Rect, useA
   if (svg.length === 0 || svg.length > CONFIG.extract.svgMaxBytes) return null;
   const size = readSvgSize(svg);
   const tol = CONFIG.extract.svgSizeTolerancePx;
-  if (!size || Math.abs(size.width - region.w) > tol || Math.abs(size.height - region.h) > tol) return null;
-  return ctx.assets.add({ mime: 'image/svg+xml', role: 'svg', data: svg, width: size.width, height: size.height });
+  if (!size || Math.abs(size.width - box.w) > tol || Math.abs(size.height - box.h) > tol) return null;
+  const fitted = setSvgViewport(svg, box.w, box.h) ?? svg;
+  return ctx.assets.add({ mime: 'image/svg+xml', role: 'svg', data: fitted, width: box.w, height: box.h });
 }
 
 // ─── Composites ─────────────────────────────────────────────────────────────
@@ -246,13 +285,13 @@ export function remapPaths(paths: readonly (readonly number[])[], path: readonly
 }
 
 export async function exportComposite(ctx: RasterContext, spec: CompositeSpec, role: AssetRole): Promise<CompositeResult | null> {
-  const page = pageOf(spec.ancestor);
-  if (!page) throw new Error(`"${spec.ancestor.name}" is not on a page`);
+  const originalTransform = cloneMatrix(absoluteTransformOf(spec.ancestor));
   let root = ctx.env.clone(spec.ancestor);
   ctx.temp.track(root);
   try {
-    ctx.env.appendToPage(page, root);
-    (root as Mutable).relativeTransform = cloneMatrix(spec.ancestor.absoluteTransform as Matrix);
+    // At the root of the current page: page-relative = absolute, so the clone's bounds equal the
+    // original's (verified) — on ITS page, which may be another one.
+    (root as Mutable).relativeTransform = cloneMatrix(originalTransform);
 
     const replaceRoot = (next: SceneNode) => {
       ctx.temp.replace(root, next);
@@ -284,10 +323,33 @@ export async function exportComposite(ctx: RasterContext, spec: CompositeSpec, r
     }
 
     const picture = await exportPicture(ctx, root, { role, useAbsoluteBounds: spec.useAbsoluteBounds });
-    return picture ? { ...picture, hidden } : null;
+    if (!picture) return null;
+    const region = mapToOriginal(picture.region, absoluteTransformOf(root), originalTransform);
+    return { ...picture, region, hidden };
   } finally {
     ctx.temp.release(root);
   }
+}
+
+/**
+ * A rect in the clone's absolute coordinates → the original's absolute coordinates:
+ * original.absoluteTransform × inverse(clone.absoluteTransform). Identity in the normal case (the
+ * clone got the original's transform); guards against a clone that ended up elsewhere (e.g. a detached
+ * root, another page's parent) without ever comparing coordinates across pages.
+ */
+export function mapToOriginal(r: Rect, cloneTransform: Matrix, originalTransform: Matrix): Rect {
+  const same = cloneTransform.every((row, i) => row.every((v, j) => Math.abs(v - originalTransform[i][j]) < 1e-9));
+  if (same) return r;
+  let back: Matrix;
+  try {
+    back = multiply(originalTransform, invert(cloneTransform));
+  } catch {
+    return r;
+  }
+  const mapped = transformRectBounds(back, r);
+  // A pure translation keeps the bitmap's pixel size exactly (no float drift in w / h).
+  const translation = Math.abs(back[0][0] - 1) < 1e-9 && Math.abs(back[1][1] - 1) < 1e-9 && Math.abs(back[0][1]) < 1e-9 && Math.abs(back[1][0]) < 1e-9;
+  return translation ? { x: mapped.x, y: mapped.y, w: r.w, h: r.h } : mapped;
 }
 
 function cloneMatrix(m: Matrix): Matrix {
