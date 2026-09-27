@@ -95,13 +95,26 @@ export function ribbiFont(family: string, style: string): Omit<ResolvedFont, 'ov
   return { face: `${fam} ${weightPart}`.trim(), bold: false, italic };
 }
 
-/** RIBBI mapping, then user overrides (key `${family}::${style}`). */
+/**
+ * "Full name" mapping: every non-regular style becomes its own face ("Family Bold", no `b`),
+ * italic stays an attribute. For families installed as one family per weight.
+ */
+export function fullNameFont(family: string, style: string): Omit<ResolvedFont, 'overridden'> {
+  const fam = (family || '').trim();
+  const { weightPart, italic } = parseStyle(style);
+  if (isRegularName(weightPart)) return { face: fam, bold: false, italic };
+  return { face: `${fam} ${weightPart}`.trim(), bold: false, italic };
+}
+
+/** Naming rule (`ribbi` by default), then user overrides (key `${family}::${style}`). */
 export function resolveFont(
   family: string,
   style: string,
   overrides?: Record<string, FontOverride>,
+  naming: 'ribbi' | 'full' = 'ribbi',
 ): ResolvedFont {
   const o = overrides?.[fontKey(family, style)];
   if (o && o.face.trim()) return { face: o.face.trim(), bold: !!o.bold, italic: !!o.italic, overridden: true };
-  return { ...ribbiFont(family, style), overridden: false };
+  const base = naming === 'full' ? fullNameFont(family, style) : ribbiFont(family, style);
+  return { ...base, overridden: false };
 }

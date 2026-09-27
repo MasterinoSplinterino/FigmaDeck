@@ -14,8 +14,15 @@ export interface BuildOptions {
   textCase: 'cap' | 'transform';
   /** Extra width for WIDTH_AND_HEIGHT text boxes, % of width. */
   widthSlackPercent: number;
-  /** Key `${family}::${style}` → PowerPoint face. Missing keys use the RIBBI rule. */
+  /** Key `${family}::${style}` → PowerPoint face. Missing keys use `fontNaming`. */
   fontOverrides: Record<string, FontOverride>;
+  /** Face naming rule for non-overridden fonts (see ExportSettings.fontNaming). Default 'ribbi'. */
+  fontNaming?: 'ribbi' | 'full';
+  /**
+   * Fixed PowerPoint slide size in inches (each side 1…56). Frames are scaled uniformly to fit and
+   * centered (letterbox filled with the slide background). Default: derived from the first slide.
+   */
+  slideSize?: { widthIn: number; heightIn: number };
   /** Write SVG blips for images that have `svgAssetId`. */
   svgVectors: boolean;
   /** Wrap GroupElement children in <p:grpSp>. When false, groups are flattened. */

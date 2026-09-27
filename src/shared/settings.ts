@@ -12,7 +12,14 @@ export type ExportMode =
   /** Every slide is one picture (no editable content). */
   | 'image';
 
-export type ExportFormat = 'pptx' | 'pdf' | 'ir-json';
+/**
+ * - `pptx`        editable PowerPoint (mode `editable` or `exact`)
+ * - `pptx-image`  PowerPoint with one baked JPEG per slide (not editable)
+ * - `pdf`         vector PDF (Figma's own PDF export per frame, merged)
+ * - `pdf-image`   raster PDF: one baked JPEG per page (small files)
+ * - `ir-json`     debug dump of the IR (fixtures)
+ */
+export type ExportFormat = 'pptx' | 'pptx-image' | 'pdf' | 'pdf-image' | 'ir-json';
 
 export interface FontOverride {
   /** PowerPoint typeface name written to `<a:latin typeface>`. */
@@ -43,8 +50,23 @@ export interface ExportSettings {
   imageFills: 'original' | 'rasterize';
   /** Partially clipped text: rasterize with the clip (`rasterize`) or keep editable and overflowing (`keep`). */
   clippedText: 'rasterize' | 'keep';
+  /**
+   * Face naming for non-overridden fonts:
+   * `ribbi` — Regular/Bold/Italic/Bold Italic share the family name (+ b/i), other styles use "Family Style";
+   * `full`  — every non-regular style uses "Family Style" (Bold → "Family Bold", no b attribute), for font
+   *           families installed as one family per weight (seen in agency templates / Deck output).
+   */
+  fontNaming: 'ribbi' | 'full';
   /** Key: `${family}::${style}` (Figma names). */
   fontOverrides: Record<string, FontOverride>;
+  /**
+   * PowerPoint slide size: `frame` = first frame's size (1 px = 1 pt, auto-scaled into 1″…56″);
+   * `custom` = fixed size in inches (e.g. an agency template 34.575″ × 10.665″); frames are scaled
+   * uniformly to fit and centered.
+   */
+  slideSizeMode: 'frame' | 'custom';
+  slideWidthIn: number;
+  slideHeightIn: number;
   /** Document metadata. Empty title → deck title. */
   author: string;
   company: string;
@@ -62,7 +84,11 @@ export const DEFAULT_SETTINGS: ExportSettings = {
   nativeGradients: true,
   imageFills: 'original',
   clippedText: 'rasterize',
+  fontNaming: 'ribbi',
   fontOverrides: {},
+  slideSizeMode: 'frame',
+  slideWidthIn: 13.333,
+  slideHeightIn: 7.5,
   author: CONFIG.meta.defaultAuthor,
   company: CONFIG.meta.defaultCompany,
 };
@@ -78,6 +104,10 @@ export function normalizeSettings(raw: unknown): ExportSettings {
   if (!['original', 'rasterize'].includes(s.imageFills)) s.imageFills = DEFAULT_SETTINGS.imageFills;
   if (!['rasterize', 'keep'].includes(s.clippedText)) s.clippedText = DEFAULT_SETTINGS.clippedText;
   if (!s.fontOverrides || typeof s.fontOverrides !== 'object') s.fontOverrides = {};
+  if (!['ribbi', 'full'].includes(s.fontNaming)) s.fontNaming = DEFAULT_SETTINGS.fontNaming;
+  if (!['frame', 'custom'].includes(s.slideSizeMode)) s.slideSizeMode = DEFAULT_SETTINGS.slideSizeMode;
+  if (!(s.slideWidthIn >= 1 && s.slideWidthIn <= 56)) s.slideWidthIn = DEFAULT_SETTINGS.slideWidthIn;
+  if (!(s.slideHeightIn >= 1 && s.slideHeightIn <= 56)) s.slideHeightIn = DEFAULT_SETTINGS.slideHeightIn;
   s.jpeg = !!s.jpeg;
   s.svgVectors = !!s.svgVectors;
   s.preserveGroups = !!s.preserveGroups;
