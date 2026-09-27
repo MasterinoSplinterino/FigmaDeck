@@ -360,6 +360,10 @@ export type RasterReason =
   | 'group-opacity'
   /** Node type without a native mapping (sticky, connector, embed, table, video…). */
   | 'unsupported-node'
+  /** Paint type without a native mapping (video, pattern, noise/texture…). */
+  | 'unsupported-paint'
+  /** Rasterized because of a user setting (e.g. image fills = "rasterize"). */
+  | 'setting'
   /** Text features without a PPTX equivalent (text on path, vertical trim, missing font…). */
   | 'text-feature';
 

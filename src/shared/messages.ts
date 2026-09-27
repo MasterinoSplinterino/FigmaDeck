@@ -78,15 +78,34 @@ export type MainToUi =
   | { type: 'selection'; selection: SelectionInfo }
   | { type: 'thumbnail'; id: string; bytes: Uint8Array }
   | { type: 'preview'; id: string; bytes: Uint8Array }
+  /** The preview could not be rendered (frame missing / export failed) — stop the spinner. */
+  | { type: 'preview-failed'; id: string; message?: string }
   | { type: 'fonts'; fonts: FontInfo[] }
   | { type: 'export-started'; format: ExportFormat; total: number }
-  | { type: 'export-progress'; phase: ExportPhase; done: number; total: number; label: string }
-  /** One extracted slide + the assets it introduced (assets are sent once per deck). */
+  | {
+      type: 'export-progress';
+      phase: ExportPhase;
+      done: number;
+      total: number;
+      /** English fallback text; the UI localizes from the numeric fields when present. */
+      label: string;
+      /** 1-based slide being processed. */
+      slide?: number;
+      /** Layers visited so far in the current slide. */
+      layers?: number;
+      /** Raster export jobs finished / planned in the current slide. */
+      jobsDone?: number;
+      jobsTotal?: number;
+    }
+  /**
+   * One extracted slide + the assets it introduced. An asset id already sent earlier may be sent
+   * again (e.g. with a larger displayWidth/displayHeight): the UI replaces the stored asset by id.
+   */
   | { type: 'export-slide'; index: number; total: number; slide: Slide; assets: Asset[] }
   /** All slides were sent; the UI now builds the file. */
   | { type: 'export-extracted'; meta: DeckMeta; report: ReportEntry[] }
   | { type: 'export-pdf-page'; index: number; total: number; name: string; bytes: Uint8Array }
-  | { type: 'export-pdf-done'; meta: DeckMeta }
+  | { type: 'export-pdf-done'; meta: DeckMeta; report: ReportEntry[] }
   | { type: 'export-cancelled' }
   | { type: 'export-error'; message: string }
   | { type: 'toast'; message: string; error?: boolean };

@@ -85,3 +85,20 @@ Consequence: place a raster at `(renderBounds.x, renderBounds.y)` with size `png
   the same font/size, two lines) when the font is available, fall back to CONFIG.text.autoLineHeight.
 * A literal U+2028 inside a JS string literal is a syntax error in the plugin sandbox — bundles must
   escape it (esbuild's default ASCII charset does).
+
+## Opacity, stroke order, layout, crop, AUTO line height (verified via SVG exports)
+
+* **Own opacity is baked into a node's export; ancestor opacity is not.** A rect with
+  `opacity 0.8` inside a frame with `opacity 0.5` exports as `<rect opacity="0.8">`; only the frame's
+  export wraps it in `<g opacity="0.5">`. → picture alpha = product of the ANCESTORS' opacities.
+* **Frame stroke order depends on clipping.** `clipsContent: false`: fill, stroke, then children
+  (children cover the stroke). `clipsContent: true`: clipped group (fill + children), then the
+  stroke on top.
+* **`layoutMode = 'NONE'`** on an auto-layout (HUG) frame keeps its size and every child's position;
+  removing a child afterwards keeps the size too. Use it on composite clones before trimming children.
+* **CROP `imageTransform` maps the layer's unit box → image unit box.** `[[0.5,0,0.25],[0,0.5,0.1]]`
+  shows image u ∈ [0.25, 0.75], v ∈ [0.1, 0.6] (SVG pattern uses the inverse `matrix(2 0 0 2 -0.5 -0.2)`)
+  → srcRect l 0.25, r 0.25, t 0.1, b 0.4.
+* **AUTO line height is the font's natural height rounded to whole px**: Inter 60 px → 73, 13 px → 16,
+  12 px → 15; two lines = exactly 2×. A one-line temporary text node with the same font and size
+  gives the exact value (font must be loadable).

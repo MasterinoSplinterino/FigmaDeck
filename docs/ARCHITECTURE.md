@@ -13,8 +13,8 @@ UI iframe ──[ui/images: JPEG/downscale]──▶ [build/ · pptxgenjs] ─�
 ```
 manifest.json               Figma manifest (dynamic-page, no network)
 scripts/build.mjs           esbuild: src/main.ts → dist/code.js, src/ui/main.tsx → dist/ui.html (inlined)
-scripts/fixture-to-pptx.mjs IR JSON fixture → .pptx (Node) for manual checks
-scripts/visual-regression.mjs  PPTX → PNG via LibreOffice, pixel diff vs Figma PNGs
+scripts/fixture-to-pptx.ts  IR JSON fixture → .pptx (npm run fixture:pptx)
+scripts/visual-regression.ts   PPTX → PNG via LibreOffice, pixel diff vs Figma PNGs (npm run visual)
 src/config.ts               ALL heuristics / calibration constants
 src/ir/types.ts             IR types (Deck, Slide, Element = text | shape | image | group, …)
 src/ir/serialize.ts         IR ⇄ JSON (base64 assets) — "Export IR JSON" + fixtures

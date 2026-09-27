@@ -5,3 +5,4 @@ out/
 .DS_Store
 tests/visual/actual/
 tests/visual/diff/
+tests/visual/out/
